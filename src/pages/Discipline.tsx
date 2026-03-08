@@ -148,10 +148,10 @@ export default function Discipline() {
                   <div className="flex items-center gap-2">
                     <Label className="text-xs text-muted-foreground whitespace-nowrap">
                       {def.rule_type === "max_position_pct"
-                        ? "Max %"
+                        ? t("discipline.maxPct")
                         : def.rule_type === "max_trade_size"
-                        ? "Max $"
-                        : "Min assets"}
+                        ? t("discipline.maxDollar")
+                        : t("discipline.minAssets")}
                     </Label>
                     <Input
                       type="number"
