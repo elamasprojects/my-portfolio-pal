@@ -332,7 +332,7 @@ const AddTrade = () => {
       setAmount("");
       setNotes("");
       setTradeDate(new Date().toISOString().split("T")[0]);
-      setInputMode("shares");
+      setInputMode("amount");
       setSelectedHolding("");
       setSubmittedTrade(null);
       setSelectedTagIds([]);
