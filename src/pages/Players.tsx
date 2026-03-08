@@ -147,6 +147,68 @@ export default function Players() {
     };
   }, [playerTrades, totalInvested]);
 
+  // Cumulative PNL for the player
+  const playerCumulativePnl = useMemo(() => computeCumulativePnL(playerTrades), [playerTrades]);
+
+  // Current user's trades for Compare tab
+  const { data: myTrades = [] } = useTrades();
+  const myHoldings = useMemo(() => computeHoldings(myTrades), [myTrades]);
+  const myTotalInvested = useMemo(() => myHoldings.reduce((s, h) => s + h.total_invested, 0), [myHoldings]);
+  const myPieData = useMemo(() =>
+    myHoldings.map(h => ({
+      name: h.symbol,
+      value: myTotalInvested > 0 ? Math.round((h.total_invested / myTotalInvested) * 1000) / 10 : 0,
+    })),
+    [myHoldings, myTotalInvested]
+  );
+  const myCumulativePnl = useMemo(() => computeCumulativePnL(myTrades), [myTrades]);
+
+  // Period PNL for current user
+  const myPeriodPnl = useMemo(() => {
+    if (myTrades.length === 0) return { pnl7d: null, pnl1m: null, pnl3m: null };
+    const now = new Date();
+    const perf = computePerformance(myTrades);
+    const costBasis = perf.total_cost_basis > 0 ? perf.total_cost_basis : perf.by_symbol.reduce((s, sp) => s + (sp.avg_cost * (sp.open_quantity + sp.total_sells)), 0);
+    const totalInvestedForPct = costBasis > 0 ? costBasis : myTotalInvested;
+    const computePeriodPnl = (sinceDate: Date) => {
+      const periodTrades = myTrades.filter(t => new Date(t.trade_date) >= sinceDate);
+      const perf = computePerformance(periodTrades);
+      const pnl = perf.total_realized_pnl + perf.total_dividends;
+      if (totalInvestedForPct <= 0) return null;
+      return Math.round((pnl / totalInvestedForPct) * 1000) / 10;
+    };
+    return {
+      pnl7d: computePeriodPnl(subDays(now, 7)),
+      pnl1m: computePeriodPnl(subMonths(now, 1)),
+      pnl3m: computePeriodPnl(subMonths(now, 3)),
+    };
+  }, [myTrades, myTotalInvested]);
+
+  // Merged cumulative PNL data for comparison chart
+  const comparisonData = useMemo(() => {
+    const dateMap = new Map<string, { date: string; you: number; them: number }>();
+    for (const p of myCumulativePnl) {
+      const entry = dateMap.get(p.date) || { date: p.date, you: 0, them: 0 };
+      entry.you = p.cumulative_pnl;
+      dateMap.set(p.date, entry);
+    }
+    for (const p of playerCumulativePnl) {
+      const entry = dateMap.get(p.date) || { date: p.date, you: 0, them: 0 };
+      entry.them = p.cumulative_pnl;
+      dateMap.set(p.date, entry);
+    }
+    // Forward-fill values
+    const sorted = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    let lastYou = 0, lastThem = 0;
+    for (const entry of sorted) {
+      if (entry.you === 0 && lastYou !== 0 && !myCumulativePnl.some(p => p.date === entry.date)) entry.you = lastYou;
+      if (entry.them === 0 && lastThem !== 0 && !playerCumulativePnl.some(p => p.date === entry.date)) entry.them = lastThem;
+      lastYou = entry.you;
+      lastThem = entry.them;
+    }
+    return sorted;
+  }, [myCumulativePnl, playerCumulativePnl]);
+
   const { data: leaderboards = [] } = useQuery({
     queryKey: ["my-leaderboards", user?.id],
     queryFn: async () => {
