@@ -430,6 +430,13 @@ export const en = {
   "social.pnl1m": "PNL 1M",
   "social.pnl3m": "PNL 3M",
   "social.portfolioAllocation": "Portfolio Allocation",
+  "social.cumulativePnl": "Cumulative P&L",
+  "social.compare": "Compare",
+  "social.you": "You",
+  "social.them": "Them",
+  "social.yourAllocation": "Your Allocation",
+  "social.theirAllocation": "Their Allocation",
+  "social.noTradesYet": "No trades yet",
 
   // Install
   "install.back": "Back",

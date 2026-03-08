@@ -432,6 +432,13 @@ export const es: Record<TranslationKey, string> = {
   "social.pnl1m": "PNL 1M",
   "social.pnl3m": "PNL 3M",
   "social.portfolioAllocation": "Asignación del Portfolio",
+  "social.cumulativePnl": "P&L Acumulado",
+  "social.compare": "Comparar",
+  "social.you": "Tú",
+  "social.them": "Ellos",
+  "social.yourAllocation": "Tu Asignación",
+  "social.theirAllocation": "Su Asignación",
+  "social.noTradesYet": "Sin operaciones aún",
 
   // Install
   "install.back": "Volver",
