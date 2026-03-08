@@ -266,7 +266,7 @@ export const en = {
   "discipline.minAssets": "Min assets",
 
   // Export Report
-  "export.title": "Notation",
+  "export.title": "Portfolio",
   "export.subtitle": "Preview and share your portfolio report card.",
   "export.print": "Print",
   "export.downloadPdf": "Download PDF",
