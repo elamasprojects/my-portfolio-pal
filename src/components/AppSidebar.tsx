@@ -40,7 +40,7 @@ const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
   const navigate = useNavigate();
