@@ -267,23 +267,6 @@ export default function ReportCard() {
                 <StatBox icon={<TrendingUp className="h-4 w-4" />} label={t("report.netPnl")} value={`${stats.netRealizedPnL >= 0 ? "+" : ""}$${stats.netRealizedPnL.toFixed(2)}`} valueColor={stats.netRealizedPnL >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"} />
                 <StatBox icon={<Coins className="h-4 w-4" />} label={t("report.dividends")} value={`$${stats.dividendIncome.toFixed(2)}`} />
                 <StatBox icon={<Award className="h-4 w-4" />} label={t("report.winRate")} value={stats.totalSells > 0 ? `${stats.winRate}%` : "—"} sub={stats.totalSells > 0 ? `${stats.winningSells}/${stats.totalSells} ${t("report.wins")}` : t("report.noSells")} />
-                <StatBox
-                  icon={<TrendingUp className="h-4 w-4" />}
-                  label="Net P&L"
-                  value={`${stats.netRealizedPnL >= 0 ? "+" : ""}$${stats.netRealizedPnL.toFixed(2)}`}
-                  valueColor={stats.netRealizedPnL >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"}
-                />
-                <StatBox
-                  icon={<Coins className="h-4 w-4" />}
-                  label="Dividends"
-                  value={`$${stats.dividendIncome.toFixed(2)}`}
-                />
-                <StatBox
-                  icon={<Award className="h-4 w-4" />}
-                  label="Win Rate"
-                  value={stats.totalSells > 0 ? `${stats.winRate}%` : "—"}
-                  sub={stats.totalSells > 0 ? `${stats.winningSells}/${stats.totalSells} wins` : "No sells"}
-                />
               </div>
 
               {/* Highlights */}
