@@ -1,7 +1,8 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage, TranslationKey } from "@/i18n";
 import { PortfolioSwitcher } from "@/components/PortfolioSwitcher";
 import {
   Sidebar,
@@ -14,20 +15,27 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+} from "@/components/ui/basic-dropdown";
 
-const navItems = [
-  { title: "Board", url: "/", icon: LayoutDashboard },
-  { title: "New Move", url: "/add", icon: Plus },
-  { title: "Import PGN", url: "/import", icon: Upload },
-  { title: "Move History", url: "/trades", icon: List },
-  { title: "Analysis", url: "/performance", icon: BarChart3 },
-  { title: "Game Clock", url: "/timeline", icon: GitBranch },
-  { title: "Score Sheet", url: "/report", icon: GraduationCap },
-  { title: "Titles", url: "/achievements", icon: Trophy },
-  { title: "Opening Book", url: "/discipline", icon: Shield },
-  { title: "Notation", url: "/export", icon: FileDown },
-  { title: "Chess", url: "/chess", icon: Sparkles },
+const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
+  { titleKey: "nav.board", url: "/", icon: LayoutDashboard },
+  { titleKey: "nav.newMove", url: "/add", icon: Plus },
+  { titleKey: "nav.importPgn", url: "/import", icon: Upload },
+  { titleKey: "nav.moveHistory", url: "/trades", icon: List },
+  { titleKey: "nav.analysis", url: "/performance", icon: BarChart3 },
+  { titleKey: "nav.gameClock", url: "/timeline", icon: GitBranch },
+  { titleKey: "nav.scoreSheet", url: "/report", icon: GraduationCap },
+  { titleKey: "nav.titles", url: "/achievements", icon: Trophy },
+  { titleKey: "nav.openingBook", url: "/discipline", icon: Shield },
+  { titleKey: "nav.notation", url: "/export", icon: FileDown },
+  { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
 ];
 
 export function AppSidebar() {
@@ -35,6 +43,11 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t, language, setLanguage } = useLanguage();
+
+  const initials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "U";
 
   return (
     <Sidebar collapsible="icon">
@@ -45,7 +58,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
@@ -54,7 +67,7 @@ export function AppSidebar() {
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && <span>{t(item.titleKey)}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -65,27 +78,51 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        {!collapsed && user && (
-          <p className="text-xs text-sidebar-foreground/50 truncate mb-2 px-1">{user.email}</p>
-        )}
-        <Button
-          variant="ghost"
-          size={collapsed ? "icon" : "sm"}
-          onClick={toggleTheme}
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent mb-1"
-        >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {!collapsed && <span className="ml-2">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
-        </Button>
-        <Button
-          variant="ghost"
-          size={collapsed ? "icon" : "sm"}
-          onClick={signOut}
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span className="ml-2">Sign Out</span>}
-        </Button>
+        <Dropdown>
+          <DropdownTrigger className="w-full">
+            <div className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <span className="text-xs text-sidebar-foreground/70 truncate flex-1 text-left">
+                  {user?.email}
+                </span>
+              )}
+            </div>
+          </DropdownTrigger>
+          <DropdownContent placement="top" align="start" sideOffset={2} className="w-56">
+            {/* Language */}
+            <DropdownItem
+              onClick={() => setLanguage(language === "en" ? "es" : "en")}
+            >
+              <Globe className="h-4 w-4" />
+              <span className="flex-1">{t("profile.language")}</span>
+              <span className="text-xs text-muted-foreground">
+                {language === "en" ? "EN" : "ES"}
+              </span>
+            </DropdownItem>
+
+            {/* Theme */}
+            <DropdownItem onClick={toggleTheme}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span className="flex-1">{t("profile.theme")}</span>
+              <span className="text-xs text-muted-foreground">
+                {theme === "dark" ? t("profile.lightMode") : t("profile.darkMode")}
+              </span>
+            </DropdownItem>
+
+            <DropdownSeparator />
+
+            {/* Sign Out */}
+            <DropdownItem onClick={signOut} destructive>
+              <LogOut className="h-4 w-4" />
+              {t("profile.signOut")}
+            </DropdownItem>
+          </DropdownContent>
+        </Dropdown>
       </SidebarFooter>
     </Sidebar>
   );

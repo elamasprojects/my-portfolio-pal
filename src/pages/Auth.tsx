@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DottedSurface } from "@/components/ui/dotted-surface";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { FcGoogle } from "react-icons/fc";
 
 const Auth = () => {
   const { session, loading } = useAuth();
+  const { t } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +21,7 @@ const Auth = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="animate-pulse text-muted-foreground">{t("common.loading")}</div>
       </div>
     );
   }
@@ -34,7 +36,7 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back!");
+        toast.success(t("auth.welcomeBack") + "!");
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -42,7 +44,7 @@ const Auth = () => {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        toast.success("Account created! Check your email to confirm.");
+        toast.success(t("auth.accountCreated"));
       }
     } catch (error: any) {
       toast.error(error.message);
@@ -66,7 +68,6 @@ const Auth = () => {
       <div className="relative z-10 w-full max-w-sm">
         <div className="rounded-md border border-border bg-card/80 backdrop-blur">
           <div className="flex flex-col gap-6 p-6">
-            {/* Logo & heading */}
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2 text-primary">
                 <ChessKnight className="h-8 w-8" />
@@ -74,27 +75,26 @@ const Auth = () => {
                   Chess
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground italic">Every move counts.</p>
+              <p className="text-xs text-muted-foreground italic">{t("auth.everyMoveMatters")}</p>
               {isLogin ? (
-                <p className="text-sm font-medium text-foreground mt-2">Welcome back</p>
+                <p className="text-sm font-medium text-foreground mt-2">{t("auth.welcomeBack")}</p>
               ) : (
-                <p className="text-sm font-medium text-foreground mt-2">Create an account</p>
+                <p className="text-sm font-medium text-foreground mt-2">{t("auth.createAccount")}</p>
               )}
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Input
                   type="email"
-                  placeholder="Email"
+                  placeholder={t("auth.email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
                 <Input
                   type="password"
-                  placeholder="Password"
+                  placeholder={t("auth.password")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -104,10 +104,10 @@ const Auth = () => {
               <div className="flex flex-col gap-2">
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting
-                    ? "Loading..."
+                    ? t("common.loading")
                     : isLogin
-                      ? "Sign In"
-                      : "Create an account"}
+                      ? t("auth.signIn")
+                      : t("auth.createAccount")}
                 </Button>
                 <Button
                   type="button"
@@ -116,20 +116,19 @@ const Auth = () => {
                   onClick={handleGoogleSignIn}
                 >
                   <FcGoogle className="mr-2 size-4" />
-                  {isLogin ? "Sign in with Google" : "Sign up with Google"}
+                  {isLogin ? t("auth.signInGoogle") : t("auth.signUpGoogle")}
                 </Button>
               </div>
             </form>
 
-            {/* Toggle login/signup */}
             <div className="text-center text-sm text-muted-foreground">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              {isLogin ? t("auth.noAccount") : t("auth.hasAccount")}{" "}
               <button
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-primary hover:underline font-medium"
               >
-                {isLogin ? "Sign up" : "Login"}
+                {isLogin ? t("auth.signUp") : t("auth.login")}
               </button>
             </div>
           </div>
