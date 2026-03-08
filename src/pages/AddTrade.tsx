@@ -40,6 +40,11 @@ const AddTrade = () => {
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
 
+  const [entryMode, setEntryMode] = useState<"" | "manual" | "screenshot">("");
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
   const [assetName, setAssetName] = useState("");
@@ -61,6 +66,60 @@ const AddTrade = () => {
 
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
+
+  // Image analysis handler
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setImagePreview(base64);
+      setAnalyzingImage(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("analyze-trade-image", {
+          body: { image: base64 },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        // Auto-populate fields
+        if (data.trade_type) setTradeType(data.trade_type);
+        if (data.symbol) setSymbol(data.symbol.toUpperCase());
+        if (data.asset_name) setAssetName(data.asset_name);
+        if (data.asset_type) setAssetType(data.asset_type);
+        if (data.quantity) setQuantity(String(data.quantity));
+        if (data.price_per_unit) setPrice(String(data.price_per_unit));
+        if (data.trade_date) setTradeDate(data.trade_date);
+
+        // Switch to manual mode for review
+        setEntryMode("manual");
+        toast.success("Trade data extracted! Review and submit.");
+      } catch (err: any) {
+        console.error("Image analysis error:", err);
+        toast.error(err.message || "Could not extract trade data. Please try again or enter manually.");
+      } finally {
+        setAnalyzingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageUpload(file);
+  }, [handleImageUpload]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+  }, [handleImageUpload]);
 
   // URL params pre-fill (for duplicate trade)
   const [searchParams, setSearchParams] = useSearchParams();
