@@ -1,0 +1,1 @@
+ALTER TYPE public.trade_type ADD VALUE 'dividend';
