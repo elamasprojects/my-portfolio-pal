@@ -52,8 +52,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader className="p-2">
+        <button
+          onClick={() => toggleSidebar()}
+          className="flex items-center justify-center w-full rounded-md p-2 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+        >
+          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </SidebarHeader>
       <SidebarContent>
-        <PortfolioSwitcher />
 
         <SidebarGroup>
           <SidebarGroupContent>
