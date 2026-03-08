@@ -134,10 +134,10 @@ export default function ExportReport() {
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total Invested", value: `$${totalInvested.toFixed(2)}` },
-            { label: "Realized P&L", value: `$${performance.total_realized_pnl.toFixed(2)}`, color: performance.total_realized_pnl >= 0 },
-            { label: "Dividends", value: `$${performance.total_dividends.toFixed(2)}` },
-            { label: "Win Rate", value: `${performance.win_rate.toFixed(1)}%` },
+            { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
+            { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, color: performance.total_realized_pnl >= 0 },
+            { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
+            { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },
           ].map((stat) => (
             <div
               key={stat.label}
