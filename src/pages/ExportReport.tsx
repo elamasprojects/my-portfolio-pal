@@ -101,7 +101,7 @@ export default function ExportReport() {
             <Moon className="h-4 w-4 text-muted-foreground" />
           </div>
           <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-1" /> Print
+            <Printer className="h-4 w-4 mr-1" /> {t("export.print")}
           </Button>
           <Button size="sm" onClick={handleDownloadPDF} disabled={exporting}>
             <FileDown className="h-4 w-4 mr-1" />
