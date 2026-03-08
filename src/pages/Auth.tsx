@@ -53,8 +53,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <DottedSurface className="pointer-events-none z-0" />
+      <div className="relative z-10 w-full max-w-md space-y-8">
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2 text-primary">
             <TrendingUp className="h-8 w-8" />
