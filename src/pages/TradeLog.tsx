@@ -193,12 +193,12 @@ const TradeLog = () => {
             <SelectValue placeholder="Asset type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Assets</SelectItem>
-            <SelectItem value="stock">Stock</SelectItem>
-            <SelectItem value="etf">ETF</SelectItem>
-            <SelectItem value="crypto">Crypto</SelectItem>
-            <SelectItem value="bond">Bond</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            <SelectItem value="all">{t("tradeLog.allAssets")}</SelectItem>
+            <SelectItem value="stock">{t("addTrade.stock")}</SelectItem>
+            <SelectItem value="etf">{t("addTrade.etf")}</SelectItem>
+            <SelectItem value="crypto">{t("addTrade.crypto")}</SelectItem>
+            <SelectItem value="bond">{t("addTrade.bond")}</SelectItem>
+            <SelectItem value="other">{t("addTrade.other")}</SelectItem>
           </SelectContent>
         </Select>
         {tags.length > 0 && (
