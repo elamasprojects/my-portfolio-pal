@@ -115,6 +115,14 @@ export function AppSidebar() {
 
             <DropdownSeparator />
 
+            {/* Settings */}
+            <DropdownItem onClick={() => window.location.href = '/settings'}>
+              <Settings className="h-4 w-4" />
+              {t("nav.settings")}
+            </DropdownItem>
+
+            <DropdownSeparator />
+
             {/* Sign Out */}
             <DropdownItem onClick={signOut} destructive>
               <LogOut className="h-4 w-4" />
