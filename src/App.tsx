@@ -17,6 +17,7 @@ import ReportCard from "./pages/ReportCard";
 import Achievements from "./pages/Achievements";
 import Discipline from "./pages/Discipline";
 import ExportReport from "./pages/ExportReport";
+import Chess from "./pages/Chess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
             <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
             <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
+            <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

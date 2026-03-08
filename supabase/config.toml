@@ -2,3 +2,6 @@ project_id = "yimbswiaqmuggmqygicf"
 
 [functions.fetch-quote]
 verify_jwt = false
+
+[functions.chess-chat]
+verify_jwt = false
