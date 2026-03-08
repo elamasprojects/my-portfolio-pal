@@ -6,11 +6,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Plus, Loader2 } from "lucide-react";
+import { Search, Tag, TrendingUp, Calculator, Plus, Loader2 } from "lucide-react";
 
 const AddTrade = () => {
   const { user } = useAuth();
@@ -28,6 +29,8 @@ const AddTrade = () => {
   const [submitting, setSubmitting] = useState(false);
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const symbolResolved = assetName.trim() !== "" && price.trim() !== "";
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -75,7 +78,6 @@ const AddTrade = () => {
       toast.success(`${tradeType.toUpperCase()} ${symbol.toUpperCase()} added!`);
       queryClient.invalidateQueries({ queryKey: ["trades"] });
 
-      // Reset form but keep asset type
       setSymbol("");
       setAssetName("");
       setQuantity("");
@@ -98,131 +100,176 @@ const AddTrade = () => {
         <p className="text-muted-foreground text-sm">Log a new buy or sell</p>
       </div>
 
-      <Card className="border-border/50">
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="symbol" className="flex items-center gap-2">
-                  Symbol
-                  {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                </Label>
-                <Input
-                  id="symbol"
-                  placeholder="AAPL"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value)}
-                  className="font-mono uppercase"
-                  required
-                />
+      <Card className="border-border/50 overflow-hidden">
+        <CardHeader>
+          <CardTitle className="text-lg">New Trade</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-0">
+            {/* Symbol Lookup Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Symbol Lookup</span>
+                {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="assetName">Asset Name</Label>
-                <Input
-                  id="assetName"
-                  placeholder="Apple Inc."
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Asset Type</Label>
-                <Select value={assetType} onValueChange={setAssetType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stock">Stock</SelectItem>
-                    <SelectItem value="etf">ETF</SelectItem>
-                    <SelectItem value="crypto">Crypto</SelectItem>
-                    <SelectItem value="bond">Bond</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Trade Type</Label>
-                <Select value={tradeType} onValueChange={setTradeType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buy">Buy</SelectItem>
-                    <SelectItem value="sell">Sell</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  step="any"
-                  placeholder="10"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="font-mono"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Price per Unit ($)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="any"
-                  placeholder="150.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            {total > 0 && (
-              <div className="rounded-lg bg-muted p-3 text-center">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">Total</span>
-                <p className="text-xl font-bold font-mono mt-0.5">
-                  ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="tradeDate">Trade Date</Label>
               <Input
-                id="tradeDate"
-                type="date"
-                value={tradeDate}
-                onChange={(e) => setTradeDate(e.target.value)}
+                placeholder="AAPL, BTC, MSFT..."
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                className="font-mono uppercase"
+                required
               />
+              {symbolResolved && (
+                <p className="text-xs text-muted-foreground">
+                  Found: <span className="font-medium text-foreground">{assetName}</span> — ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Earnings play, DCA, etc."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-              />
+            <Separator className="my-5" />
+
+            {/* Asset Details Section */}
+            <div className={`space-y-3 transition-opacity ${!symbolResolved ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Asset Details</span>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="assetName" className="text-xs text-muted-foreground">Asset Name</Label>
+                  <Input
+                    id="assetName"
+                    placeholder="Apple Inc."
+                    value={assetName}
+                    onChange={(e) => setAssetName(e.target.value)}
+                    disabled={!symbolResolved}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Asset Type</Label>
+                    <Select value={assetType} onValueChange={setAssetType} disabled={!symbolResolved}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="stock">Stock</SelectItem>
+                        <SelectItem value="etf">ETF</SelectItem>
+                        <SelectItem value="crypto">Crypto</SelectItem>
+                        <SelectItem value="bond">Bond</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Trade Type</Label>
+                    <Select value={tradeType} onValueChange={setTradeType} disabled={!symbolResolved}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="buy">Buy</SelectItem>
+                        <SelectItem value="sell">Sell</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              <Plus className="h-4 w-4 mr-2" />
-              {submitting ? "Adding..." : `Add ${tradeType.toUpperCase()}`}
-            </Button>
+            <Separator className="my-5" />
+
+            {/* Trade Details Section */}
+            <div className={`space-y-3 transition-opacity ${!symbolResolved ? "opacity-40 pointer-events-none" : ""}`}>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Trade Details</span>
+              </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="quantity" className="text-xs text-muted-foreground">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      step="any"
+                      placeholder="10"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="font-mono"
+                      disabled={!symbolResolved}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="price" className="text-xs text-muted-foreground">Price per Unit ($)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="any"
+                      placeholder="150.00"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      className="font-mono"
+                      disabled={!symbolResolved}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">Trade Date</Label>
+                  <Input
+                    id="tradeDate"
+                    type="date"
+                    value={tradeDate}
+                    onChange={(e) => setTradeDate(e.target.value)}
+                    disabled={!symbolResolved}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="notes" className="text-xs text-muted-foreground">Notes (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Earnings play, DCA, etc."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    disabled={!symbolResolved}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-5" />
+
+            {/* Order Summary */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Order Summary</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                <span className="text-muted-foreground">Quantity:</span>
+                <span className="text-right font-mono">{quantity || "—"}</span>
+                <span className="text-muted-foreground">Price per Unit:</span>
+                <span className="text-right font-mono">{price ? `$${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}</span>
+                <span className="text-muted-foreground">Total:</span>
+                <span className="text-right font-mono font-semibold">
+                  {total > 0 ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                </span>
+              </div>
+            </div>
           </form>
         </CardContent>
+
+        {/* Footer */}
+        <div className="bg-muted rounded-b-lg p-4 flex items-center justify-between">
+          <span className="text-lg font-bold font-mono">
+            {total > 0 ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "$0.00"}
+          </span>
+          <Button onClick={handleSubmit} disabled={submitting || !symbolResolved}>
+            <Plus className="h-4 w-4 mr-2" />
+            {submitting ? "Adding..." : `Add ${tradeType.toUpperCase()}`}
+          </Button>
+        </div>
       </Card>
     </div>
   );
