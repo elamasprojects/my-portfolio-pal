@@ -348,6 +348,8 @@ const AddTrade = () => {
       setSelectedTagIds([]);
       setDividendAmount("");
       setImagePreview(null);
+      userEditedPrice.current = false;
+      userEditedName.current = false;
     }, 600);
   };
 
