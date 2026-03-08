@@ -507,7 +507,7 @@ const AddTrade = () => {
                   )}
 
                   {/* Step 1: Trade Type */}
-                  {entryMode === "manual" && (
+                  {entryMode === "manual" && (<>
                   <div className="space-y-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
                     <div className="flex gap-3">
