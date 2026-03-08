@@ -193,11 +193,9 @@ export default function ReportCard() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
-            Score Sheet
+            {t("report.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Your monthly performance, graded.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t("report.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           {availableMonths.length > 0 && (
