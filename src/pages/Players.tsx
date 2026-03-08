@@ -14,8 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { computeHoldings, computePerformance, type Trade } from "@/hooks/usePortfolio";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from "recharts";
+import { computeHoldings, computePerformance, computeCumulativePnL, useTrades, type Trade } from "@/hooks/usePortfolio";
 import { subDays, subMonths } from "date-fns";
 
 interface Profile {
