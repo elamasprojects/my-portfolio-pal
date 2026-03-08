@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
