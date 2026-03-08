@@ -59,7 +59,16 @@ const TradeLog = () => {
         <p className="text-muted-foreground text-sm">All your transactions</p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
+        <div className="relative w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search symbol or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={filterType} onValueChange={setFilterType}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Trade type" />
