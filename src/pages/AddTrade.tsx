@@ -361,46 +361,50 @@ const AddTrade = () => {
                     </>
                   )}
 
-                  {/* Step 3: Asset Details + Trade Details — only shown after symbol resolved */}
+                  {/* Step 3: Asset Details (buy only) + Trade Details — only shown after symbol resolved */}
                   {tradeTypeSelected && symbolResolved && (
                     <>
-                      <Separator className="my-5" />
-                      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3</span>
-                        <div className="flex items-center gap-2">
-                          <Tag className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-bold">Asset Details</span>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="assetName" className="text-xs text-muted-foreground">
-                              Asset Name
-                            </Label>
-                            <Input
-                              id="assetName"
-                              placeholder="Apple Inc."
-                              value={assetName}
-                              onChange={(e) => setAssetName(e.target.value)}
-                              required
-                            />
+                      {tradeType === "buy" && (
+                        <>
+                          <Separator className="my-5" />
+                          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3</span>
+                            <div className="flex items-center gap-2">
+                              <Tag className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-bold">Asset Details</span>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="assetName" className="text-xs text-muted-foreground">
+                                  Asset Name
+                                </Label>
+                                <Input
+                                  id="assetName"
+                                  placeholder="Apple Inc."
+                                  value={assetName}
+                                  onChange={(e) => setAssetName(e.target.value)}
+                                  required
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Asset Type</Label>
+                                <Select value={assetType} onValueChange={setAssetType}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="stock">Stock</SelectItem>
+                                    <SelectItem value="etf">ETF</SelectItem>
+                                    <SelectItem value="crypto">Crypto</SelectItem>
+                                    <SelectItem value="bond">Bond</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs text-muted-foreground">Asset Type</Label>
-                            <Select value={assetType} onValueChange={setAssetType}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="stock">Stock</SelectItem>
-                                <SelectItem value="etf">ETF</SelectItem>
-                                <SelectItem value="crypto">Crypto</SelectItem>
-                                <SelectItem value="bond">Bond</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
+                        </>
+                      )}
 
                       <Separator className="my-5" />
 
