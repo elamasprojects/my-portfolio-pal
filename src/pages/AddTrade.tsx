@@ -327,7 +327,7 @@ const AddTrade = () => {
                 <form onSubmit={handleSubmit} className="space-y-0">
                   {/* Step 1: Trade Type */}
                   <div className="space-y-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 1</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
                     <div className="flex gap-3">
                       <button
                         type="button"
