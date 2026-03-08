@@ -691,7 +691,7 @@ const AddTrade = () => {
                                   id="assetName"
                                   placeholder="Apple Inc."
                                   value={assetName}
-                                  onChange={(e) => setAssetName(e.target.value)}
+                                  onChange={(e) => { setAssetName(e.target.value); userEditedName.current = true; }}
                                   required
                                 />
                               </div>
