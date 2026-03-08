@@ -90,11 +90,9 @@ export default function ExportReport() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <FileDown className="h-6 w-6 text-primary" />
-            Notation
+            {t("export.title")}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Preview and download your portfolio report as PDF.
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">{t("export.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
