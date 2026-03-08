@@ -340,6 +340,10 @@ export const en = {
   "asset.tradeHistory": "Trade History",
   "asset.noTrades": "No trades for this asset",
   "asset.detail": "Asset detail",
+  "asset.currentPrice": "Current Price",
+  "asset.marketValue": "Market Value",
+  "asset.unrealizedPnl": "Unrealized P&L",
+  "asset.unrealizedPct": "Unrealized %",
 
   // Edit Trade Dialog
   "editTrade.title": "Edit Trade",

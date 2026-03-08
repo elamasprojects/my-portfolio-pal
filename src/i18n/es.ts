@@ -342,6 +342,10 @@ export const es: Record<TranslationKey, string> = {
   "asset.tradeHistory": "Historial de Operaciones",
   "asset.noTrades": "Sin operaciones para este activo",
   "asset.detail": "Detalle del activo",
+  "asset.currentPrice": "Precio Actual",
+  "asset.marketValue": "Valor de Mercado",
+  "asset.unrealizedPnl": "P&L No Realizado",
+  "asset.unrealizedPct": "% No Realizado",
 
   // Edit Trade Dialog
   "editTrade.title": "Editar Operación",
