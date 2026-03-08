@@ -204,7 +204,7 @@ export default function ExportReport() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-6">
             {[
               { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
               { label: t("board.marketValue"), value: `$${marketValue.toFixed(2)}` },
