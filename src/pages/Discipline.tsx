@@ -16,6 +16,7 @@ import {
   type DisciplineRule,
 } from "@/hooks/useDiscipline";
 import { format } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 function ScoreGauge({ score }: { score: number }) {
   const circumference = 2 * Math.PI * 54;
