@@ -388,7 +388,126 @@ const AddTrade = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-0">
+                  {/* Entry Mode Selector */}
+                  {entryMode === "" && (
+                    <div className="space-y-3 mb-5">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Input Method</span>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEntryMode("manual")}
+                          className="flex-1 h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
+                        >
+                          <PenLine className="h-5 w-5 text-primary" />
+                          Manual
+                        </button>
+                        <div className="flex-1 relative">
+                          <button
+                            type="button"
+                            onClick={() => setEntryMode("screenshot")}
+                            className="w-full h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
+                          >
+                            <Camera className="h-5 w-5 text-primary" />
+                            From Screenshot
+                          </button>
+                          <HoverCard openDelay={200}>
+                            <HoverCardTrigger asChild>
+                              <button type="button" className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+                                <Info className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80" side="top">
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                                </p>
+                                <img
+                                  src={tradeScreenshotExample}
+                                  alt="Trade screenshot example"
+                                  className="rounded-md border border-border w-full"
+                                />
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Screenshot Upload */}
+                  {entryMode === "screenshot" && (
+                    <div className="space-y-3 mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Screenshot</span>
+                        <HoverCard openDelay={200}>
+                          <HoverCardTrigger asChild>
+                            <button type="button" className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+                              <Info className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80" side="top">
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground">
+                                Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                              </p>
+                              <img
+                                src={tradeScreenshotExample}
+                                alt="Trade screenshot example"
+                                className="rounded-md border border-border w-full"
+                              />
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                          analyzingImage
+                            ? "border-primary/50 bg-primary/5"
+                            : "border-border hover:border-primary/40 hover:bg-accent/30"
+                        }`}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                        {analyzingImage ? (
+                          <>
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-sm font-medium text-primary">Analyzing image...</p>
+                          </>
+                        ) : imagePreview ? (
+                          <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
+                        ) : (
+                          <>
+                            <Upload className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium text-foreground">Drop image here or click to upload</p>
+                            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP supported</p>
+                          </>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEntryMode("");
+                          setImagePreview(null);
+                        }}
+                        className="text-xs text-muted-foreground"
+                      >
+                        ← Back to input method
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Step 1: Trade Type */}
+                  {entryMode === "manual" && (
                   <div className="space-y-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
                     <div className="flex gap-3">
