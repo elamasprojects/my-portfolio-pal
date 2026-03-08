@@ -58,7 +58,7 @@ const AddTrade = () => {
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const [inputMode, setInputMode] = useState<"shares" | "amount">("shares");
+  const [inputMode, setInputMode] = useState<"shares" | "amount">("amount");
   const [amount, setAmount] = useState("");
   const [flipped, setFlipped] = useState(false);
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
