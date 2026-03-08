@@ -157,14 +157,14 @@ const TradeLog = () => {
   };
 
   if (isLoading) {
-    return <div className="animate-pulse text-muted-foreground text-center py-12">Loading trades...</div>;
+    return <div className="animate-pulse text-muted-foreground text-center py-12">{t("tradeLog.loadingTrades")}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl chess-title">Move History</h1>
-        <p className="text-muted-foreground text-sm">All your transactions</p>
+        <h1 className="text-2xl chess-title">{t("tradeLog.title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("tradeLog.subtitle")}</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
