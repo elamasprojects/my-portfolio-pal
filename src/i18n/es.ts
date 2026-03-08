@@ -329,7 +329,7 @@ export const es: Record<TranslationKey, string> = {
   "chess.q4": "Compara mis estrategias",
   "chess.q5": "¿Cuál es el tamaño promedio de mis operaciones?",
   "chess.q6": "¿Tengo un patrón en mi trading?",
-  "chess.disclaimer": "Este es un asistente de IA. Puede cometer errores y nada de lo dicho aquí debe considerarse asesoramiento financiero. Solo con fines educativos.",
+  "chess.disclaimer": "Este es un asistente de IA. Puede cometer errores y nada de lo dicho aquí debe considerarse asesoramiento financiero. Toda interacción tiene fines educativos.",
 
   // Asset Detail
   "asset.quantity": "Cantidad",
