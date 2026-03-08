@@ -112,6 +112,7 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
   const { data: unlocked = [], isLoading } = useUnlockedAchievements();
   const unlock = useUnlockAchievement();
   const processedRef = useRef(new Set<string>());
+  const { t } = useLanguage();
 
   const ctx: AchievementContext = useMemo(
     () => ({ trades, portfolios, tagAssignmentCount }),
@@ -125,14 +126,14 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
       const record = unlocked.find((a) => a.achievement_key === def.key);
       return {
         key: def.key,
-        title: def.title,
-        description: def.description,
+        title: t(def.titleKey as any),
+        description: t(def.descKey as any),
         emoji: def.emoji,
         unlocked: !!record,
         unlockedAt: record?.unlocked_at || null,
       };
     });
-  }, [unlocked]);
+  }, [unlocked, t]);
 
   // Check for newly earned achievements and unlock them
   useEffect(() => {
@@ -146,11 +147,14 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
         processedRef.current.add(def.key);
         unlock.mutate(def.key);
 
+        const title = t(def.titleKey as any);
+        const description = t(def.descKey as any);
+
         // Celebrate!
         setTimeout(() => {
           toast({
-            title: `${def.emoji} Achievement Unlocked!`,
-            description: `${def.title} — ${def.description}`,
+            title: `${def.emoji} ${t("achievements.achievementUnlocked" as any)}`,
+            description: `${title} — ${description}`,
           });
           confetti({
             particleCount: 80,
@@ -160,7 +164,7 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
         }, 500);
       }
     }
-  }, [ctx, unlockedKeys, isLoading]);
+  }, [ctx, unlockedKeys, isLoading, t]);
 
   const progress = statuses.filter((s) => s.unlocked).length;
 
