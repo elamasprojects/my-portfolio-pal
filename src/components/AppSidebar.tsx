@@ -1,7 +1,7 @@
-import { LayoutDashboard, Plus, List, LogOut, TrendingUp, Upload } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, TrendingUp, Upload, Moon, Sun } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import {
   Sidebar,
   SidebarContent,
@@ -25,16 +25,16 @@ const navItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const { signOut, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="flex items-center gap-2 px-4 py-5">
-          <TrendingUp className="h-6 w-6 text-primary shrink-0" />
+          <TrendingUp className="h-6 w-6 text-sidebar-primary shrink-0" />
           {!collapsed && (
-            <span className="text-lg font-bold tracking-tight text-foreground">Portfolio</span>
+            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Portfolio</span>
           )}
         </div>
 
@@ -47,8 +47,8 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end
-                      className="hover:bg-accent/50"
-                      activeClassName="bg-accent text-primary font-medium"
+                      className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -61,15 +61,24 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && user && (
-          <p className="text-xs text-muted-foreground truncate mb-2 px-1">{user.email}</p>
+          <p className="text-xs text-sidebar-foreground/50 truncate mb-2 px-1">{user.email}</p>
         )}
         <Button
           variant="ghost"
           size={collapsed ? "icon" : "sm"}
+          onClick={toggleTheme}
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent mb-1"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {!collapsed && <span className="ml-2">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
+        </Button>
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "sm"}
           onClick={signOut}
-          className="w-full justify-start text-muted-foreground hover:text-foreground"
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
         >
           <LogOut className="h-4 w-4" />
           {!collapsed && <span className="ml-2">Sign Out</span>}
