@@ -15,6 +15,8 @@ import Performance from "./pages/Performance";
 import Timeline from "./pages/Timeline";
 import ReportCard from "./pages/ReportCard";
 import Achievements from "./pages/Achievements";
+import Discipline from "./pages/Discipline";
+import ExportReport from "./pages/ExportReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +52,8 @@ const App = () => (
             <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+            <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
+            <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

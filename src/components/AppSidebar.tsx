@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
@@ -25,6 +25,8 @@ const navItems = [
   { title: "Timeline", url: "/timeline", icon: GitBranch },
   { title: "Report Card", url: "/report", icon: GraduationCap },
   { title: "Achievements", url: "/achievements", icon: Trophy },
+  { title: "Discipline", url: "/discipline", icon: Shield },
+  { title: "Export PDF", url: "/export", icon: FileDown },
 ];
 
 export function AppSidebar() {
