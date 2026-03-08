@@ -346,10 +346,10 @@ const TradeLog = () => {
             }}
           >
             <Download className="h-4 w-4 mr-1" />
-            Export
+            {t("common.export")}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-            Clear
+            {t("common.clear")}
           </Button>
         </div>
       )}
