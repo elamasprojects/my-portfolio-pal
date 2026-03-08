@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.chess-chat]
 verify_jwt = false
+
+[functions.analyze-trade-image]
+verify_jwt = false
