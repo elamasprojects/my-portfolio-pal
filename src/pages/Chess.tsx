@@ -203,7 +203,7 @@ export default function Chess() {
         )}
       </div>
 
-      <div className="pt-4 border-t border-border mt-4">
+      <div className="pt-4 border-t border-border mt-4 space-y-2">
         <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex gap-2">
           <Input
             ref={inputRef}
@@ -217,6 +217,7 @@ export default function Chess() {
             <Send className="h-4 w-4" />
           </Button>
         </form>
+        <p className="text-xs text-destructive/70 text-center">{t("chess.disclaimer")}</p>
       </div>
     </div>
   );

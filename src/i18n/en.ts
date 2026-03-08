@@ -319,6 +319,7 @@ export const en = {
   "chess.q4": "Compare my strategies",
   "chess.q5": "What's my average trade size?",
   "chess.q6": "Do I have a pattern in my trading?",
+  "chess.disclaimer": "This is an AI assistant. It can make mistakes and nothing said here should be considered financial advice. For educational purposes only.",
 
   // Asset Detail
   "asset.quantity": "Quantity",
