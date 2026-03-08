@@ -122,7 +122,7 @@ export default function ExportReport() {
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
           <div>
-            <h2 className="text-xl font-bold">{portfolio?.name || "Portfolio"} Report</h2>
+            <h2 className="text-xl font-bold">{portfolio?.name || "Portfolio"} {t("export.report")}</h2>
             <p className="text-sm opacity-60">{user?.email}</p>
           </div>
           <div className="text-right">
