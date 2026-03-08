@@ -12,6 +12,8 @@ import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
 import ImportTrades from "./pages/ImportTrades";
 import Performance from "./pages/Performance";
+import Timeline from "./pages/Timeline";
+import ReportCard from "./pages/ReportCard";
 import Achievements from "./pages/Achievements";
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +46,8 @@ const App = () => (
             <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
             <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
             <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+            <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
+            <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
