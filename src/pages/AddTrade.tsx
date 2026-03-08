@@ -908,6 +908,7 @@ const AddTrade = () => {
                       )}
                     </>
                   )}
+                  </>)}
                 </form>
               </CardContent>
 
