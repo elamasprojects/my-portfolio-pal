@@ -309,7 +309,7 @@ export default function ReportCard() {
               {stats.totalSells > 0 && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-foreground">Win Rate</span>
+                    <span className="text-sm font-medium text-foreground">{t("report.winRate")}</span>
                     <span className="text-sm font-bold text-foreground">{stats.winRate}%</span>
                   </div>
                   <Progress value={stats.winRate} className="h-3" />
