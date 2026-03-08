@@ -61,6 +61,7 @@ export function AppSidebar() {
         </button>
       </SidebarHeader>
       <SidebarContent>
+        <PortfolioSwitcher />
 
         <SidebarGroup>
           <SidebarGroupContent>
