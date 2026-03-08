@@ -22,6 +22,7 @@ const navItems = [
   { title: "Import CSV", url: "/import", icon: Upload },
   { title: "Trade Log", url: "/trades", icon: List },
   { title: "Performance", url: "/performance", icon: BarChart3 },
+  { title: "Achievements", url: "/achievements", icon: Trophy },
 ];
 
 export function AppSidebar() {

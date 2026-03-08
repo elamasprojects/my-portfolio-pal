@@ -45,6 +45,7 @@ const App = () => (
             <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
             <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+            <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
