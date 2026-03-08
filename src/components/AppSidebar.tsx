@@ -90,17 +90,22 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <div className="flex flex-col items-center gap-2">
+        <div className={`flex items-center gap-2 ${collapsed ? "flex-col" : "flex-row justify-between"}`}>
           <Inbox />
           <Dropdown>
-            <DropdownTrigger className="flex-1">
-              <div className="flex items-center justify-center w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
+            <DropdownTrigger className={collapsed ? "" : "flex-1"}>
+              <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer`}>
                 <Avatar className="h-8 w-8">
                   {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                   <AvatarFallback className="text-xs bg-primary/10 text-primary">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
+                {!collapsed && (
+                  <span className="text-sm text-sidebar-foreground truncate">
+                    {profile?.display_name || profile?.username || "User"}
+                  </span>
+                )}
               </div>
             </DropdownTrigger>
           <DropdownContent placement="top" align="start" sideOffset={2} className="w-56">
