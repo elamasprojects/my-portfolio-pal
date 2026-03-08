@@ -1,6 +1,7 @@
 import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, Users, Settings } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage, TranslationKey } from "@/i18n";
