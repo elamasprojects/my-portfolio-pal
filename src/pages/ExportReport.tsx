@@ -105,7 +105,7 @@ export default function ExportReport() {
           </Button>
           <Button size="sm" onClick={handleDownloadPDF} disabled={exporting}>
             <FileDown className="h-4 w-4 mr-1" />
-            {exporting ? "Generating…" : "Download PDF"}
+            {exporting ? t("export.generating") : t("export.downloadPdf")}
           </Button>
         </div>
       </div>
