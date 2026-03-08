@@ -253,17 +253,17 @@ export default function Timeline() {
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.buy }} />
-                <span className="text-xs text-muted-foreground">Buy</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.buy")}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.sell }} />
-                <span className="text-xs text-muted-foreground">Sell</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.sell")}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.dividend }} />
-                <span className="text-xs text-muted-foreground">Dividend</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.dividend")}</span>
               </div>
-              <span className="text-xs text-muted-foreground ml-auto">Node size = trade amount</span>
+              <span className="text-xs text-muted-foreground ml-auto">{t("timeline.nodeSize")}</span>
             </div>
           </CardContent>
         </Card>
