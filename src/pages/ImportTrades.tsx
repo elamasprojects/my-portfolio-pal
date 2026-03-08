@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivePortfolio } from "@/hooks/usePortfolio";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -115,17 +116,14 @@ function validateRows(rows: string[][], mapping: Record<number, TargetField>): {
     const rowErrors: RowError[] = [];
     const mapped: Record<string, string> = {};
 
-    // Symbol
     const symbolIdx = fieldIndices.symbol;
     const symbol = symbolIdx !== undefined ? row[symbolIdx]?.trim() : "";
     if (!symbol) rowErrors.push({ row: ri, field: "symbol", message: "Symbol is required" });
     mapped.symbol = symbol?.toUpperCase() || "";
 
-    // Asset name
     const nameIdx = fieldIndices.asset_name;
     mapped.asset_name = nameIdx !== undefined ? row[nameIdx]?.trim() || mapped.symbol : mapped.symbol;
 
-    // Trade type
     const ttIdx = fieldIndices.trade_type;
     const rawTT = ttIdx !== undefined ? row[ttIdx]?.trim().toLowerCase() : "buy";
     mapped.trade_type = VALID_TRADE_TYPES.includes(rawTT) ? rawTT : "";
@@ -135,21 +133,18 @@ function validateRows(rows: string[][], mapping: Record<number, TargetField>): {
       else rowErrors.push({ row: ri, field: "trade_type", message: `Invalid trade type: "${rawTT}"` });
     }
 
-    // Quantity
     const qIdx = fieldIndices.quantity;
     const rawQ = qIdx !== undefined ? row[qIdx]?.trim().replace(/,/g, "") : "";
     const qty = parseFloat(rawQ);
     if (isNaN(qty) || qty <= 0) rowErrors.push({ row: ri, field: "quantity", message: "Quantity must be a positive number" });
     mapped.quantity = String(qty || 0);
 
-    // Price
     const pIdx = fieldIndices.price_per_unit;
     const rawP = pIdx !== undefined ? row[pIdx]?.trim().replace(/[$€,]/g, "") : "";
     const price = parseFloat(rawP);
     if (isNaN(price) || price < 0) rowErrors.push({ row: ri, field: "price_per_unit", message: "Price must be a valid number" });
     mapped.price_per_unit = String(price || 0);
 
-    // Date
     const dIdx = fieldIndices.trade_date;
     if (dIdx !== undefined && row[dIdx]?.trim()) {
       const d = new Date(row[dIdx].trim());
@@ -159,12 +154,10 @@ function validateRows(rows: string[][], mapping: Record<number, TargetField>): {
       mapped.trade_date = new Date().toISOString();
     }
 
-    // Asset type
     const atIdx = fieldIndices.asset_type;
     const rawAT = atIdx !== undefined ? row[atIdx]?.trim().toLowerCase() : "stock";
     mapped.asset_type = VALID_ASSET_TYPES.includes(rawAT) ? rawAT : "stock";
 
-    // Notes
     const nIdx = fieldIndices.notes;
     mapped.notes = nIdx !== undefined ? row[nIdx]?.trim() || "" : "";
 
@@ -200,6 +193,7 @@ const ImportTrades = () => {
   const { portfolio } = useActivePortfolio();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [fileName, setFileName] = useState("");
@@ -322,19 +316,19 @@ const ImportTrades = () => {
       <div className="mb-8">
         <h1 className="text-2xl chess-title flex items-center gap-2">
           <FileSpreadsheet className="h-6 w-6 text-primary" />
-          Import PGN
+          {t("import.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a CSV exported from Excel or Google Sheets
+          {t("import.subtitle")}
         </p>
       </div>
 
       {/* Progress steps */}
       <div className="flex items-center gap-2 mb-8">
         {[
-          { n: 1, label: "Upload" },
-          { n: 2, label: "Map & Review" },
-          { n: 3, label: done ? "Done!" : "Confirm" },
+          { n: 1, label: t("import.upload") },
+          { n: 2, label: t("import.mapReview") },
+          { n: 3, label: done ? t("import.done") : t("import.confirm") },
         ].map((s, i) => (
           <div key={s.n} className="flex items-center gap-2 flex-1">
             <div
@@ -371,10 +365,10 @@ const ImportTrades = () => {
             >
               <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-lg font-medium text-foreground mb-1">
-                Drag & drop your CSV file here
+                {t("import.dragDrop")}
               </p>
-              <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
-              <Badge variant="outline" className="text-xs">.csv files only</Badge>
+              <p className="text-sm text-muted-foreground mb-4">{t("import.orBrowse")}</p>
+              <Badge variant="outline" className="text-xs">{t("import.csvOnly")}</Badge>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -388,11 +382,11 @@ const ImportTrades = () => {
 
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Not sure about the format?
+                {t("import.notSure")}
               </p>
               <Button variant="outline" size="sm" onClick={downloadTemplate}>
                 <Download className="h-4 w-4 mr-1" />
-                Download Template
+                {t("import.downloadTemplate")}
               </Button>
             </div>
           </CardContent>
@@ -404,8 +398,8 @@ const ImportTrades = () => {
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-lg flex items-center justify-between">
-              <span>Map Columns — {fileName}</span>
-              <Badge variant="secondary">{rows.length} rows detected</Badge>
+              <span>{t("import.mapColumns")} — {fileName}</span>
+              <Badge variant="secondary">{rows.length} {t("import.rowsDetected")}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -436,12 +430,12 @@ const ImportTrades = () => {
             {!requiredMapped && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm mb-4">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Map at least: Symbol, Quantity, and Price per Unit
+                {t("import.mapRequired")}
               </div>
             )}
 
             {/* Preview table */}
-            <p className="text-xs text-muted-foreground mb-2">Preview (first 5 rows):</p>
+            <p className="text-xs text-muted-foreground mb-2">{t("import.preview")}</p>
             <div className="rounded-lg border overflow-hidden mb-6">
               <Table>
                 <TableHeader>
@@ -472,10 +466,10 @@ const ImportTrades = () => {
 
             <div className="flex justify-between">
               <Button variant="ghost" onClick={resetAll}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                <ArrowLeft className="h-4 w-4 mr-1" /> {t("common.back")}
               </Button>
               <Button onClick={runValidation} disabled={!requiredMapped}>
-                Validate & Continue <ArrowRight className="h-4 w-4 ml-1" />
+                {t("import.validateContinue")} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>
@@ -486,23 +480,23 @@ const ImportTrades = () => {
       {step === 3 && !done && (
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Review Import</CardTitle>
+            <CardTitle className="text-lg">{t("import.reviewImport")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="rounded-lg border p-4 text-center">
                 <p className="text-3xl font-bold text-gain">{validRows.length}</p>
-                <p className="text-sm text-muted-foreground">Valid trades</p>
+                <p className="text-sm text-muted-foreground">{t("import.validTrades")}</p>
               </div>
               <div className="rounded-lg border p-4 text-center">
                 <p className="text-3xl font-bold text-loss">{errors.length > 0 ? new Set(errors.map((e) => e.row)).size : 0}</p>
-                <p className="text-sm text-muted-foreground">Rows with errors (skipped)</p>
+                <p className="text-sm text-muted-foreground">{t("import.rowsWithErrors")}</p>
               </div>
             </div>
 
             {errors.length > 0 && (
               <div className="mb-6">
-                <p className="text-sm font-medium text-foreground mb-2">Errors found:</p>
+                <p className="text-sm font-medium text-foreground mb-2">{t("import.errorsFound")}</p>
                 <div className="max-h-40 overflow-y-auto rounded-lg border p-3 space-y-1">
                   {errors.slice(0, 20).map((e, i) => (
                     <p key={i} className="text-xs text-destructive">
@@ -510,7 +504,7 @@ const ImportTrades = () => {
                     </p>
                   ))}
                   {errors.length > 20 && (
-                    <p className="text-xs text-muted-foreground">...and {errors.length - 20} more</p>
+                    <p className="text-xs text-muted-foreground">{t("import.andMore", { count: errors.length - 20 })}</p>
                   )}
                 </div>
               </div>
@@ -518,16 +512,16 @@ const ImportTrades = () => {
 
             {validRows.length > 0 && (
               <>
-                <p className="text-xs text-muted-foreground mb-2">Preview of valid trades:</p>
+                <p className="text-xs text-muted-foreground mb-2">{t("import.previewValid")}</p>
                 <div className="rounded-lg border overflow-hidden mb-6">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs px-2">Symbol</TableHead>
-                        <TableHead className="text-xs px-2">Type</TableHead>
-                        <TableHead className="text-xs px-2">Qty</TableHead>
-                        <TableHead className="text-xs px-2">Price</TableHead>
-                        <TableHead className="text-xs px-2">Total</TableHead>
+                        <TableHead className="text-xs px-2">{t("addTrade.symbol")}</TableHead>
+                        <TableHead className="text-xs px-2">{t("addTrade.type")}</TableHead>
+                        <TableHead className="text-xs px-2">{t("board.qty")}</TableHead>
+                        <TableHead className="text-xs px-2">{t("addTrade.price")}</TableHead>
+                        <TableHead className="text-xs px-2">{t("addTrade.total")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -550,7 +544,7 @@ const ImportTrades = () => {
                   </Table>
                   {validRows.length > 8 && (
                     <p className="text-xs text-muted-foreground text-center py-2">
-                      ...and {validRows.length - 8} more trades
+                      {t("import.andMore", { count: validRows.length - 8 })}
                     </p>
                   )}
                 </div>
@@ -559,16 +553,16 @@ const ImportTrades = () => {
 
             <div className="flex justify-between">
               <Button variant="ghost" onClick={() => setStep(2)}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                <ArrowLeft className="h-4 w-4 mr-1" /> {t("common.back")}
               </Button>
               <Button onClick={doImport} disabled={validRows.length === 0 || importing}>
                 {importing ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" /> Importing...
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" /> {t("import.importing")}
                   </>
                 ) : (
                   <>
-                    Import {validRows.length} Trades <CheckCircle2 className="h-4 w-4 ml-1" />
+                    {t("import.importTrades", { count: validRows.length })} <CheckCircle2 className="h-4 w-4 ml-1" />
                   </>
                 )}
               </Button>
@@ -584,16 +578,16 @@ const ImportTrades = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gain/10 mb-4">
               <CheckCircle2 className="h-8 w-8 text-gain" />
             </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Import Complete!</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-2">{t("import.importComplete")}</h2>
             <p className="text-muted-foreground mb-6">
-              Successfully imported <span className="font-semibold text-gain">{importedCount}</span> trades into your portfolio.
+              {t("import.successMessage", { count: importedCount })}
             </p>
             <div className="flex gap-3 justify-center">
               <Button variant="outline" onClick={resetAll}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Import More
+                <RotateCcw className="h-4 w-4 mr-1" /> {t("import.importMore")}
               </Button>
               <Button onClick={() => window.location.href = "/trades"}>
-                View Trade Log <ArrowRight className="h-4 w-4 ml-1" />
+                {t("import.viewTradeLog")} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardContent>

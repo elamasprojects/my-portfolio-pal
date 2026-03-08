@@ -18,7 +18,7 @@ export const en = {
   // Nav
   "nav.board": "Board",
   "nav.newMove": "New Move",
-  "nav.importPgn": "Import PGN",
+  "nav.importPgn": "Import CSV",
   "nav.moveHistory": "Move History",
   "nav.analysis": "Analysis",
   "nav.gameClock": "Game Clock",
@@ -143,6 +143,14 @@ export const en = {
   "addTrade.analyzeError": "Could not extract trade data. Please try again or enter manually.",
   "addTrade.dropImage": "Drop image here or click to upload",
   "addTrade.supportedFormats": "JPG, PNG, WEBP supported",
+  "addTrade.inputMethod": "Input Method",
+  "addTrade.backToInput": "← Back to input method",
+  "addTrade.symbol": "Symbol",
+  "addTrade.asset": "Asset",
+  "addTrade.type": "Type",
+  "addTrade.price": "Price",
+  "addTrade.date": "Date",
+  "addTrade.total": "Total",
 
   // Trade Log
   "tradeLog.title": "Move History",
@@ -278,7 +286,7 @@ export const en = {
   "export.sharing": "Sharing…",
 
   // Import
-  "import.title": "Import PGN",
+  "import.title": "Import CSV",
   "import.subtitle": "Upload a CSV exported from Excel or Google Sheets",
   "import.upload": "Upload",
   "import.mapReview": "Map & Review",
@@ -398,6 +406,21 @@ export const en = {
   "social.myConnections": "My Connections",
   "social.noConnections": "No connections yet.",
   "social.search": "Search",
+
+  // Install
+  "install.back": "Back",
+  "install.title": "Install Chess",
+  "install.subtitle": "Add Chess to your home screen for quick access — no app store needed.",
+  "install.alreadyInstalled": "✓ Chess is already installed!",
+  "install.installButton": "Install Chess",
+  "install.iosTitle": "Install on iOS",
+  "install.androidTitle": "Install on Android",
+  "install.iosStep1": "Tap the Share button in Safari",
+  "install.iosStep2": "Scroll down and tap \"Add to Home Screen\"",
+  "install.iosStep3": "Tap \"Add\" to confirm",
+  "install.androidStep1": "Tap the menu (⋮) in Chrome",
+  "install.androidStep2": "Tap \"Install app\" or \"Add to Home screen\"",
+  "install.androidStep3": "Tap \"Install\" to confirm",
 } as const;
 
 export type TranslationKey = keyof typeof en;

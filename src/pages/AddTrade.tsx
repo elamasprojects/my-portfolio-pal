@@ -6,6 +6,7 @@ import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks
 import { useAssignTag } from "@/hooks/useTags";
 import { TagPicker } from "@/components/TagPicker";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ const AddTrade = () => {
   const { data: trades } = useTrades();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
+  const { t } = useLanguage();
 
   const [entryMode, setEntryMode] = useState<"" | "manual" | "screenshot">("");
   const [analyzingImage, setAnalyzingImage] = useState(false);
@@ -98,6 +100,11 @@ const AddTrade = () => {
         if (data.price_per_unit) setPrice(String(data.price_per_unit));
         if (data.trade_date) setTradeDate(data.trade_date);
 
+        // Auto-populate amount from quantity * price
+        if (data.quantity && data.price_per_unit) {
+          setAmount(String((data.quantity * data.price_per_unit).toFixed(2)));
+        }
+
         // Mark as from screenshot so quote fetch only updates asset name
         fromScreenshotRef.current = true;
         // Switch to manual mode for review
@@ -105,13 +112,13 @@ const AddTrade = () => {
         toast.success("Trade data extracted! Review and submit.");
       } catch (err: any) {
         console.error("Image analysis error:", err);
-        toast.error(err.message || "Could not extract trade data. Please try again or enter manually.");
+        toast.error(err.message || t("addTrade.analyzeError"));
       } finally {
         setAnalyzingImage(false);
       }
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [t]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -252,7 +259,7 @@ const AddTrade = () => {
       finalPrice = parseFloat(dividendAmount);
       finalTotal = finalPrice;
       if (isNaN(finalPrice) || finalPrice <= 0) {
-        toast.error("Enter a valid dividend amount");
+        toast.error(t("addTrade.validDividend"));
         return;
       }
     } else {
@@ -264,7 +271,7 @@ const AddTrade = () => {
       finalTotal = finalQuantity * finalPrice;
 
       if (tradeType === "sell" && finalQuantity > availableShares) {
-        toast.error(`You only have ${availableShares.toFixed(4)} shares available to sell.`);
+        toast.error(t("addTrade.notEnoughShares", { shares: availableShares.toFixed(4) }));
         return;
       }
     }
@@ -312,6 +319,7 @@ const AddTrade = () => {
       setTimeout(() => {
         setFlipped(true);
         fireConfetti();
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }, 100);
     } catch (error: any) {
       toast.error(error.message);
@@ -376,8 +384,8 @@ const AddTrade = () => {
   return (
     <div className={`max-w-lg mx-auto transition-all duration-700 ${flipped ? "py-8" : ""}`}>
       <div className="mb-6">
-        <h1 className="text-2xl chess-title">New Move</h1>
-        <p className="text-muted-foreground text-sm">Log a new buy, sell, or dividend</p>
+        <h1 className="text-2xl chess-title">{t("addTrade.title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("addTrade.subtitle")}</p>
       </div>
 
       {/* 3D Flip Container */}
@@ -393,14 +401,14 @@ const AddTrade = () => {
           <div className="w-full" style={{ backfaceVisibility: "hidden" }}>
             <Card className="border-border/50 overflow-hidden">
               <CardHeader>
-                <CardTitle className="text-lg">New Trade</CardTitle>
+                <CardTitle className="text-lg">{t("addTrade.newTrade")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-0">
                   {/* Entry Mode Selector */}
                   {entryMode === "" && (
                     <div className="space-y-3 mb-5">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Input Method</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.inputMethod")}</span>
                       <div className="flex gap-3">
                         <button
                           type="button"
@@ -408,7 +416,7 @@ const AddTrade = () => {
                           className="flex-1 h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
                         >
                           <PenLine className="h-5 w-5 text-primary" />
-                          Manual
+                          {t("addTrade.inputManual")}
                         </button>
                         <div className="flex-1 relative">
                           <button
@@ -417,7 +425,7 @@ const AddTrade = () => {
                             className="w-full h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
                           >
                             <Camera className="h-5 w-5 text-primary" />
-                            From Screenshot
+                            {t("addTrade.inputScreenshot")}
                           </button>
                           <HoverCard openDelay={200}>
                             <HoverCardTrigger asChild>
@@ -428,7 +436,7 @@ const AddTrade = () => {
                             <HoverCardContent className="w-[50vw] max-w-lg" side="top">
                               <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">
-                                  Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                                  {t("addTrade.tooltipHint")}
                                 </p>
                                 <img
                                   src={tradeScreenshotExample}
@@ -447,7 +455,7 @@ const AddTrade = () => {
                   {entryMode === "screenshot" && (
                     <div className="space-y-3 mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Screenshot</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.uploadScreenshot")}</span>
                         <HoverCard openDelay={200}>
                           <HoverCardTrigger asChild>
                             <button type="button" className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
@@ -457,7 +465,7 @@ const AddTrade = () => {
                           <HoverCardContent className="w-[50vw] max-w-lg" side="top">
                             <div className="space-y-2">
                               <p className="text-xs text-muted-foreground">
-                                Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                                {t("addTrade.tooltipHint")}
                               </p>
                               <img
                                 src={tradeScreenshotExample}
@@ -488,15 +496,15 @@ const AddTrade = () => {
                         {analyzingImage ? (
                           <>
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <p className="text-sm font-medium text-primary">Analyzing image...</p>
+                            <p className="text-sm font-medium text-primary">{t("addTrade.analyzing")}</p>
                           </>
                         ) : imagePreview ? (
                           <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
                         ) : (
                           <>
                             <Upload className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-sm font-medium text-foreground">Drop image here or click to upload</p>
-                            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP supported</p>
+                            <p className="text-sm font-medium text-foreground">{t("addTrade.dropImage")}</p>
+                            <p className="text-xs text-muted-foreground">{t("addTrade.supportedFormats")}</p>
                           </>
                         )}
                       </div>
@@ -510,7 +518,7 @@ const AddTrade = () => {
                         }}
                         className="text-xs text-muted-foreground"
                       >
-                        ← Back to input method
+                        {t("addTrade.backToInput")}
                       </Button>
                     </div>
                   )}
@@ -518,7 +526,7 @@ const AddTrade = () => {
                   {/* Step 1: Trade Type */}
                   {entryMode === "manual" && (<>
                   <div className="space-y-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.opening")}</span>
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -533,7 +541,7 @@ const AddTrade = () => {
                         }`}
                       >
                         <ArrowDownLeft className="h-4 w-4" />
-                        Buy
+                        {t("addTrade.buy")}
                       </button>
                       <TooltipProvider>
                         <Tooltip>
@@ -554,12 +562,12 @@ const AddTrade = () => {
                               }`}
                             >
                               <ArrowUpRight className="h-4 w-4" />
-                              Sell
+                              {t("addTrade.sell")}
                             </button>
                           </TooltipTrigger>
                           {!canSell && (
                             <TooltipContent>
-                              <p>Add a buy trade first</p>
+                              <p>{t("addTrade.addBuyFirst")}</p>
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -583,12 +591,12 @@ const AddTrade = () => {
                               }`}
                             >
                               <Banknote className="h-4 w-4" />
-                              Dividend
+                              {t("addTrade.dividend")}
                             </button>
                           </TooltipTrigger>
                           {!canDividend && (
                             <TooltipContent>
-                              <p>Add a buy trade first</p>
+                              <p>{t("addTrade.addBuyFirst")}</p>
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -601,12 +609,12 @@ const AddTrade = () => {
                     <>
                       <Separator className="my-5" />
                       <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.position")}</span>
                         {tradeType === "buy" ? (
                           <>
                             <div className="flex items-center gap-2">
                               <Search className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-bold">Symbol Lookup</span>
+                              <span className="text-sm font-bold">{t("addTrade.symbolLookup")}</span>
                               {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                             </div>
                             <Input
@@ -618,7 +626,7 @@ const AddTrade = () => {
                             />
                             {symbolResolved && (
                               <p className="text-xs text-muted-foreground">
-                                Found: <span className="font-medium text-foreground">{assetName}</span> — $
+                                {t("addTrade.found")}: <span className="font-medium text-foreground">{assetName}</span> — $
                                 {parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                               </p>
                             )}
@@ -628,26 +636,26 @@ const AddTrade = () => {
                             <div className="flex items-center gap-2">
                               <Search className="h-4 w-4 text-primary" />
                               <span className="text-sm font-bold">
-                                {tradeType === "dividend" ? "Select Asset" : "Select Asset to Sell"}
+                                {tradeType === "dividend" ? t("addTrade.selectAsset") : t("addTrade.selectAssetToSell")}
                               </span>
                               {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                             </div>
                             <Select value={selectedHolding} onValueChange={handleHoldingSelect}>
                               <SelectTrigger>
-                                <SelectValue placeholder="Choose an asset..." />
+                                <SelectValue placeholder={t("addTrade.chooseAsset")} />
                               </SelectTrigger>
                               <SelectContent>
                                 {holdings.map((h) => (
                                   <SelectItem key={h.symbol} value={h.symbol}>
-                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} shares)
+                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} {t("common.shares")})
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                             {tradeType === "sell" && selectedHolding && symbolResolved && (
                               <p className="text-xs text-muted-foreground">
-                                Current price: <span className="font-medium text-foreground">${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                                {" · "}{availableShares.toFixed(2)} shares available
+                                {t("addTrade.currentPrice")}: <span className="font-medium text-foreground">${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                {" · "}{availableShares.toFixed(2)} {t("addTrade.sharesAvailable")}
                               </p>
                             )}
                           </>
@@ -663,15 +671,15 @@ const AddTrade = () => {
                         <>
                           <Separator className="my-5" />
                           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Execute</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.execute")}</span>
                             <div className="flex items-center gap-2">
                               <Tag className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-bold">Asset Details</span>
+                              <span className="text-sm font-bold">{t("addTrade.assetDetails")}</span>
                             </div>
                             <div className="space-y-3">
                               <div className="space-y-1.5">
                                 <Label htmlFor="assetName" className="text-xs text-muted-foreground">
-                                  Asset Name
+                                  {t("addTrade.assetName")}
                                 </Label>
                                 <Input
                                   id="assetName"
@@ -682,17 +690,17 @@ const AddTrade = () => {
                                 />
                               </div>
                               <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Asset Type</Label>
+                                <Label className="text-xs text-muted-foreground">{t("addTrade.assetType")}</Label>
                                 <Select value={assetType} onValueChange={setAssetType}>
                                   <SelectTrigger>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="stock">Stock</SelectItem>
-                                    <SelectItem value="etf">ETF</SelectItem>
-                                    <SelectItem value="crypto">Crypto</SelectItem>
-                                    <SelectItem value="bond">Bond</SelectItem>
-                                    <SelectItem value="other">Other</SelectItem>
+                                    <SelectItem value="stock">{t("addTrade.stock")}</SelectItem>
+                                    <SelectItem value="etf">{t("addTrade.etf")}</SelectItem>
+                                    <SelectItem value="crypto">{t("addTrade.crypto")}</SelectItem>
+                                    <SelectItem value="bond">{t("addTrade.bond")}</SelectItem>
+                                    <SelectItem value="other">{t("addTrade.other")}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -708,7 +716,7 @@ const AddTrade = () => {
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-primary" />
                             <span className="text-sm font-bold">
-                              {tradeType === "dividend" ? "Dividend Details" : "Trade Details"}
+                              {tradeType === "dividend" ? t("addTrade.dividendDetails") : t("addTrade.tradeDetails")}
                             </span>
                           </div>
                         </div>
@@ -717,7 +725,7 @@ const AddTrade = () => {
                           <div className="space-y-3">
                             <div className="space-y-1.5">
                               <Label htmlFor="dividendAmount" className="text-xs text-muted-foreground">
-                                Amount Received ($)
+                                {t("addTrade.amountReceived")}
                               </Label>
                               <Input
                                 id="dividendAmount"
@@ -732,7 +740,7 @@ const AddTrade = () => {
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
-                                Date Received
+                                {t("addTrade.dateReceived")}
                               </Label>
                               <Input
                                 id="tradeDate"
@@ -743,7 +751,7 @@ const AddTrade = () => {
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="notes" className="text-xs text-muted-foreground">
-                                Notes (optional)
+                                {t("addTrade.notes")}
                               </Label>
                               <Textarea
                                 id="notes"
@@ -761,10 +769,10 @@ const AddTrade = () => {
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <Label htmlFor="quantity" className="text-xs text-muted-foreground">
-                                      Shares
+                                      {t("addTrade.shares")}
                                     </Label>
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                      <span className="text-foreground font-medium">Shares</span>
+                                      <span className="text-foreground font-medium">{t("addTrade.shares")}</span>
                                       <Switch
                                         checked={false}
                                         onCheckedChange={(checked) => {
@@ -774,7 +782,7 @@ const AddTrade = () => {
                                         }}
                                         className="scale-75"
                                       />
-                                      <span>Amount</span>
+                                      <span>{t("addTrade.amount")}</span>
                                     </div>
                                   </div>
                                   <div className="flex gap-1.5">
@@ -797,13 +805,13 @@ const AddTrade = () => {
                                         className="shrink-0 text-xs h-10 px-2.5"
                                         onClick={handleMaxQuantity}
                                       >
-                                        Max
+                                        {t("addTrade.max")}
                                       </Button>
                                     )}
                                   </div>
                                   {tradeType === "sell" && availableShares > 0 && (
                                     <p className="text-xs text-muted-foreground">
-                                      {availableShares.toFixed(4)} shares available
+                                      {availableShares.toFixed(4)} {t("addTrade.sharesAvailable")}
                                     </p>
                                   )}
                                 </div>
@@ -811,10 +819,10 @@ const AddTrade = () => {
                                 <div className="space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <Label htmlFor="amount" className="text-xs text-muted-foreground">
-                                      Dollar Amount
+                                      {t("addTrade.dollarAmount")}
                                     </Label>
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                      <span>Shares</span>
+                                      <span>{t("addTrade.shares")}</span>
                                       <Switch
                                         checked={inputMode === "amount"}
                                         onCheckedChange={(checked) => {
@@ -824,7 +832,7 @@ const AddTrade = () => {
                                         }}
                                         className="scale-75"
                                       />
-                                      <span className="text-foreground font-medium">Amount</span>
+                                      <span className="text-foreground font-medium">{t("addTrade.amount")}</span>
                                     </div>
                                   </div>
                                   <div className="flex gap-1.5">
@@ -847,13 +855,13 @@ const AddTrade = () => {
                                         className="shrink-0 text-xs h-10 px-2.5"
                                         onClick={handleMaxQuantity}
                                       >
-                                        Max
+                                        {t("addTrade.max")}
                                       </Button>
                                     )}
                                   </div>
                                   {parseFloat(amount) > 0 && parseFloat(price) > 0 && (
                                     <p className="text-xs text-muted-foreground">
-                                      ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} shares
+                                      ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} {t("common.shares")}
                                       {tradeType === "sell" && ` / ${availableShares.toFixed(4)} available`}
                                     </p>
                                   )}
@@ -861,7 +869,7 @@ const AddTrade = () => {
                               )}
                               <div className="space-y-1.5">
                                 <Label htmlFor="price" className="text-xs text-muted-foreground">
-                                  Price per Unit ($)
+                                  {t("addTrade.pricePerUnit")}
                                 </Label>
                                 <Input
                                   id="price"
@@ -877,7 +885,7 @@ const AddTrade = () => {
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
-                                Trade Date
+                                {t("addTrade.tradeDate")}
                               </Label>
                               <Input
                                 id="tradeDate"
@@ -888,7 +896,7 @@ const AddTrade = () => {
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="notes" className="text-xs text-muted-foreground">
-                                Notes (optional)
+                                {t("addTrade.notes")}
                               </Label>
                               <Textarea
                                 id="notes"
@@ -903,7 +911,7 @@ const AddTrade = () => {
 
                         {/* Tags */}
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Tags (optional)</Label>
+                          <Label className="text-xs text-muted-foreground">{t("addTrade.tags")}</Label>
                           <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
                         </div>
                       </div>
@@ -915,12 +923,12 @@ const AddTrade = () => {
                           <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center">
                             {tradeType === "dividend" ? (
                               <span className="font-mono font-bold text-foreground">
-                                Dividend: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {t("addTrade.dividend")}: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             ) : (
                               <>
                                 <span className="text-sm text-muted-foreground">
-                                  {computedQuantity.toFixed(4)} shares × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
+                                  {computedQuantity.toFixed(4)} {t("common.shares")} × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
                                 </span>
                                 <span className="font-mono font-bold text-foreground">
                                   ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -949,7 +957,7 @@ const AddTrade = () => {
                   ) : (
                     <Plus className="h-4 w-4 mr-2" />
                   )}
-                  {submitting ? "Adding..." : `Add ${tradeType ? tradeType.toUpperCase() : "Trade"}`}
+                  {submitting ? t("addTrade.adding") : `${t("addTrade.addTrade")} ${tradeType ? tradeType.toUpperCase() : ""}`}
                 </Button>
               </div>
             </Card>
@@ -972,24 +980,24 @@ const AddTrade = () => {
 
                   <div className="space-y-1">
                     <h2 className="text-2xl font-bold">
-                      {submittedTrade.tradeType === "dividend" ? "Dividend Recorded!" : "Trade Submitted!"}
+                      {submittedTrade.tradeType === "dividend" ? t("addTrade.dividendRecorded") : t("addTrade.tradeSubmitted")}
                     </h2>
-                    <p className="text-muted-foreground text-sm">Your trade has been recorded successfully.</p>
+                    <p className="text-muted-foreground text-sm">{t("addTrade.tradeRecorded")}</p>
                   </div>
 
                   <Separator />
 
                   <div className="w-full space-y-3 text-left">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Symbol</span>
+                      <span className="text-muted-foreground text-sm">{t("addTrade.symbol")}</span>
                       <span className="font-mono font-bold text-lg">{submittedTrade.symbol}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Asset</span>
+                      <span className="text-muted-foreground text-sm">{t("addTrade.asset")}</span>
                       <span className="text-sm font-medium">{submittedTrade.assetName}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Type</span>
+                      <span className="text-muted-foreground text-sm">{t("addTrade.type")}</span>
                       <Badge
                         className={
                           submittedTrade.tradeType === "buy"
@@ -1008,11 +1016,11 @@ const AddTrade = () => {
                     {submittedTrade.tradeType !== "dividend" && (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-sm">Shares</span>
+                          <span className="text-muted-foreground text-sm">{t("addTrade.shares")}</span>
                           <span className="font-mono">{submittedTrade.quantity.toFixed(4)}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-sm">Price</span>
+                          <span className="text-muted-foreground text-sm">{t("addTrade.price")}</span>
                           <span className="font-mono">
                             ${submittedTrade.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </span>
@@ -1020,7 +1028,7 @@ const AddTrade = () => {
                       </>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Date</span>
+                      <span className="text-muted-foreground text-sm">{t("addTrade.date")}</span>
                       <span className="text-sm">
                         {new Date(submittedTrade.tradeDate).toLocaleDateString("en-US", {
                           month: "short",
@@ -1034,7 +1042,7 @@ const AddTrade = () => {
 
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">
-                        {submittedTrade.tradeType === "dividend" ? "Amount" : "Total"}
+                        {submittedTrade.tradeType === "dividend" ? t("addTrade.amount") : t("addTrade.total")}
                       </span>
                       <span className="font-mono font-bold text-xl">
                         ${submittedTrade.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1044,7 +1052,7 @@ const AddTrade = () => {
 
                   <Button onClick={handleAddAnother} variant="outline" className="w-full mt-4">
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    Add Another Trade
+                    {t("addTrade.addAnother")}
                   </Button>
                 </CardContent>
               </Card>
