@@ -50,7 +50,19 @@ export default function ExportReport() {
   const holdings = useMemo(() => computeHoldings(trades), [trades]);
   const performance = useMemo(() => computePerformance(trades), [trades]);
 
+  const { prices: marketPrices } = useMarketPrices(holdings.map(h => h.symbol));
+
   const totalInvested = holdings.reduce((s, h) => s + h.total_invested, 0);
+  const marketValue = holdings.reduce((s, h) => {
+    const price = marketPrices.get(h.symbol.toUpperCase());
+    return s + (price ? price * h.net_quantity : h.total_invested);
+  }, 0);
+  const unrealizedPnl = holdings.reduce((s, h) => {
+    const price = marketPrices.get(h.symbol.toUpperCase());
+    if (!price) return s;
+    return s + (price - h.avg_cost) * h.net_quantity;
+  }, 0);
+
   const pieData = holdings.map((h) => ({
     name: h.symbol,
     value: Math.round(h.total_invested * 100) / 100,
