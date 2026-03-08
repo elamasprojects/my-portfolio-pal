@@ -318,7 +318,7 @@ const TradeLog = () => {
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Tag className="h-4 w-4 mr-1" />
-                  Tag
+                  {t("tradeLog.tag")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2" align="center" side="top">
