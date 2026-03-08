@@ -23,6 +23,7 @@ import Settings from "./pages/Settings";
 import Players from "./pages/Players";
 import PlayerProfile from "./pages/PlayerProfile";
 import SharedExport from "./pages/SharedExport";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
