@@ -240,7 +240,7 @@ export default function ReportCard() {
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                   {stats.label}
                 </p>
-                <p className="text-lg font-semibold text-foreground mt-1">Trading Report Card</p>
+                <p className="text-lg font-semibold text-foreground mt-1">{t("report.tradingReportCard")}</p>
               </div>
               <div className="flex flex-col items-center">
                 <div
