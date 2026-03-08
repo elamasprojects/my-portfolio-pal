@@ -425,6 +425,7 @@ export const en = {
   "social.pending": "Pending",
   "social.inbox": "Inbox",
   "social.noRequests": "No pending requests.",
+  "social.clearAll": "Clear all",
   "social.wantsToView": "Wants to view your portfolio",
   "social.unknownUser": "Unknown user",
   "social.requestAccepted": "Request accepted!",

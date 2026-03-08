@@ -426,6 +426,7 @@ export const es: Record<TranslationKey, string> = {
   "social.pending": "Pendiente",
   "social.inbox": "Bandeja",
   "social.noRequests": "Sin solicitudes pendientes.",
+  "social.clearAll": "Borrar todo",
   "social.wantsToView": "Quiere ver tu portafolio",
   "social.unknownUser": "Usuario desconocido",
   "social.requestAccepted": "¡Solicitud aceptada!",

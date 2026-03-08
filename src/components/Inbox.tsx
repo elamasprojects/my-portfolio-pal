@@ -94,7 +94,21 @@ export function Inbox() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
-        <h4 className="font-semibold text-sm mb-3">{t("social.inbox")}</h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-semibold text-sm">{t("social.inbox")}</h4>
+          {notifications.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+              onClick={() => clearAll.mutate(undefined, { onSuccess: () => toast.success(t("social.clearAll")) })}
+              disabled={clearAll.isPending}
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              {t("social.clearAll")}
+            </Button>
+          )}
+        </div>
         {notifications.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">{t("social.noRequests")}</p>
         ) : (
