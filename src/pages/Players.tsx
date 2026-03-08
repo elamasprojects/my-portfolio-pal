@@ -337,7 +337,7 @@ export default function Players() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-lg font-bold">{playerSummary.username || playerSummary.display_name || t("social.anonymous")}</p>
+                  <p className="text-lg font-bold">{playerSummary.username || playerSummary.display_name || "Player"}</p>
                   {playerSummary.display_name && playerSummary.username && (
                     <p className="text-sm text-muted-foreground">{playerSummary.display_name}</p>
                   )}
