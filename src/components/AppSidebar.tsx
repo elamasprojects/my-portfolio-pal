@@ -25,6 +25,8 @@ const navItems = [
   { title: "Timeline", url: "/timeline", icon: GitBranch },
   { title: "Report Card", url: "/report", icon: GraduationCap },
   { title: "Achievements", url: "/achievements", icon: Trophy },
+  { title: "Discipline", url: "/discipline", icon: Shield },
+  { title: "Export PDF", url: "/export", icon: FileDown },
 ];
 
 export function AppSidebar() {

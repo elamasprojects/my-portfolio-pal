@@ -52,6 +52,8 @@ const App = () => (
             <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+            <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
+            <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
