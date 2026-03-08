@@ -236,11 +236,23 @@ export default function ExportReport() {
           {/* Allocation + Holdings */}
           <div className="flex-1 flex gap-6 min-h-0">
             {pieData.length > 0 && (
-              <div className="flex-shrink-0 w-40">
-                <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.portfolioAllocation")}</p>
-                <ResponsiveContainer width="100%" height={140}>
+              <div className="flex-1 min-h-0">
+                <p className="text-[10px] font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} strokeWidth={0}>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius="80%"
+                      strokeWidth={0}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                      fontSize={11}
+                      fill={previewDark ? "#fafafa" : "#1a1a20"}
+                    >
                       {pieData.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
@@ -250,7 +262,7 @@ export default function ExportReport() {
                 </ResponsiveContainer>
               </div>
             )}
-            <div className="flex-1 min-w-0">
+            <div className="w-44 flex-shrink-0 min-w-0">
               <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {holdings.slice(0, 12).map((h, i) => (
