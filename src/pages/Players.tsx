@@ -696,3 +696,66 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
     </div>
   );
 }
+
+const PIE_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "hsl(142 76% 36%)",
+  "hsl(38 92% 50%)",
+  "hsl(262 83% 58%)",
+  "hsl(0 84% 60%)",
+  "hsl(199 89% 48%)",
+  "hsl(330 81% 60%)",
+];
+
+function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }) {
+  return (
+    <div className="w-full h-[250px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            outerRadius={90}
+            innerRadius={45}
+            dataKey="value"
+            nameKey="name"
+            label={({ name, value }) => `${name} ${value}%`}
+            labelLine={false}
+            strokeWidth={1}
+            stroke="hsl(var(--background))"
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(value: number) => [`${value}%`, ""]}
+            contentStyle={{
+              backgroundColor: "hsl(var(--background))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PnlCard({ label, value }: { label: string; value: number | null }) {
+  const display = value !== null ? `${value >= 0 ? "+" : ""}${value}%` : "—";
+  const color = value === null ? "" : value >= 0 ? "text-green-500" : "text-red-500";
+  return (
+    <Card>
+      <CardHeader className="pb-1 pt-4 px-4">
+        <CardTitle className="text-xs text-muted-foreground font-normal">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        <p className={`text-xl font-bold font-mono ${color}`}>{display}</p>
+      </CardContent>
+    </Card>
+  );
+}
