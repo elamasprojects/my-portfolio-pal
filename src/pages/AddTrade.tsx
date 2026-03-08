@@ -766,7 +766,7 @@ const AddTrade = () => {
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                       <span className="text-foreground font-medium">Shares</span>
                                       <Switch
-                                        checked={inputMode === "amount"}
+                                        checked={false}
                                         onCheckedChange={(checked) => {
                                           setInputMode(checked ? "amount" : "shares");
                                           setAmount("");
