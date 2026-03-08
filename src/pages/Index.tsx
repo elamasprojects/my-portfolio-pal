@@ -6,11 +6,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
-  "hsl(160, 84%, 39%)",
-  "hsl(200, 70%, 50%)",
-  "hsl(280, 65%, 60%)",
-  "hsl(35, 90%, 55%)",
-  "hsl(340, 75%, 55%)",
+  "hsl(227, 100%, 58%)",
+  "hsl(174, 62%, 40%)",
+  "hsl(36, 100%, 49%)",
+  "hsl(291, 52%, 51%)",
+  "hsl(54, 100%, 61%)",
 ];
 
 const Index = () => {
@@ -137,8 +137,8 @@ const Index = () => {
                     </Pie>
                     <Tooltip
                       formatter={(value: number) => `$${value.toFixed(2)}`}
-                      contentStyle={{ background: "hsl(222, 47%, 8%)", border: "1px solid hsl(222, 30%, 16%)", borderRadius: "8px" }}
-                      itemStyle={{ color: "hsl(210, 40%, 95%)" }}
+                      contentStyle={{ background: "hsl(226, 16%, 19%)", border: "1px solid hsl(226, 16%, 19%)", borderRadius: "4px" }}
+                      itemStyle={{ color: "hsl(227, 14%, 84%)" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
