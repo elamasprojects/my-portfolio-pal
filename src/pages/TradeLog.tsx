@@ -279,7 +279,7 @@ const TradeLog = () => {
                     </TableCell>
                     <TableCell className="capitalize text-muted-foreground">{t.asset_type}</TableCell>
                     <TableCell className="text-right font-mono">
-                      {t.trade_type === "dividend" ? "—" : t.quantity}
+                      {t.trade_type === "dividend" ? "—" : Number(t.quantity).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}

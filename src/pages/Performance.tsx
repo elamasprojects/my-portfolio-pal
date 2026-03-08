@@ -169,8 +169,8 @@ const Performance = () => {
                   <XAxis dataKey="period" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <YAxis tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name === "realized" ? t("performance.realizedPnl") : t("performance.dividends")]}
+                   <Tooltip
+                     formatter={(value: number, name: string, props: any) => [`$${value.toFixed(2)}`, props.dataKey === "realized" ? t("performance.realizedPnl") : t("performance.dividends")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
