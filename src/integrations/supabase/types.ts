@@ -340,6 +340,14 @@ export type Database = {
         Args: { _requester_id: string; _target_username: string }
         Returns: Json
       }
+      get_player_summary_by_id: {
+        Args: { _requester_id: string; _target_id: string }
+        Returns: Json
+      }
+      is_connected_to: {
+        Args: { _other_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_leaderboard_creator: {
         Args: { _leaderboard_id: string; _user_id: string }
         Returns: boolean
