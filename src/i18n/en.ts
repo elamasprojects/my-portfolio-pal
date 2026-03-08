@@ -88,6 +88,9 @@ export const en = {
   "board.total": "Total",
   "board.loadingPortfolio": "Loading portfolio...",
   "board.cumulativePnl": "Cumulative P&L",
+  "board.marketValue": "Market Value",
+  "board.unrealizedPnl": "Unrealized P&L",
+  "board.currentPrice": "Price",
 
   // Add Trade
   "addTrade.title": "New Move",
