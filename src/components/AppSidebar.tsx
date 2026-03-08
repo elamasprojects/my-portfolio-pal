@@ -22,6 +22,8 @@ const navItems = [
   { title: "Import CSV", url: "/import", icon: Upload },
   { title: "Trade Log", url: "/trades", icon: List },
   { title: "Performance", url: "/performance", icon: BarChart3 },
+  { title: "Timeline", url: "/timeline", icon: GitBranch },
+  { title: "Report Card", url: "/report", icon: GraduationCap },
   { title: "Achievements", url: "/achievements", icon: Trophy },
 ];
 
