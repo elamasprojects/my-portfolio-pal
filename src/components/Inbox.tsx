@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Bell, Check, X, UserCheck } from "lucide-react";
+import { Bell, Check, X, UserCheck, Trash2 } from "lucide-react";
 import { useFollows } from "@/hooks/useFollows";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useLanguage } from "@/i18n";
