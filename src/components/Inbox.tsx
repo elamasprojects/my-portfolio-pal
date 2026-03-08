@@ -18,7 +18,7 @@ interface Profile {
 }
 
 export function Inbox() {
-  const { notifications, unreadCount, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, clearAll } = useNotifications();
   const { respondToRequest } = useFollows();
   const { t } = useLanguage();
 
