@@ -25,10 +25,15 @@ const TradeLog = () => {
   const queryClient = useQueryClient();
   const [filterType, setFilterType] = useState("all");
   const [filterAsset, setFilterAsset] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = trades.filter((t) => {
     if (filterType !== "all" && t.trade_type !== filterType) return false;
     if (filterAsset !== "all" && t.asset_type !== filterAsset) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!t.symbol.toLowerCase().includes(q) && !t.asset_name.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
