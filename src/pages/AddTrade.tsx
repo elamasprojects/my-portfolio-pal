@@ -47,6 +47,8 @@ const AddTrade = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fromScreenshotRef = useRef(false);
+  const userEditedPrice = useRef(false);
+  const userEditedName = useRef(false);
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
