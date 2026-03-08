@@ -17,6 +17,7 @@ import ReportCard from "./pages/ReportCard";
 import Achievements from "./pages/Achievements";
 import Discipline from "./pages/Discipline";
 import ExportReport from "./pages/ExportReport";
+import Chess from "./pages/Chess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
