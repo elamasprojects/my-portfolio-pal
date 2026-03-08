@@ -137,6 +137,7 @@ export default function ReportCard() {
   const { data: trades = [], isLoading } = useTrades(activeId || undefined);
   const cardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const { t } = useLanguage();
 
   // Compute available months
   const availableMonths = useMemo(() => {
