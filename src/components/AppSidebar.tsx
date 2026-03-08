@@ -81,17 +81,19 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <Dropdown>
-          <DropdownTrigger className="w-full">
-            <div className="flex items-center justify-center w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
-              <Avatar className="h-8 w-8">
-                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
-                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </DropdownTrigger>
+        <div className="flex items-center justify-center gap-2">
+          <Inbox />
+          <Dropdown>
+            <DropdownTrigger className="flex-1">
+              <div className="flex items-center justify-center w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
+                <Avatar className="h-8 w-8">
+                  {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            </DropdownTrigger>
           <DropdownContent placement="top" align="start" sideOffset={2} className="w-56">
             {/* Language */}
             <DropdownItem
