@@ -21,7 +21,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
     const AMOUNTY = 60;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x131722, 2000, 10000);
+    scene.fog = new THREE.Fog(0x111318, 2000, 10000);
 
     const camera = new THREE.PerspectiveCamera(
       60,
@@ -37,7 +37,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
     });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x131722, 0);
+    renderer.setClearColor(0x111318, 0);
 
     containerRef.current.appendChild(renderer.domElement);
 
@@ -50,8 +50,8 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
         const x = ix * SEPARATION - (AMOUNTX * SEPARATION) / 2;
         const z = iy * SEPARATION - (AMOUNTY * SEPARATION) / 2;
         positions.push(x, 0, z);
-        // Subtle blue-tinted dots matching TradingView palette
-        colors.push(0.3, 0.4, 0.7);
+        // Warm gold-tinted dots
+        colors.push(0.7, 0.6, 0.3);
       }
     }
 
@@ -62,7 +62,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
       size: 8,
       vertexColors: true,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.3,
       sizeAttenuation: true,
     });
 

@@ -17,17 +17,17 @@ import {
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Add Trade", url: "/add", icon: Plus },
-  { title: "Import CSV", url: "/import", icon: Upload },
-  { title: "Trade Log", url: "/trades", icon: List },
-  { title: "Performance", url: "/performance", icon: BarChart3 },
-  { title: "Timeline", url: "/timeline", icon: GitBranch },
-  { title: "Report Card", url: "/report", icon: GraduationCap },
-  { title: "Achievements", url: "/achievements", icon: Trophy },
-  { title: "Discipline", url: "/discipline", icon: Shield },
-  { title: "Export PDF", url: "/export", icon: FileDown },
-  { title: "Chess AI", url: "/chess", icon: Sparkles },
+  { title: "Board", url: "/", icon: LayoutDashboard },
+  { title: "New Move", url: "/add", icon: Plus },
+  { title: "Import PGN", url: "/import", icon: Upload },
+  { title: "Move History", url: "/trades", icon: List },
+  { title: "Analysis", url: "/performance", icon: BarChart3 },
+  { title: "Game Clock", url: "/timeline", icon: GitBranch },
+  { title: "Score Sheet", url: "/report", icon: GraduationCap },
+  { title: "Titles", url: "/achievements", icon: Trophy },
+  { title: "Opening Book", url: "/discipline", icon: Shield },
+  { title: "Notation", url: "/export", icon: FileDown },
+  { title: "Chess", url: "/chess", icon: Sparkles },
 ];
 
 export function AppSidebar() {
@@ -51,7 +51,7 @@ export function AppSidebar() {
                       to={item.url}
                       end
                       className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}

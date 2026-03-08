@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { TrendingUp } from "lucide-react";
+import { ChessKnight } from "@/components/ChessKnight";
 import { FcGoogle } from "react-icons/fc";
 
 const Auth = () => {
@@ -69,12 +69,12 @@ const Auth = () => {
             {/* Logo & heading */}
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2 text-primary">
-                <TrendingUp className="h-7 w-7" />
-                <span className="text-xl font-bold tracking-tight text-foreground">
-                  Portfolio Tracker
+                <ChessKnight className="h-8 w-8" />
+                <span className="text-2xl font-serif font-bold tracking-tight text-foreground">
+                  Chess
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">Look first. Then leap.</p>
+              <p className="text-xs text-muted-foreground italic">Every move counts.</p>
               {isLogin ? (
                 <p className="text-sm font-medium text-foreground mt-2">Welcome back</p>
               ) : (

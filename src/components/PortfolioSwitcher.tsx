@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { TrendingUp, ChevronDown, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChessKnight } from "@/components/ChessKnight";
 import { toast } from "sonner";
 
 export function PortfolioSwitcher() {
@@ -75,7 +76,7 @@ export function PortfolioSwitcher() {
   if (collapsed) {
     return (
       <div className="flex items-center justify-center px-4 py-5">
-        <TrendingUp className="h-6 w-6 text-sidebar-primary shrink-0" />
+        <ChessKnight className="h-6 w-6 text-sidebar-primary" />
       </div>
     );
   }
@@ -86,9 +87,9 @@ export function PortfolioSwitcher() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity">
-              <TrendingUp className="h-6 w-6 text-sidebar-primary shrink-0" />
+              <ChessKnight className="h-6 w-6 text-sidebar-primary shrink-0" />
               <span className="text-lg font-bold tracking-tight text-sidebar-foreground truncate flex-1">
-                {portfolio?.name || "Portfolio"}
+                {portfolio?.name || "Chess"}
               </span>
               <ChevronDown className="h-4 w-4 text-sidebar-foreground/50 shrink-0" />
             </button>
