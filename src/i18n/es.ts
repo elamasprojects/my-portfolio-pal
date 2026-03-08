@@ -329,7 +329,7 @@ export const es: Record<TranslationKey, string> = {
   "chess.q4": "Compara mis estrategias",
   "chess.q5": "¿Cuál es el tamaño promedio de mis operaciones?",
   "chess.q6": "¿Tengo un patrón en mi trading?",
-  "chess.disclaimer": "Este es un asistente de IA. Puede cometer errores y nada de lo dicho aquí debe considerarse asesoramiento financiero. Solo con fines educativos.",
+  "chess.disclaimer": "Este es un asistente de IA. Puede cometer errores y nada de lo dicho aquí debe considerarse asesoramiento financiero. Toda interacción tiene fines educativos.",
 
   // Asset Detail
   "asset.quantity": "Cantidad",
@@ -432,6 +432,13 @@ export const es: Record<TranslationKey, string> = {
   "social.pnl1m": "PNL 1M",
   "social.pnl3m": "PNL 3M",
   "social.portfolioAllocation": "Asignación del Portfolio",
+  "social.cumulativePnl": "P&L Acumulado",
+  "social.compare": "Comparar",
+  "social.you": "Tú",
+  "social.them": "Ellos",
+  "social.yourAllocation": "Tu Asignación",
+  "social.theirAllocation": "Su Asignación",
+  "social.noTradesYet": "Sin operaciones aún",
 
   // Install
   "install.back": "Volver",

@@ -327,7 +327,7 @@ export const en = {
   "chess.q4": "Compare my strategies",
   "chess.q5": "What's my average trade size?",
   "chess.q6": "Do I have a pattern in my trading?",
-  "chess.disclaimer": "This is an AI assistant. It can make mistakes and nothing said here should be considered financial advice. For educational purposes only.",
+  "chess.disclaimer": "This is an AI assistant. It can make mistakes and nothing said here should be considered financial advice. All interactions are for educational purposes.",
 
   // Asset Detail
   "asset.quantity": "Quantity",
@@ -430,6 +430,13 @@ export const en = {
   "social.pnl1m": "PNL 1M",
   "social.pnl3m": "PNL 3M",
   "social.portfolioAllocation": "Portfolio Allocation",
+  "social.cumulativePnl": "Cumulative P&L",
+  "social.compare": "Compare",
+  "social.you": "You",
+  "social.them": "Them",
+  "social.yourAllocation": "Your Allocation",
+  "social.theirAllocation": "Their Allocation",
+  "social.noTradesYet": "No trades yet",
 
   // Install
   "install.back": "Back",

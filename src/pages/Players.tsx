@@ -14,8 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { computeHoldings, computePerformance, type Trade } from "@/hooks/usePortfolio";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from "recharts";
+import { computeHoldings, computePerformance, computeCumulativePnL, useTrades, type Trade } from "@/hooks/usePortfolio";
 import { subDays, subMonths } from "date-fns";
 
 interface Profile {
@@ -146,6 +146,68 @@ export default function Players() {
       pnl3m: computePeriodPnl(subMonths(now, 3)),
     };
   }, [playerTrades, totalInvested]);
+
+  // Cumulative PNL for the player
+  const playerCumulativePnl = useMemo(() => computeCumulativePnL(playerTrades), [playerTrades]);
+
+  // Current user's trades for Compare tab
+  const { data: myTrades = [] } = useTrades();
+  const myHoldings = useMemo(() => computeHoldings(myTrades), [myTrades]);
+  const myTotalInvested = useMemo(() => myHoldings.reduce((s, h) => s + h.total_invested, 0), [myHoldings]);
+  const myPieData = useMemo(() =>
+    myHoldings.map(h => ({
+      name: h.symbol,
+      value: myTotalInvested > 0 ? Math.round((h.total_invested / myTotalInvested) * 1000) / 10 : 0,
+    })),
+    [myHoldings, myTotalInvested]
+  );
+  const myCumulativePnl = useMemo(() => computeCumulativePnL(myTrades), [myTrades]);
+
+  // Period PNL for current user
+  const myPeriodPnl = useMemo(() => {
+    if (myTrades.length === 0) return { pnl7d: null, pnl1m: null, pnl3m: null };
+    const now = new Date();
+    const perf = computePerformance(myTrades);
+    const costBasis = perf.total_cost_basis > 0 ? perf.total_cost_basis : perf.by_symbol.reduce((s, sp) => s + (sp.avg_cost * (sp.open_quantity + sp.total_sells)), 0);
+    const totalInvestedForPct = costBasis > 0 ? costBasis : myTotalInvested;
+    const computePeriodPnl = (sinceDate: Date) => {
+      const periodTrades = myTrades.filter(t => new Date(t.trade_date) >= sinceDate);
+      const perf = computePerformance(periodTrades);
+      const pnl = perf.total_realized_pnl + perf.total_dividends;
+      if (totalInvestedForPct <= 0) return null;
+      return Math.round((pnl / totalInvestedForPct) * 1000) / 10;
+    };
+    return {
+      pnl7d: computePeriodPnl(subDays(now, 7)),
+      pnl1m: computePeriodPnl(subMonths(now, 1)),
+      pnl3m: computePeriodPnl(subMonths(now, 3)),
+    };
+  }, [myTrades, myTotalInvested]);
+
+  // Merged cumulative PNL data for comparison chart
+  const comparisonData = useMemo(() => {
+    const dateMap = new Map<string, { date: string; you: number; them: number }>();
+    for (const p of myCumulativePnl) {
+      const entry = dateMap.get(p.date) || { date: p.date, you: 0, them: 0 };
+      entry.you = p.cumulative_pnl;
+      dateMap.set(p.date, entry);
+    }
+    for (const p of playerCumulativePnl) {
+      const entry = dateMap.get(p.date) || { date: p.date, you: 0, them: 0 };
+      entry.them = p.cumulative_pnl;
+      dateMap.set(p.date, entry);
+    }
+    // Forward-fill values
+    const sorted = Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    let lastYou = 0, lastThem = 0;
+    for (const entry of sorted) {
+      if (entry.you === 0 && lastYou !== 0 && !myCumulativePnl.some(p => p.date === entry.date)) entry.you = lastYou;
+      if (entry.them === 0 && lastThem !== 0 && !playerCumulativePnl.some(p => p.date === entry.date)) entry.them = lastThem;
+      lastYou = entry.you;
+      lastThem = entry.them;
+    }
+    return sorted;
+  }, [myCumulativePnl, playerCumulativePnl]);
 
   const { data: leaderboards = [] } = useQuery({
     queryKey: ["my-leaderboards", user?.id],
@@ -362,6 +424,7 @@ export default function Players() {
       <Tabs defaultValue="overview">
         <TabsList className="w-full">
           <TabsTrigger value="overview" className="flex-1">{t("social.overview")}</TabsTrigger>
+          <TabsTrigger value="compare" className="flex-1">{t("social.compare")}</TabsTrigger>
           <TabsTrigger value="leaderboard" className="flex-1">
             <Trophy className="h-4 w-4 mr-1" /> {t("social.leaderboard")}
           </TabsTrigger>
@@ -420,8 +483,113 @@ export default function Players() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Cumulative PNL timeline */}
+              {playerCumulativePnl.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.cumulativePnl")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <CumulativePnlChart data={playerCumulativePnl} />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : null}
+        </TabsContent>
+
+        {/* ---- COMPARE TAB ---- */}
+        <TabsContent value="compare">
+          {activePlayer ? (
+            <div className="space-y-6">
+              {/* PNL % Comparison */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">PNL %</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {(["7d", "1m", "3m"] as const).map((period) => {
+                    const myVal = myPeriodPnl[`pnl${period}` as keyof typeof myPeriodPnl];
+                    const theirVal = periodPnl[`pnl${period}` as keyof typeof periodPnl];
+                    const label = t(`social.pnl${period}` as any);
+                    return (
+                      <Card key={period}>
+                        <CardHeader className="pb-1 pt-3 px-3">
+                          <CardTitle className="text-xs text-muted-foreground font-normal">{label}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{t("social.you")}</span>
+                            <span className={`text-sm font-mono font-bold ${myVal === null ? "" : myVal >= 0 ? "text-green-500" : "text-red-500"}`}>
+                              {myVal !== null ? `${myVal >= 0 ? "+" : ""}${myVal}%` : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{activePlayer.username || t("social.them")}</span>
+                            <span className={`text-sm font-mono font-bold ${theirVal === null ? "" : theirVal >= 0 ? "text-green-500" : "text-red-500"}`}>
+                              {theirVal !== null ? `${theirVal >= 0 ? "+" : ""}${theirVal}%` : "—"}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Side-by-side pie charts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.yourAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {myPieData.length > 0 ? <PortfolioPieChart data={myPieData} /> : <p className="text-sm text-muted-foreground text-center py-8">{t("social.noTradesYet")}</p>}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.theirAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {pieData.length > 0 ? <PortfolioPieChart data={pieData} /> : <p className="text-sm text-muted-foreground text-center py-8">{t("social.noTradesYet")}</p>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Overlaid cumulative PNL */}
+              {comparisonData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.cumulativePnl")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="w-full h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={comparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--background))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                            }}
+                          />
+                          <Legend />
+                          <Line type="monotone" dataKey="you" name={t("social.you")} stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="them" name={activePlayer.username || t("social.them")} stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("social.noConnections")}</p>
+          )}
         </TabsContent>
 
         {/* ---- LEADERBOARD TAB ---- */}
@@ -693,6 +861,37 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function CumulativePnlChart({ data }: { data: { date: string; cumulative_pnl: number }[] }) {
+  const isPositive = data.length > 0 && data[data.length - 1].cumulative_pnl >= 0;
+  const color = isPositive ? "hsl(142 76% 36%)" : "hsl(0 84% 60%)";
+  return (
+    <div className="w-full h-[200px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--background))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+          />
+          <Area type="monotone" dataKey="cumulative_pnl" stroke={color} fill="url(#pnlGradient)" strokeWidth={2} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
