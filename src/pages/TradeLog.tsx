@@ -357,13 +357,13 @@ const TradeLog = () => {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} trades?</AlertDialogTitle>
+            <AlertDialogTitle>{t("tradeLog.deleteConfirmTitle", { count: String(selectedIds.size) })}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All selected trades will be permanently deleted.
+              {t("tradeLog.deleteConfirmDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
