@@ -883,7 +883,7 @@ const AddTrade = () => {
                                   step="any"
                                   placeholder="150.00"
                                   value={price}
-                                  onChange={(e) => setPrice(e.target.value)}
+                                  onChange={(e) => { setPrice(e.target.value); userEditedPrice.current = true; }}
                                   className="font-mono"
                                   required
                                 />
