@@ -154,10 +154,10 @@ export default function Chess() {
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-border mb-4">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <ChessKnight className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Chess</h1>
+          <h1 className="text-xl chess-title text-foreground">Chess</h1>
           <p className="text-sm text-muted-foreground">Your Personal Portfolio Analyst</p>
         </div>
       </div>

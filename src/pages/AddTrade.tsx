@@ -165,7 +165,7 @@ const AddTrade = () => {
       particleCount: 150,
       spread: 80,
       origin: { y: 0.6 },
-      colors: ["#3b82f6", "#60a5fa", "#93c5fd", "#22c55e", "#a855f7"],
+      colors: ["#d4a843", "#f5e6c8", "#c0c0c0", "#b8860b", "#e8d5a3"],
     });
   };
 
