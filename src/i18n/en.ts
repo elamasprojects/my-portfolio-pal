@@ -25,7 +25,7 @@ export const en = {
   "nav.scoreSheet": "Score Sheet",
   "nav.titles": "Titles",
   "nav.openingBook": "Opening Book",
-  "nav.notation": "Notation",
+  "nav.notation": "Portfolio",
   "nav.chess": "Chess",
   "nav.players": "Players",
   "nav.settings": "Settings",
@@ -266,7 +266,7 @@ export const en = {
   "discipline.minAssets": "Min assets",
 
   // Export Report
-  "export.title": "Notation",
+  "export.title": "Portfolio",
   "export.subtitle": "Preview and share your portfolio report card.",
   "export.print": "Print",
   "export.downloadPdf": "Download PDF",

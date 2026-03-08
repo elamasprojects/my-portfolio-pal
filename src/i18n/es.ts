@@ -27,7 +27,7 @@ export const es: Record<TranslationKey, string> = {
   "nav.scoreSheet": "Boleta",
   "nav.titles": "Títulos",
   "nav.openingBook": "Aperturas",
-  "nav.notation": "Notación",
+  "nav.notation": "Portfolio",
   "nav.chess": "Chess",
   "nav.players": "Jugadores",
   "nav.settings": "Ajustes",
@@ -268,7 +268,7 @@ export const es: Record<TranslationKey, string> = {
   "discipline.minAssets": "Mín activos",
 
   // Export Report
-  "export.title": "Notación",
+  "export.title": "Portfolio",
   "export.subtitle": "Previsualiza y comparte tu tarjeta de portafolio.",
   "export.print": "Imprimir",
   "export.downloadPdf": "Descargar PDF",
