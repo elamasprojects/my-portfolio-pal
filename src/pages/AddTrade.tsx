@@ -103,7 +103,10 @@ const AddTrade = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="symbol">Symbol</Label>
+                <Label htmlFor="symbol" className="flex items-center gap-2">
+                  Symbol
+                  {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </Label>
                 <Input
                   id="symbol"
                   placeholder="AAPL"
