@@ -20,6 +20,7 @@ const Index = () => {
   const navigate = useNavigate();
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
+  const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
