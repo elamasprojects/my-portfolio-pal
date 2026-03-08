@@ -428,6 +428,10 @@ export const es: Record<TranslationKey, string> = {
   "social.noRankings": "Sin rankings aún — invita jugadores y comienza a operar!",
   "social.noLeaderboards": "Crea una clasificación para competir con tus conexiones.",
   "social.rank": "Posición",
+  "social.pnl7d": "PNL 7D",
+  "social.pnl1m": "PNL 1M",
+  "social.pnl3m": "PNL 3M",
+  "social.portfolioAllocation": "Asignación del Portfolio",
 
   // Install
   "install.back": "Volver",

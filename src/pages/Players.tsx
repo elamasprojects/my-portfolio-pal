@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, UserPlus, Check, Clock, Search, Trophy, Plus, Crown, Medal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { computeHoldings, computePerformance, type Trade } from "@/hooks/usePortfolio";
+import { subDays, subMonths } from "date-fns";
 
 interface Profile {
   id: string;
@@ -95,7 +98,55 @@ export default function Players() {
     enabled: !!user && !!activePlayer?.id,
   });
 
-  // Leaderboards
+  // Fetch player's trades directly (RLS allows connected users)
+  const { data: playerTrades = [] } = useQuery({
+    queryKey: ["player-trades", activePlayer?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", activePlayer!.id)
+        .order("trade_date", { ascending: false });
+      return (data || []) as Trade[];
+    },
+    enabled: !!activePlayer?.id,
+  });
+
+  // Compute holdings for pie chart
+  const holdings = useMemo(() => computeHoldings(playerTrades), [playerTrades]);
+  const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.total_invested, 0), [holdings]);
+  const pieData = useMemo(() => 
+    holdings.map(h => ({
+      name: h.symbol,
+      value: totalInvested > 0 ? Math.round((h.total_invested / totalInvested) * 1000) / 10 : 0,
+      invested: h.total_invested,
+    })),
+    [holdings, totalInvested]
+  );
+
+  // Compute period PNL %
+  const periodPnl = useMemo(() => {
+    if (playerTrades.length === 0) return { pnl7d: null, pnl1m: null, pnl3m: null };
+    const now = new Date();
+    const perf = computePerformance(playerTrades);
+    const costBasis = perf.total_cost_basis > 0 ? perf.total_cost_basis : perf.by_symbol.reduce((s, sp) => s + (sp.avg_cost * (sp.open_quantity + sp.total_sells)), 0);
+    const totalInvestedForPct = costBasis > 0 ? costBasis : totalInvested;
+
+    const computePeriodPnl = (sinceDate: Date) => {
+      const periodTrades = playerTrades.filter(t => new Date(t.trade_date) >= sinceDate);
+      const perf = computePerformance(periodTrades);
+      const pnl = perf.total_realized_pnl + perf.total_dividends;
+      if (totalInvestedForPct <= 0) return null;
+      return Math.round((pnl / totalInvestedForPct) * 1000) / 10;
+    };
+
+    return {
+      pnl7d: computePeriodPnl(subDays(now, 7)),
+      pnl1m: computePeriodPnl(subMonths(now, 1)),
+      pnl3m: computePeriodPnl(subMonths(now, 3)),
+    };
+  }, [playerTrades, totalInvested]);
+
   const { data: leaderboards = [] } = useQuery({
     queryKey: ["my-leaderboards", user?.id],
     queryFn: async () => {
@@ -345,23 +396,30 @@ export default function Players() {
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <StatCard label={t("social.totalTrades")} value={playerSummary.total_trades} />
-                <StatCard label={t("social.totalInvested")} value={`$${Number(playerSummary.total_invested).toFixed(2)}`} />
                 <StatCard label={t("social.holdingsCount")} value={playerSummary.holdings_count} />
-                <StatCard
-                  label={t("social.realizedPnl")}
-                  value={`$${Number(playerSummary.realized_pnl).toFixed(2)}`}
-                  color={Number(playerSummary.realized_pnl) >= 0 ? "text-green-500" : "text-red-500"}
-                />
-                <StatCard label={t("social.dividends")} value={`$${Number(playerSummary.total_dividends).toFixed(2)}`} />
-                <StatCard
-                  label={t("social.totalReturn")}
-                  value={`$${Number(playerSummary.total_return).toFixed(2)}`}
-                  color={Number(playerSummary.total_return) >= 0 ? "text-green-500" : "text-red-500"}
-                />
                 <StatCard label={t("social.winRate")} value={`${playerSummary.win_rate}%`} />
               </div>
+
+              {/* Period PNL % cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <PnlCard label={t("social.pnl7d")} value={periodPnl.pnl7d} />
+                <PnlCard label={t("social.pnl1m")} value={periodPnl.pnl1m} />
+                <PnlCard label={t("social.pnl3m")} value={periodPnl.pnl3m} />
+              </div>
+
+              {/* Portfolio pie chart */}
+              {pieData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.portfolioAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <PortfolioPieChart data={pieData} />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : null}
         </TabsContent>
@@ -636,5 +694,68 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
         );
       })}
     </div>
+  );
+}
+
+const PIE_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "hsl(142 76% 36%)",
+  "hsl(38 92% 50%)",
+  "hsl(262 83% 58%)",
+  "hsl(0 84% 60%)",
+  "hsl(199 89% 48%)",
+  "hsl(330 81% 60%)",
+];
+
+function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }) {
+  return (
+    <div className="w-full h-[250px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            outerRadius={90}
+            innerRadius={45}
+            dataKey="value"
+            nameKey="name"
+            label={({ name, value }) => `${name} ${value}%`}
+            labelLine={false}
+            strokeWidth={1}
+            stroke="hsl(var(--background))"
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(value: number) => [`${value}%`, ""]}
+            contentStyle={{
+              backgroundColor: "hsl(var(--background))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PnlCard({ label, value }: { label: string; value: number | null }) {
+  const display = value !== null ? `${value >= 0 ? "+" : ""}${value}%` : "—";
+  const color = value === null ? "" : value >= 0 ? "text-green-500" : "text-red-500";
+  return (
+    <Card>
+      <CardHeader className="pb-1 pt-4 px-4">
+        <CardTitle className="text-xs text-muted-foreground font-normal">{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        <p className={`text-xl font-bold font-mono ${color}`}>{display}</p>
+      </CardContent>
+    </Card>
   );
 }
