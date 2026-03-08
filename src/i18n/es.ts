@@ -29,6 +29,8 @@ export const es: Record<TranslationKey, string> = {
   "nav.openingBook": "Aperturas",
   "nav.notation": "Notación",
   "nav.chess": "Chess",
+  "nav.players": "Jugadores",
+  "nav.settings": "Ajustes",
 
   // Profile dropdown
   "profile.language": "Idioma",
@@ -47,10 +49,13 @@ export const es: Record<TranslationKey, string> = {
   "auth.login": "Iniciar Sesión",
   "auth.email": "Correo electrónico",
   "auth.password": "Contraseña",
+  "auth.username": "Nombre de usuario",
   "auth.noAccount": "¿No tienes cuenta?",
   "auth.hasAccount": "¿Ya tienes una cuenta?",
   "auth.signInGoogle": "Iniciar sesión con Google",
   "auth.signUpGoogle": "Registrarse con Google",
+  "auth.signInX": "Iniciar sesión con X",
+  "auth.signUpX": "Registrarse con X",
   "auth.everyMoveMatters": "Cada jugada cuenta.",
   "auth.accountCreated": "¡Cuenta creada! Revisa tu correo para confirmar.",
 
@@ -247,7 +252,7 @@ export const es: Record<TranslationKey, string> = {
 
   // Export Report
   "export.title": "Notación",
-  "export.subtitle": "Previsualiza y descarga tu reporte de portafolio como PDF.",
+  "export.subtitle": "Previsualiza y comparte tu tarjeta de portafolio.",
   "export.print": "Imprimir",
   "export.downloadPdf": "Descargar PDF",
   "export.generating": "Generando…",
@@ -262,6 +267,8 @@ export const es: Record<TranslationKey, string> = {
   "export.pnlByAsset": "P&L por Activo",
   "export.recentTrades": "Operaciones Recientes (Últimas 20)",
   "export.generatedBy": "Generado por Chess",
+  "export.shareToX": "Compartir en X",
+  "export.sharing": "Compartiendo…",
 
   // Import
   "import.title": "Importar PGN",
@@ -344,4 +351,39 @@ export const es: Record<TranslationKey, string> = {
   "portfolio.newPortfolio": "Nuevo Portafolio",
   "portfolio.namePlaceholder": "Nombre del portafolio...",
   "portfolio.created": "Portafolio \"{name}\" creado",
+
+  // Settings
+  "settings.title": "Ajustes",
+  "settings.subtitle": "Administra tu perfil y preferencias.",
+  "settings.profilePhoto": "Foto de Perfil",
+  "settings.uploadPhoto": "Subir Foto",
+  "settings.accountInfo": "Info de Cuenta",
+  "settings.username": "Nombre de usuario",
+  "settings.usernamePlaceholder": "Elige un nombre de usuario...",
+  "settings.displayName": "Nombre para mostrar",
+  "settings.displayNamePlaceholder": "Tu nombre para mostrar...",
+  "settings.saved": "¡Perfil guardado!",
+  "settings.avatarUpdated": "¡Avatar actualizado!",
+
+  // Social
+  "social.playersTitle": "Jugadores",
+  "social.playersSubtitle": "Busca y conecta con otros traders.",
+  "social.searchPlaceholder": "Buscar por usuario o nombre...",
+  "social.typeToSearch": "Escribe al menos 2 caracteres para buscar.",
+  "social.noPlayersFound": "No se encontraron jugadores.",
+  "social.requestAccess": "Solicitar Acceso",
+  "social.requestSent": "¡Solicitud enviada!",
+  "social.connected": "Conectado",
+  "social.pending": "Pendiente",
+  "social.inbox": "Bandeja",
+  "social.noRequests": "Sin solicitudes pendientes.",
+  "social.wantsToView": "Quiere ver tu portafolio",
+  "social.unknownUser": "Usuario desconocido",
+  "social.requestAccepted": "¡Solicitud aceptada!",
+  "social.requestDeclined": "Solicitud rechazada.",
+  "social.notAuthorized": "Necesitas estar conectado para ver el portafolio de este jugador.",
+  "social.userNotFound": "Usuario no encontrado.",
+  "social.totalTrades": "Total Operaciones",
+  "social.totalInvested": "Total Invertido",
+  "social.holdingsCount": "Posiciones",
 };

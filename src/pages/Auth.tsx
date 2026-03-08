@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ChessKnight } from "@/components/ChessKnight";
 import { FcGoogle } from "react-icons/fc";
+import { FaXTwitter } from "react-icons/fa6";
 
 const Auth = () => {
   const { session, loading } = useAuth();
@@ -16,6 +17,7 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
@@ -41,7 +43,10 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin },
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { display_name: username || email, username: username || undefined },
+          },
         });
         if (error) throw error;
         toast.success(t("auth.accountCreated"));
@@ -56,6 +61,14 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) toast.error(error.message);
+  };
+
+  const handleXSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "twitter",
       options: { redirectTo: window.location.origin },
     });
     if (error) toast.error(error.message);
@@ -85,6 +98,14 @@ const Auth = () => {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
+                {!isLogin && (
+                  <Input
+                    type="text"
+                    placeholder={t("auth.username")}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                )}
                 <Input
                   type="email"
                   placeholder={t("auth.email")}
@@ -117,6 +138,15 @@ const Auth = () => {
                 >
                   <FcGoogle className="mr-2 size-4" />
                   {isLogin ? t("auth.signInGoogle") : t("auth.signUpGoogle")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleXSignIn}
+                >
+                  <FaXTwitter className="mr-2 size-4" />
+                  {isLogin ? t("auth.signInX") : t("auth.signUpX")}
                 </Button>
               </div>
             </form>
