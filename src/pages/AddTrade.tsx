@@ -314,6 +314,7 @@ const AddTrade = () => {
   const handleAddAnother = () => {
     setFlipped(false);
     setTimeout(() => {
+      setEntryMode("");
       setTradeType("");
       setSymbol("");
       setAssetName("");
@@ -327,6 +328,7 @@ const AddTrade = () => {
       setSubmittedTrade(null);
       setSelectedTagIds([]);
       setDividendAmount("");
+      setImagePreview(null);
     }, 600);
   };
 
