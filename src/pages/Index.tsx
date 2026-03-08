@@ -8,11 +8,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
-  "hsl(227, 100%, 58%)",
-  "hsl(174, 62%, 40%)",
-  "hsl(36, 100%, 49%)",
-  "hsl(291, 52%, 51%)",
-  "hsl(54, 100%, 61%)",
+  "hsl(42, 80%, 55%)",
+  "hsl(152, 55%, 45%)",
+  "hsl(220, 8%, 60%)",
+  "hsl(30, 60%, 50%)",
+  "hsl(220, 10%, 35%)",
 ];
 
 const Index = () => {
