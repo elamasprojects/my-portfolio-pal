@@ -369,7 +369,7 @@ const TradeLog = () => {
               disabled={bulkDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {bulkDeleting ? "Deleting..." : "Delete All"}
+              {bulkDeleting ? t("tradeLog.deleting") : t("tradeLog.deleteAll")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
