@@ -31,6 +31,7 @@ export const es: Record<TranslationKey, string> = {
   "nav.chess": "Chess",
   "nav.players": "Jugadores",
   "nav.settings": "Ajustes",
+  "nav.progress": "Progreso",
 
   // Profile dropdown
   "profile.language": "Idioma",

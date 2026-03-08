@@ -29,17 +29,12 @@ import {
 const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.board", url: "/", icon: LayoutDashboard },
   { titleKey: "nav.newMove", url: "/add", icon: Plus },
-  { titleKey: "nav.importPgn", url: "/import", icon: Upload },
   { titleKey: "nav.moveHistory", url: "/trades", icon: List },
-  { titleKey: "nav.analysis", url: "/performance", icon: BarChart3 },
-  { titleKey: "nav.gameClock", url: "/timeline", icon: GitBranch },
-  { titleKey: "nav.scoreSheet", url: "/report", icon: GraduationCap },
-  { titleKey: "nav.titles", url: "/achievements", icon: Trophy },
-  { titleKey: "nav.openingBook", url: "/discipline", icon: Shield },
+  { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
+  { titleKey: "nav.progress", url: "/progress", icon: Trophy },
   { titleKey: "nav.notation", url: "/export", icon: FileDown },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
-  { titleKey: "nav.settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
