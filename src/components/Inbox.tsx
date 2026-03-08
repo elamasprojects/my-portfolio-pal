@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { Bell, Check, X, UserCheck } from "lucide-react";
 import { useFollows } from "@/hooks/useFollows";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useLanguage } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,69 +17,49 @@ interface Profile {
   username: string | null;
 }
 
-function getStorageKey(userId: string) {
-  return `inbox-read-ids-${userId}`;
-}
-
-function loadReadIds(userId: string | undefined): Set<string> {
-  if (!userId) return new Set();
-  try {
-    const raw = localStorage.getItem(getStorageKey(userId));
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function saveReadIds(userId: string, ids: Set<string>) {
-  localStorage.setItem(getStorageKey(userId), JSON.stringify([...ids]));
-}
-
 export function Inbox() {
-  const { user } = useAuth();
-  const { incomingRequests, acceptedSentRequests, respondToRequest } = useFollows();
+  const { notifications, unreadCount, markAllAsRead } = useNotifications();
+  const { respondToRequest } = useFollows();
   const { t } = useLanguage();
-  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds(user?.id));
 
-  // Re-sync when user changes
-  useEffect(() => {
-    setReadIds(loadReadIds(user?.id));
-  }, [user?.id]);
-
-  // Fetch profiles for incoming requesters
-  const requesterIds = incomingRequests.map((r) => r.requester_id);
-  const { data: requesterProfiles = [] } = useQuery({
-    queryKey: ["profiles-for-inbox", requesterIds],
+  // Collect actor IDs to fetch profiles
+  const actorIds = [...new Set(notifications.map((n) => n.actor_id).filter(Boolean))] as string[];
+  const { data: actorProfiles = [] } = useQuery({
+    queryKey: ["profiles-for-notifications", actorIds],
     queryFn: async () => {
-      if (requesterIds.length === 0) return [];
+      if (actorIds.length === 0) return [];
       const { data, error } = await supabase
         .from("profiles")
         .select("id, display_name, avatar_url, username")
-        .in("id", requesterIds);
+        .in("id", actorIds);
       if (error) throw error;
       return data as Profile[];
     },
-    enabled: requesterIds.length > 0,
+    enabled: actorIds.length > 0,
   });
 
-  // Fetch profiles for accepted targets
-  const acceptedTargetIds = acceptedSentRequests.map((r) => r.target_id);
-  const { data: acceptedProfiles = [] } = useQuery({
-    queryKey: ["profiles-for-inbox-accepted", acceptedTargetIds],
+  // Collect reference_ids for pending follow requests to check current status
+  const followRequestIds = notifications
+    .filter((n) => n.type === "follow_request_received" && n.reference_id)
+    .map((n) => n.reference_id!) as string[];
+
+  const { data: followRequests = [] } = useQuery({
+    queryKey: ["follow-requests-for-inbox", followRequestIds],
     queryFn: async () => {
-      if (acceptedTargetIds.length === 0) return [];
+      if (followRequestIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_url, username")
-        .in("id", acceptedTargetIds);
+        .from("follow_requests")
+        .select("id, status")
+        .in("id", followRequestIds);
       if (error) throw error;
-      return data as Profile[];
+      return data as { id: string; status: string }[];
     },
-    enabled: acceptedTargetIds.length > 0,
+    enabled: followRequestIds.length > 0,
   });
 
-  const getRequesterProfile = (id: string) => requesterProfiles.find((p) => p.id === id);
-  const getAcceptedProfile = (id: string) => acceptedProfiles.find((p) => p.id === id);
+  const getProfile = (id: string | null) => actorProfiles.find((p) => p.id === id);
+  const getFollowStatus = (refId: string | null) =>
+    followRequests.find((r) => r.id === refId)?.status;
 
   const handleRespond = (requestId: string, status: "accepted" | "declined") => {
     respondToRequest.mutate(
@@ -92,22 +72,13 @@ export function Inbox() {
     );
   };
 
-  const allIds = [
-    ...incomingRequests.map((r) => r.id),
-    ...acceptedSentRequests.map((r) => r.id),
-  ];
-  const unreadCount = allIds.filter((id) => !readIds.has(id)).length;
-  const totalCount = incomingRequests.length + acceptedSentRequests.length;
-
   const handleOpenChange = useCallback(
     (open: boolean) => {
-      if (open && user?.id && allIds.length > 0) {
-        const merged = new Set([...readIds, ...allIds]);
-        setReadIds(merged);
-        saveReadIds(user.id, merged);
+      if (open && unreadCount > 0) {
+        markAllAsRead.mutate();
       }
     },
-    [user?.id, allIds, readIds]
+    [unreadCount, markAllAsRead]
   );
 
   return (
@@ -124,70 +95,78 @@ export function Inbox() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <h4 className="font-semibold text-sm mb-3">{t("social.inbox")}</h4>
-        {totalCount === 0 ? (
+        {notifications.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">{t("social.noRequests")}</p>
         ) : (
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {incomingRequests.map((req) => {
-              const profile = getRequesterProfile(req.requester_id);
-              const isRead = readIds.has(req.id);
-              return (
-                <div key={req.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
-                  <Avatar className="h-8 w-8">
-                    {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
-                    <AvatarFallback className="text-xs">
-                      {(profile?.username || profile?.display_name || "?").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {profile?.username || profile?.display_name || t("social.unknownUser")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("social.wantsToView")}</p>
+            {notifications.map((notif) => {
+              const profile = getProfile(notif.actor_id);
+              const isRead = notif.read;
+
+              if (notif.type === "follow_request_received") {
+                const status = getFollowStatus(notif.reference_id);
+                const isPending = status === "pending";
+                return (
+                  <div key={notif.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
+                    <Avatar className="h-8 w-8">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                      <AvatarFallback className="text-xs">
+                        {(profile?.username || profile?.display_name || "?").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {profile?.username || profile?.display_name || t("social.unknownUser")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{t("social.wantsToView")}</p>
+                    </div>
+                    {isPending && notif.reference_id && (
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-emerald-500 hover:text-emerald-600"
+                          onClick={() => handleRespond(notif.reference_id!, "accepted")}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleRespond(notif.reference_id!, "declined")}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-emerald-500 hover:text-emerald-600"
-                      onClick={() => handleRespond(req.id, "accepted")}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => handleRespond(req.id, "declined")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                );
+              }
+
+              if (notif.type === "follow_request_accepted") {
+                return (
+                  <div key={notif.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
+                    <Avatar className="h-8 w-8">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                      <AvatarFallback className="text-xs">
+                        {(profile?.username || profile?.display_name || "?").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {profile?.username || profile?.display_name || t("social.unknownUser")}
+                      </p>
+                      <p className="text-xs text-emerald-500 flex items-center gap-1">
+                        <UserCheck className="h-3 w-3" />
+                        {t("social.acceptedYourRequest")}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            {acceptedSentRequests.map((req) => {
-              const profile = getAcceptedProfile(req.target_id);
-              const isRead = readIds.has(req.id);
-              return (
-                <div key={req.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
-                  <Avatar className="h-8 w-8">
-                    {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
-                    <AvatarFallback className="text-xs">
-                      {(profile?.username || profile?.display_name || "?").slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {profile?.username || profile?.display_name || t("social.unknownUser")}
-                    </p>
-                    <p className="text-xs text-emerald-500 flex items-center gap-1">
-                      <UserCheck className="h-3 w-3" />
-                      {t("social.acceptedYourRequest")}
-                    </p>
-                  </div>
-                </div>
-              );
+                );
+              }
+
+              return null;
             })}
           </div>
         )}
