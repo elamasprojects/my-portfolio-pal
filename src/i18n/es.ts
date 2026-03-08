@@ -27,7 +27,7 @@ export const es: Record<TranslationKey, string> = {
   "nav.scoreSheet": "Boleta",
   "nav.titles": "Títulos",
   "nav.openingBook": "Aperturas",
-  "nav.notation": "Notación",
+  "nav.notation": "Portfolio",
   "nav.chess": "Chess",
   "nav.players": "Jugadores",
   "nav.settings": "Ajustes",
