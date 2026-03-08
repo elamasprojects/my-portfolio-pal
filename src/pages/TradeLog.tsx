@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,10 +26,15 @@ const TradeLog = () => {
   const queryClient = useQueryClient();
   const [filterType, setFilterType] = useState("all");
   const [filterAsset, setFilterAsset] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = trades.filter((t) => {
     if (filterType !== "all" && t.trade_type !== filterType) return false;
     if (filterAsset !== "all" && t.asset_type !== filterAsset) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!t.symbol.toLowerCase().includes(q) && !t.asset_name.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -53,7 +59,16 @@ const TradeLog = () => {
         <p className="text-muted-foreground text-sm">All your transactions</p>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
+        <div className="relative w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search symbol or name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={filterType} onValueChange={setFilterType}>
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Trade type" />

@@ -1,7 +1,8 @@
 import { useTrades, computeHoldings } from "@/hooks/usePortfolio";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, DollarSign, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useNavigate } from "react-router-dom";
 
@@ -22,7 +23,6 @@ const Index = () => {
   const totalTrades = trades.length;
   const recentTrades = trades.slice(0, 5);
 
-  // Allocation by asset type
   const allocationData = holdings.reduce((acc, h) => {
     const existing = acc.find((a) => a.name === h.asset_type);
     if (existing) {
@@ -137,8 +137,13 @@ const Index = () => {
                     </Pie>
                     <Tooltip
                       formatter={(value: number) => `$${value.toFixed(2)}`}
-                      contentStyle={{ background: "hsl(226, 16%, 19%)", border: "1px solid hsl(226, 16%, 19%)", borderRadius: "4px" }}
-                      itemStyle={{ color: "hsl(227, 14%, 84%)" }}
+                      contentStyle={{
+                        background: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        color: "hsl(var(--popover-foreground))",
+                      }}
+                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -152,7 +157,13 @@ const Index = () => {
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm text-center py-8">No holdings yet. Add your first trade!</p>
+              <div className="flex flex-col items-center gap-3 py-8">
+                <p className="text-muted-foreground text-sm">No holdings yet</p>
+                <Button size="sm" onClick={() => navigate("/add")}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Your First Trade
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -193,7 +204,13 @@ const Index = () => {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-muted-foreground text-sm text-center py-8">No holdings yet</p>
+              <div className="flex flex-col items-center gap-3 py-8">
+                <p className="text-muted-foreground text-sm">No holdings yet</p>
+                <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Trade
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -223,7 +240,7 @@ const Index = () => {
                     <TableCell className="text-muted-foreground">{new Date(t.trade_date).toLocaleDateString()}</TableCell>
                     <TableCell className="font-mono font-semibold">{t.symbol}</TableCell>
                     <TableCell>
-                      <span className={t.trade_type === "buy" ? "text-gain" : "text-loss"}>
+                      <span className={t.trade_type === "buy" ? "text-[hsl(var(--gain))]" : "text-[hsl(var(--loss))]"}>
                         {t.trade_type.toUpperCase()}
                       </span>
                     </TableCell>
@@ -235,7 +252,13 @@ const Index = () => {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-muted-foreground text-sm text-center py-8">No trades yet. Get started by adding your first trade!</p>
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-muted-foreground text-sm">No trades yet</p>
+              <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
+                <Plus className="h-4 w-4 mr-1" />
+                Get Started
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

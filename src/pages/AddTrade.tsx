@@ -12,8 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Calculator, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownUp } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface SubmittedTrade {
@@ -51,7 +52,6 @@ const AddTrade = () => {
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
   const [selectedHolding, setSelectedHolding] = useState<string>("");
 
-  // Compute current holdings for sell mode
   const holdings = useMemo(() => {
     if (!trades) return [];
     return computeHoldings(trades);
@@ -59,7 +59,6 @@ const AddTrade = () => {
 
   const symbolResolved = assetName.trim() !== "" && price.trim() !== "";
 
-  // Available shares for selected holding in sell mode
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
     const h = holdings.find((h) => h.symbol === selectedHolding);
@@ -100,7 +99,6 @@ const AddTrade = () => {
     };
   }, [symbol, tradeType]);
 
-  // When user selects a holding in sell mode, auto-fill fields and fetch quote
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
     const h = holdings.find((h) => h.symbol === sym);
@@ -111,7 +109,6 @@ const AddTrade = () => {
     setAssetType(h.asset_type);
     setPrice(String(h.avg_cost));
 
-    // Fetch live price
     setFetchingQuote(true);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-quote", {
@@ -145,7 +142,6 @@ const AddTrade = () => {
         ? parseFloat(amount) / parseFloat(price)
         : parseFloat(quantity);
 
-    // Validate sell quantity
     if (tradeType === "sell" && finalQuantity > availableShares) {
       toast.error(`You only have ${availableShares.toFixed(4)} shares available to sell.`);
       return;
@@ -221,7 +217,16 @@ const AddTrade = () => {
     setInputMode("shares");
   };
 
+  const handleMaxQuantity = () => {
+    if (inputMode === "shares") {
+      setQuantity(String(availableShares));
+    } else if (parseFloat(price) > 0) {
+      setAmount(String((availableShares * parseFloat(price)).toFixed(2)));
+    }
+  };
+
   const tradeTypeSelected = tradeType === "buy" || tradeType === "sell";
+  const canSell = holdings.length > 0;
 
   return (
     <div className={`max-w-lg mx-auto transition-all duration-700 ${flipped ? "py-8" : ""}`}>
@@ -248,319 +253,315 @@ const AddTrade = () => {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-0">
                   {/* Step 1: Trade Type */}
-                  <div className="space-y-3 border-l-2 border-primary/40 pl-4">
-                    <div className="flex items-center gap-2">
-                      <ArrowDownUp className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-bold">Trade Type</span>
-                    </div>
-                    <div className="flex gap-2">
+                  <div className="space-y-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 1</span>
+                    <div className="flex gap-3">
                       <button
                         type="button"
                         onClick={() => {
                           setTradeType("buy");
                           resetFields();
                         }}
-                        className={`flex-1 h-12 rounded-md text-sm font-semibold transition-all ${
+                        className={`flex-1 h-14 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
                           tradeType === "buy"
-                            ? "bg-gain text-gain-foreground shadow-sm ring-2 ring-gain/30"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            ? "border-[hsl(var(--gain))] bg-[hsl(var(--gain))]/10 text-[hsl(var(--gain))] shadow-md"
+                            : "border-border bg-card hover:border-[hsl(var(--gain))]/50 text-foreground"
                         }`}
                       >
+                        <ArrowDownLeft className="h-4 w-4" />
                         Buy
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTradeType("sell");
-                          resetFields();
-                        }}
-                        className={`flex-1 h-12 rounded-md text-sm font-semibold transition-all ${
-                          tradeType === "sell"
-                            ? "bg-loss text-loss-foreground shadow-sm ring-2 ring-loss/30"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
-                      >
-                        Sell
-                      </button>
-                    </div>
-                    {tradeType === "sell" && holdings.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No holdings to sell. Add a buy trade first.</p>
-                    )}
-                  </div>
-
-                  <Separator className="my-5" />
-
-                  {/* Step 2: Symbol / Holdings Picker */}
-                  <div
-                    className={`space-y-3 border-l-2 pl-4 transition-all duration-500 ${
-                      tradeTypeSelected ? "border-primary/40 opacity-100" : "border-muted opacity-30 pointer-events-none"
-                    }`}
-                  >
-                    {tradeType === "buy" ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <Search className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-bold">Symbol Lookup</span>
-                          {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                        </div>
-                        <Input
-                          placeholder="AAPL, BTC, MSFT..."
-                          value={symbol}
-                          onChange={(e) => setSymbol(e.target.value)}
-                          className="font-mono uppercase"
-                          required
-                        />
-                        {symbolResolved && (
-                          <p className="text-xs text-muted-foreground">
-                            Found: <span className="font-medium text-foreground">{assetName}</span> — $
-                            {parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                          </p>
-                        )}
-                      </>
-                    ) : tradeType === "sell" ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <Search className="h-4 w-4 text-primary" />
-                          <span className="text-sm font-bold">Select Asset to Sell</span>
-                          {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                        </div>
-                        <Select value={selectedHolding} onValueChange={handleHoldingSelect}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose an asset..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {holdings.map((h) => (
-                              <SelectItem key={h.symbol} value={h.symbol}>
-                                {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} shares)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {selectedHolding && symbolResolved && (
-                          <p className="text-xs text-muted-foreground">
-                            Current price: <span className="font-medium text-foreground">${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                            {" · "}{availableShares.toFixed(2)} shares available
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Search className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-bold text-muted-foreground">Select a trade type above</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator className="my-5" />
-
-                  {/* Asset Details */}
-                  <div
-                    className={`space-y-3 border-l-2 pl-4 transition-all duration-500 ${
-                      symbolResolved ? "border-primary/40 opacity-100" : "border-muted opacity-30 pointer-events-none"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-bold">Asset Details</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="assetName" className="text-xs text-muted-foreground">
-                          Asset Name
-                        </Label>
-                        <Input
-                          id="assetName"
-                          placeholder="Apple Inc."
-                          value={assetName}
-                          onChange={(e) => setAssetName(e.target.value)}
-                          disabled={!symbolResolved}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Asset Type</Label>
-                        <Select value={assetType} onValueChange={setAssetType} disabled={!symbolResolved}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="stock">Stock</SelectItem>
-                            <SelectItem value="etf">ETF</SelectItem>
-                            <SelectItem value="crypto">Crypto</SelectItem>
-                            <SelectItem value="bond">Bond</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!canSell) return;
+                                setTradeType("sell");
+                                resetFields();
+                              }}
+                              className={`flex-1 h-14 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
+                                !canSell
+                                  ? "border-border bg-card opacity-40 cursor-not-allowed text-muted-foreground"
+                                  : tradeType === "sell"
+                                  ? "border-[hsl(var(--loss))] bg-[hsl(var(--loss))]/10 text-[hsl(var(--loss))] shadow-md"
+                                  : "border-border bg-card hover:border-[hsl(var(--loss))]/50 text-foreground"
+                              }`}
+                            >
+                              <ArrowUpRight className="h-4 w-4" />
+                              Sell
+                            </button>
+                          </TooltipTrigger>
+                          {!canSell && (
+                            <TooltipContent>
+                              <p>Add a buy trade first</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
 
-                  <Separator className="my-5" />
-
-                  {/* Trade Details */}
-                  <div
-                    className={`space-y-3 border-l-2 pl-4 transition-all duration-500 ${
-                      symbolResolved ? "border-primary/40 opacity-100" : "border-muted opacity-30 pointer-events-none"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-bold">Trade Details</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
-                        <Switch
-                          checked={inputMode === "amount"}
-                          onCheckedChange={(checked) => {
-                            setInputMode(checked ? "amount" : "shares");
-                            setAmount("");
-                            setQuantity("");
-                          }}
-                          disabled={!symbolResolved}
-                          className="scale-75"
-                        />
-                        <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        {inputMode === "shares" ? (
-                          <div className="space-y-1.5">
-                            <Label htmlFor="quantity" className="text-xs text-muted-foreground">
-                              Shares
-                            </Label>
+                  {/* Step 2: Symbol / Holdings Picker — only shown after trade type selected */}
+                  {tradeTypeSelected && (
+                    <>
+                      <Separator className="my-5" />
+                      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 2</span>
+                        {tradeType === "buy" ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Search className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-bold">Symbol Lookup</span>
+                              {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                            </div>
                             <Input
-                              id="quantity"
-                              type="number"
-                              step="any"
-                              placeholder="10"
-                              value={quantity}
-                              onChange={(e) => setQuantity(e.target.value)}
-                              className="font-mono"
-                              disabled={!symbolResolved}
+                              placeholder="AAPL, BTC, MSFT..."
+                              value={symbol}
+                              onChange={(e) => setSymbol(e.target.value)}
+                              className="font-mono uppercase"
                               required
-                              max={tradeType === "sell" ? availableShares : undefined}
                             />
-                            {tradeType === "sell" && availableShares > 0 && (
+                            {symbolResolved && (
                               <p className="text-xs text-muted-foreground">
-                                Max: {availableShares.toFixed(4)} shares
+                                Found: <span className="font-medium text-foreground">{assetName}</span> — $
+                                {parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                               </p>
                             )}
-                          </div>
+                          </>
                         ) : (
-                          <div className="space-y-1.5">
-                            <Label htmlFor="amount" className="text-xs text-muted-foreground">
-                              Dollar Amount
-                            </Label>
-                            <Input
-                              id="amount"
-                              type="number"
-                              step="any"
-                              placeholder="1,500.00"
-                              value={amount}
-                              onChange={(e) => setAmount(e.target.value)}
-                              className="font-mono"
-                              disabled={!symbolResolved}
-                              required
-                              max={tradeType === "sell" && parseFloat(price) > 0 ? availableShares * parseFloat(price) : undefined}
-                            />
-                            {parseFloat(amount) > 0 && parseFloat(price) > 0 && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Search className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-bold">Select Asset to Sell</span>
+                              {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                            </div>
+                            <Select value={selectedHolding} onValueChange={handleHoldingSelect}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Choose an asset..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {holdings.map((h) => (
+                                  <SelectItem key={h.symbol} value={h.symbol}>
+                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} shares)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedHolding && symbolResolved && (
                               <p className="text-xs text-muted-foreground">
-                                ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} shares
-                                {tradeType === "sell" && ` / ${availableShares.toFixed(4)} available`}
+                                Current price: <span className="font-medium text-foreground">${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                {" · "}{availableShares.toFixed(2)} shares available
                               </p>
                             )}
-                          </div>
+                          </>
                         )}
-                        <div className="space-y-1.5">
-                          <Label htmlFor="price" className="text-xs text-muted-foreground">
-                            Price per Unit ($)
-                          </Label>
-                          <Input
-                            id="price"
-                            type="number"
-                            step="any"
-                            placeholder="150.00"
-                            value={price}
-                            onChange={(e) => setPrice(e.target.value)}
-                            className="font-mono"
-                            disabled={!symbolResolved}
-                            required
-                          />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Step 3: Asset Details + Trade Details — only shown after symbol resolved */}
+                  {tradeTypeSelected && symbolResolved && (
+                    <>
+                      <Separator className="my-5" />
+                      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3</span>
+                        <div className="flex items-center gap-2">
+                          <Tag className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-bold">Asset Details</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="assetName" className="text-xs text-muted-foreground">
+                              Asset Name
+                            </Label>
+                            <Input
+                              id="assetName"
+                              placeholder="Apple Inc."
+                              value={assetName}
+                              onChange={(e) => setAssetName(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Asset Type</Label>
+                            <Select value={assetType} onValueChange={setAssetType}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="stock">Stock</SelectItem>
+                                <SelectItem value="etf">ETF</SelectItem>
+                                <SelectItem value="crypto">Crypto</SelectItem>
+                                <SelectItem value="bond">Bond</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
-                          Trade Date
-                        </Label>
-                        <Input
-                          id="tradeDate"
-                          type="date"
-                          value={tradeDate}
-                          onChange={(e) => setTradeDate(e.target.value)}
-                          disabled={!symbolResolved}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="notes" className="text-xs text-muted-foreground">
-                          Notes (optional)
-                        </Label>
-                        <Textarea
-                          id="notes"
-                          placeholder="Earnings play, DCA, etc."
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          rows={2}
-                          disabled={!symbolResolved}
-                        />
-                      </div>
-                    </div>
-                  </div>
 
-                  <Separator className="my-5" />
+                      <Separator className="my-5" />
 
-                  {/* Order Summary */}
-                  <div className="space-y-3 border-l-2 border-muted pl-4">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-bold">Order Summary</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 text-sm">
-                      <span className="text-muted-foreground">Type:</span>
-                      <span className="text-right">
-                        {tradeType ? (
-                          <Badge className={tradeType === "buy" ? "bg-gain text-gain-foreground" : "bg-loss text-loss-foreground"}>
-                            {tradeType.toUpperCase()}
-                          </Badge>
-                        ) : (
-                          "—"
-                        )}
-                      </span>
-                      <span className="text-muted-foreground">Shares:</span>
-                      <span className="text-right font-mono">
-                        {computedQuantity > 0 ? computedQuantity.toFixed(4) : "—"}
-                      </span>
-                      <span className="text-muted-foreground">Price per Unit:</span>
-                      <span className="text-right font-mono">
-                        {price
-                          ? `$${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                          : "—"}
-                      </span>
-                      <span className="text-muted-foreground font-semibold">Total:</span>
-                      <span className="text-right font-mono font-bold text-foreground">
-                        {total > 0
-                          ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                          : "—"}
-                      </span>
-                    </div>
-                  </div>
+                      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-bold">Trade Details</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
+                            <Switch
+                              checked={inputMode === "amount"}
+                              onCheckedChange={(checked) => {
+                                setInputMode(checked ? "amount" : "shares");
+                                setAmount("");
+                                setQuantity("");
+                              }}
+                              className="scale-75"
+                            />
+                            <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            {inputMode === "shares" ? (
+                              <div className="space-y-1.5">
+                                <Label htmlFor="quantity" className="text-xs text-muted-foreground">
+                                  Shares
+                                </Label>
+                                <div className="flex gap-1.5">
+                                  <Input
+                                    id="quantity"
+                                    type="number"
+                                    step="any"
+                                    placeholder="10"
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(e.target.value)}
+                                    className="font-mono"
+                                    required
+                                    max={tradeType === "sell" ? availableShares : undefined}
+                                  />
+                                  {tradeType === "sell" && availableShares > 0 && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="shrink-0 text-xs h-10 px-2.5"
+                                      onClick={handleMaxQuantity}
+                                    >
+                                      Max
+                                    </Button>
+                                  )}
+                                </div>
+                                {tradeType === "sell" && availableShares > 0 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {availableShares.toFixed(4)} shares available
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <Label htmlFor="amount" className="text-xs text-muted-foreground">
+                                  Dollar Amount
+                                </Label>
+                                <div className="flex gap-1.5">
+                                  <Input
+                                    id="amount"
+                                    type="number"
+                                    step="any"
+                                    placeholder="1,500.00"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    className="font-mono"
+                                    required
+                                    max={tradeType === "sell" && parseFloat(price) > 0 ? availableShares * parseFloat(price) : undefined}
+                                  />
+                                  {tradeType === "sell" && availableShares > 0 && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="shrink-0 text-xs h-10 px-2.5"
+                                      onClick={handleMaxQuantity}
+                                    >
+                                      Max
+                                    </Button>
+                                  )}
+                                </div>
+                                {parseFloat(amount) > 0 && parseFloat(price) > 0 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} shares
+                                    {tradeType === "sell" && ` / ${availableShares.toFixed(4)} available`}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            <div className="space-y-1.5">
+                              <Label htmlFor="price" className="text-xs text-muted-foreground">
+                                Price per Unit ($)
+                              </Label>
+                              <Input
+                                id="price"
+                                type="number"
+                                step="any"
+                                placeholder="150.00"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                className="font-mono"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
+                              Trade Date
+                            </Label>
+                            <Input
+                              id="tradeDate"
+                              type="date"
+                              value={tradeDate}
+                              onChange={(e) => setTradeDate(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                              Notes (optional)
+                            </Label>
+                            <Textarea
+                              id="notes"
+                              placeholder="Earnings play, DCA, etc."
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Inline summary line */}
+                      {total > 0 && (
+                        <>
+                          <Separator className="my-5" />
+                          <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center">
+                            <span className="text-sm text-muted-foreground">
+                              {computedQuantity.toFixed(4)} shares × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
+                            </span>
+                            <span className="font-mono font-bold text-foreground">
+                              ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </form>
               </CardContent>
 
               {/* Footer */}
-              <div className="bg-muted rounded-b-lg p-4 flex items-center justify-between">
-                <span className="text-lg font-bold font-mono">
+              <div className="border-t border-border bg-card rounded-b-lg p-4 flex items-center justify-between">
+                <span className="text-lg font-bold font-mono text-foreground">
                   {total > 0
                     ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     : "$0.00"}
@@ -588,8 +589,8 @@ const AddTrade = () => {
             {submittedTrade && (
               <Card className="border-primary/30 overflow-hidden bg-gradient-to-br from-primary/10 to-card">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
-                  <div className="h-16 w-16 rounded-full bg-gain/20 flex items-center justify-center">
-                    <CheckCircle2 className="h-10 w-10 text-gain" />
+                  <div className="h-16 w-16 rounded-full bg-[hsl(var(--gain))]/20 flex items-center justify-center">
+                    <CheckCircle2 className="h-10 w-10 text-[hsl(var(--gain))]" />
                   </div>
 
                   <div className="space-y-1">
@@ -613,8 +614,8 @@ const AddTrade = () => {
                       <Badge
                         className={
                           submittedTrade.tradeType === "buy"
-                            ? "bg-gain text-gain-foreground"
-                            : "bg-loss text-loss-foreground"
+                            ? "bg-[hsl(var(--gain))] text-[hsl(var(--gain-foreground))]"
+                            : "bg-[hsl(var(--loss))] text-[hsl(var(--loss-foreground))]"
                         }
                       >
                         {submittedTrade.tradeType.toUpperCase()}
