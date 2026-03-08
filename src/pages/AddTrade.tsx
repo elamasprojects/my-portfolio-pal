@@ -350,7 +350,7 @@ const AddTrade = () => {
     setAmount("");
     setNotes("");
     setSelectedHolding("");
-    setInputMode("shares");
+    setInputMode("amount");
     setSelectedTagIds([]);
     setDividendAmount("");
   };
