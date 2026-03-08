@@ -162,7 +162,7 @@ export default function ExportReport() {
         {/* Allocation Chart */}
         {pieData.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Portfolio Allocation</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.portfolioAllocation")}</h3>
             <div className="flex items-center gap-6 flex-wrap">
               <div className="w-48 h-48">
                 <ResponsiveContainer width="100%" height="100%">
