@@ -26,6 +26,26 @@ const Index = () => {
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
 
+  // Live market prices
+  const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
+
+  const marketValue = useMemo(() => 
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      return s + (price ? price * h.net_quantity : h.total_invested);
+    }, 0),
+    [holdings, marketPrices]
+  );
+
+  const unrealizedPnl = useMemo(() => 
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      if (!price) return s;
+      return s + (price - h.avg_cost) * h.net_quantity;
+    }, 0),
+    [holdings, marketPrices]
+  );
+
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
 
