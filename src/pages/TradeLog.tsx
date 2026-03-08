@@ -294,7 +294,7 @@ const TradeLog = () => {
             </Table>
           ) : (
             <p className="text-muted-foreground text-sm text-center py-12">
-              {trades.length === 0 ? "No trades yet" : "No trades match your filters"}
+              {trades.length === 0 ? t("tradeLog.noTrades") : t("tradeLog.noMatch")}
             </p>
           )}
         </CardContent>
