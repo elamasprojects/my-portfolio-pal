@@ -219,7 +219,7 @@ export default function ExportReport() {
         {/* P&L by Symbol */}
         {performance.by_symbol.filter((s) => s.total_sells > 0 || s.dividends_received > 0).length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">P&L by Asset</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.pnlByAsset")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
