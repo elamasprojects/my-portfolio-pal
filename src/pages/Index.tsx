@@ -100,6 +100,22 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.marketValue")}</p>
+                <p className="text-2xl font-bold font-mono mt-1">
+                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : `$${marketValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <LineChartIcon className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
                 <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
                   {performance.total_realized_pnl >= 0 ? "+" : ""}
@@ -108,6 +124,31 @@ const Index = () => {
               </div>
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
                 {performance.total_realized_pnl >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-gain" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-loss" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.unrealizedPnl")}</p>
+                {pricesLoading ? (
+                  <Skeleton className="h-8 w-24 mt-1" />
+                ) : (
+                  <p className={`text-2xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                    {unrealizedPnl >= 0 ? "+" : ""}
+                    ${unrealizedPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${unrealizedPnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {unrealizedPnl >= 0 ? (
                   <TrendingUp className="h-5 w-5 text-gain" />
                 ) : (
                   <TrendingDown className="h-5 w-5 text-loss" />
@@ -153,7 +194,6 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
