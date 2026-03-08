@@ -35,6 +35,33 @@ export type Database = {
         }
         Relationships: []
       }
+      discipline_rules: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          rule_type: string
+          rule_value: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          rule_type: string
+          rule_value?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          rule_type?: string
+          rule_value?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       portfolios: {
         Row: {
           created_at: string
