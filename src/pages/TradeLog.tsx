@@ -311,7 +311,7 @@ const TradeLog = () => {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Delete
+            {t("common.delete")}
           </Button>
           {tags.length > 0 && (
             <Popover>
