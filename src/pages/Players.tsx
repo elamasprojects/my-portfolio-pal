@@ -482,6 +482,18 @@ export default function Players() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Cumulative PNL timeline */}
+              {playerCumulativePnl.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.cumulativePnl")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <CumulativePnlChart data={playerCumulativePnl} />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : null}
         </TabsContent>
