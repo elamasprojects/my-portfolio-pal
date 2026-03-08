@@ -15,6 +15,8 @@ import Performance from "./pages/Performance";
 import Timeline from "./pages/Timeline";
 import ReportCard from "./pages/ReportCard";
 import Achievements from "./pages/Achievements";
+import Discipline from "./pages/Discipline";
+import ExportReport from "./pages/ExportReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
