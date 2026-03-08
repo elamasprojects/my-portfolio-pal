@@ -98,7 +98,55 @@ export default function Players() {
     enabled: !!user && !!activePlayer?.id,
   });
 
-  // Leaderboards
+  // Fetch player's trades directly (RLS allows connected users)
+  const { data: playerTrades = [] } = useQuery({
+    queryKey: ["player-trades", activePlayer?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("trades")
+        .select("*")
+        .eq("user_id", activePlayer!.id)
+        .order("trade_date", { ascending: false });
+      return (data || []) as Trade[];
+    },
+    enabled: !!activePlayer?.id,
+  });
+
+  // Compute holdings for pie chart
+  const holdings = useMemo(() => computeHoldings(playerTrades), [playerTrades]);
+  const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.total_invested, 0), [holdings]);
+  const pieData = useMemo(() => 
+    holdings.map(h => ({
+      name: h.symbol,
+      value: totalInvested > 0 ? Math.round((h.total_invested / totalInvested) * 1000) / 10 : 0,
+      invested: h.total_invested,
+    })),
+    [holdings, totalInvested]
+  );
+
+  // Compute period PNL %
+  const periodPnl = useMemo(() => {
+    if (playerTrades.length === 0) return { pnl7d: null, pnl1m: null, pnl3m: null };
+    const now = new Date();
+    const perf = computePerformance(playerTrades);
+    const costBasis = perf.total_cost_basis > 0 ? perf.total_cost_basis : perf.by_symbol.reduce((s, sp) => s + (sp.avg_cost * (sp.open_quantity + sp.total_sells)), 0);
+    const totalInvestedForPct = costBasis > 0 ? costBasis : totalInvested;
+
+    const computePeriodPnl = (sinceDate: Date) => {
+      const periodTrades = playerTrades.filter(t => new Date(t.trade_date) >= sinceDate);
+      const perf = computePerformance(periodTrades);
+      const pnl = perf.total_realized_pnl + perf.total_dividends;
+      if (totalInvestedForPct <= 0) return null;
+      return Math.round((pnl / totalInvestedForPct) * 1000) / 10;
+    };
+
+    return {
+      pnl7d: computePeriodPnl(subDays(now, 7)),
+      pnl1m: computePeriodPnl(subMonths(now, 1)),
+      pnl3m: computePeriodPnl(subMonths(now, 3)),
+    };
+  }, [playerTrades, totalInvested]);
+
   const { data: leaderboards = [] } = useQuery({
     queryKey: ["my-leaderboards", user?.id],
     queryFn: async () => {
