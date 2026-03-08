@@ -9,8 +9,8 @@ import { useLanguage } from "@/i18n";
 
 export interface AchievementDef {
   key: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descKey: string;
   emoji: string;
   check: (ctx: AchievementContext) => boolean;
 }
