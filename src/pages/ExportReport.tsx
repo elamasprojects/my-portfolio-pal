@@ -45,7 +45,6 @@ export default function ExportReport() {
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [previewDark, setPreviewDark] = useState(theme === "dark");
-  const [previewDark, setPreviewDark] = useState(theme === "dark");
   const [exporting, setExporting] = useState(false);
 
   const holdings = useMemo(() => computeHoldings(trades), [trades]);
