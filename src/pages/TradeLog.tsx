@@ -221,7 +221,7 @@ const TradeLog = () => {
         )}
         <Button variant="outline" size="sm" onClick={() => handleExport(filtered)} className="ml-auto">
           <Download className="h-4 w-4 mr-1" />
-          Export CSV
+          {t("tradeLog.exportCsv")}
         </Button>
       </div>
 
