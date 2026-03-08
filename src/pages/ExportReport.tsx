@@ -254,7 +254,7 @@ export default function ExportReport() {
         {/* Recent Trades */}
         {recentTrades.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Recent Trades (Last 20)</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.recentTrades")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
