@@ -215,7 +215,7 @@ export default function ReportCard() {
           {stats && (
             <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
               <Download className="h-4 w-4 mr-1" />
-              {exporting ? "Exporting…" : "Download PNG"}
+              {exporting ? t("report.exporting") : t("report.downloadPng")}
             </Button>
           )}
         </div>
