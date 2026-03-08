@@ -89,6 +89,59 @@ export type Database = {
         }
         Relationships: []
       }
+      leaderboard_members: {
+        Row: {
+          id: string
+          invited_at: string
+          joined_at: string | null
+          leaderboard_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invited_at?: string
+          joined_at?: string | null
+          leaderboard_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invited_at?: string
+          joined_at?: string | null
+          leaderboard_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leaderboard_members_leaderboard_id_fkey"
+            columns: ["leaderboard_id"]
+            isOneToOne: false
+            referencedRelation: "leaderboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leaderboards: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       portfolios: {
         Row: {
           created_at: string
@@ -279,6 +332,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_leaderboard_rankings: {
+        Args: { _leaderboard_id: string }
+        Returns: Json
+      }
       get_player_summary: {
         Args: { _requester_id: string; _target_username: string }
         Returns: Json
