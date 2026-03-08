@@ -104,7 +104,7 @@ export default function Timeline() {
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Filters</span>
+              <span className="text-sm font-medium text-foreground">{t("timeline.filters")}</span>
             </div>
             <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
               <SelectTrigger className="w-[140px]">
