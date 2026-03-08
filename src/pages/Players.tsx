@@ -424,6 +424,7 @@ export default function Players() {
       <Tabs defaultValue="overview">
         <TabsList className="w-full">
           <TabsTrigger value="overview" className="flex-1">{t("social.overview")}</TabsTrigger>
+          <TabsTrigger value="compare" className="flex-1">{t("social.compare")}</TabsTrigger>
           <TabsTrigger value="leaderboard" className="flex-1">
             <Trophy className="h-4 w-4 mr-1" /> {t("social.leaderboard")}
           </TabsTrigger>
