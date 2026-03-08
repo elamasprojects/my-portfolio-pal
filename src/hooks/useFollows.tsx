@@ -91,5 +91,5 @@ export function useFollows() {
     },
   });
 
-  return { incomingRequests, sentRequests, sendRequest, respondToRequest };
+  return { incomingRequests, sentRequests, acceptedSentRequests, sendRequest, respondToRequest };
 }
