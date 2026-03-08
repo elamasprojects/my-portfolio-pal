@@ -362,6 +362,8 @@ const AddTrade = () => {
     setAmount("");
     setNotes("");
     setSelectedHolding("");
+    userEditedPrice.current = false;
+    userEditedName.current = false;
     setInputMode("amount");
     setSelectedTagIds([]);
     setDividendAmount("");
