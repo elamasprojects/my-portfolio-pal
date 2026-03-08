@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Moon, Sun, BarChart3, Trophy, FileDown, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,7 +40,7 @@ const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
   const navigate = useNavigate();
@@ -51,6 +52,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader className="p-2">
+        <button
+          onClick={() => toggleSidebar()}
+          className="flex items-center justify-center w-full rounded-md p-2 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+        >
+          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </SidebarHeader>
       <SidebarContent>
         <PortfolioSwitcher />
 
