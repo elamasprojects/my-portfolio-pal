@@ -392,6 +392,7 @@ export const en = {
   "social.totalTrades": "Total Trades",
   "social.totalInvested": "Total Invested",
   "social.holdingsCount": "Holdings",
+  "social.acceptedYourRequest": "Accepted your request",
 } as const;
 
 export type TranslationKey = keyof typeof en;

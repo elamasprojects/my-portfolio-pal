@@ -46,6 +46,24 @@ export function useFollows() {
     enabled: !!user,
   });
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: acceptedSentRequests = [] } = useQuery({
+    queryKey: ["follow-requests-accepted-sent", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("follow_requests")
+        .select("*")
+        .eq("requester_id", user.id)
+        .eq("status", "accepted")
+        .gte("updated_at", sevenDaysAgo)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data as FollowRequest[];
+    },
+    enabled: !!user,
+  });
+
   const sendRequest = useMutation({
     mutationFn: async (targetId: string) => {
       if (!user) throw new Error("Not authenticated");
@@ -73,5 +91,5 @@ export function useFollows() {
     },
   });
 
-  return { incomingRequests, sentRequests, sendRequest, respondToRequest };
+  return { incomingRequests, sentRequests, acceptedSentRequests, sendRequest, respondToRequest };
 }

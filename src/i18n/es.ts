@@ -394,4 +394,5 @@ export const es: Record<TranslationKey, string> = {
   "social.totalTrades": "Total Operaciones",
   "social.totalInvested": "Total Invertido",
   "social.holdingsCount": "Posiciones",
+  "social.acceptedYourRequest": "Aceptó tu solicitud",
 };
