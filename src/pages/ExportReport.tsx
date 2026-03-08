@@ -207,6 +207,8 @@ export default function ExportReport() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
               { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
+              { label: t("board.marketValue"), value: `$${marketValue.toFixed(2)}` },
+              { label: t("board.unrealizedPnl"), value: `${unrealizedPnl >= 0 ? "+" : ""}$${unrealizedPnl.toFixed(2)}`, positive: unrealizedPnl >= 0 },
               { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, positive: performance.total_realized_pnl >= 0 },
               { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
               { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },
