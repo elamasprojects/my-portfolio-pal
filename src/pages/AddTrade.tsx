@@ -809,9 +809,24 @@ const AddTrade = () => {
                                 </div>
                               ) : (
                                 <div className="space-y-1.5">
-                                  <Label htmlFor="amount" className="text-xs text-muted-foreground">
-                                    Dollar Amount
-                                  </Label>
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor="amount" className="text-xs text-muted-foreground">
+                                      Dollar Amount
+                                    </Label>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span>Shares</span>
+                                      <Switch
+                                        checked={inputMode === "amount"}
+                                        onCheckedChange={(checked) => {
+                                          setInputMode(checked ? "amount" : "shares");
+                                          setAmount("");
+                                          setQuantity("");
+                                        }}
+                                        className="scale-75"
+                                      />
+                                      <span className="text-foreground font-medium">Amount</span>
+                                    </div>
+                                  </div>
                                   <div className="flex gap-1.5">
                                     <Input
                                       id="amount"
