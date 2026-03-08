@@ -5,11 +5,12 @@ import { useAuth } from "./useAuth";
 import { Trade, Portfolio, computePerformance } from "./usePortfolio";
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
+import { useLanguage } from "@/i18n";
 
 export interface AchievementDef {
   key: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descKey: string;
   emoji: string;
   check: (ctx: AchievementContext) => boolean;
 }
@@ -30,81 +31,22 @@ export interface AchievementStatus {
 }
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
+  { key: "first_trade", titleKey: "achievements.first_trade.title", descKey: "achievements.first_trade.desc", emoji: "🚀", check: (ctx) => ctx.trades.length >= 1 },
+  { key: "ten_trades", titleKey: "achievements.ten_trades.title", descKey: "achievements.ten_trades.desc", emoji: "📈", check: (ctx) => ctx.trades.length >= 10 },
+  { key: "hundred_trades", titleKey: "achievements.hundred_trades.title", descKey: "achievements.hundred_trades.desc", emoji: "💯", check: (ctx) => ctx.trades.length >= 100 },
+  { key: "first_sell", titleKey: "achievements.first_sell.title", descKey: "achievements.first_sell.desc", emoji: "🔔", check: (ctx) => ctx.trades.some((t) => t.trade_type === "sell") },
   {
-    key: "first_trade",
-    title: "First Steps",
-    description: "Log your first trade",
-    emoji: "🚀",
-    check: (ctx) => ctx.trades.length >= 1,
+    key: "first_profit", titleKey: "achievements.first_profit.title", descKey: "achievements.first_profit.desc", emoji: "💰",
+    check: (ctx) => { const perf = computePerformance(ctx.trades); return perf.winning_sells > 0; },
   },
+  { key: "first_dividend", titleKey: "achievements.first_dividend.title", descKey: "achievements.first_dividend.desc", emoji: "🏦", check: (ctx) => ctx.trades.some((t) => t.trade_type === "dividend") },
+  { key: "diversified_3", titleKey: "achievements.diversified_3.title", descKey: "achievements.diversified_3.desc", emoji: "🌱", check: (ctx) => new Set(ctx.trades.map((t) => t.symbol)).size >= 3 },
+  { key: "diversified_5", titleKey: "achievements.diversified_5.title", descKey: "achievements.diversified_5.desc", emoji: "🌳", check: (ctx) => new Set(ctx.trades.map((t) => t.symbol)).size >= 5 },
+  { key: "multi_asset", titleKey: "achievements.multi_asset.title", descKey: "achievements.multi_asset.desc", emoji: "🧭", check: (ctx) => new Set(ctx.trades.map((t) => t.asset_type)).size >= 3 },
   {
-    key: "ten_trades",
-    title: "Getting Serious",
-    description: "Log 10 trades",
-    emoji: "📈",
-    check: (ctx) => ctx.trades.length >= 10,
-  },
-  {
-    key: "hundred_trades",
-    title: "Centurion",
-    description: "Log 100 trades",
-    emoji: "💯",
-    check: (ctx) => ctx.trades.length >= 100,
-  },
-  {
-    key: "first_sell",
-    title: "Closing Time",
-    description: "Complete your first sell",
-    emoji: "🔔",
-    check: (ctx) => ctx.trades.some((t) => t.trade_type === "sell"),
-  },
-  {
-    key: "first_profit",
-    title: "In the Green",
-    description: "Make a profitable sell",
-    emoji: "💰",
+    key: "profitable_month", titleKey: "achievements.profitable_month.title", descKey: "achievements.profitable_month.desc", emoji: "🏆",
     check: (ctx) => {
-      const perf = computePerformance(ctx.trades);
-      return perf.winning_sells > 0;
-    },
-  },
-  {
-    key: "first_dividend",
-    title: "Passive Income",
-    description: "Receive your first dividend",
-    emoji: "🏦",
-    check: (ctx) => ctx.trades.some((t) => t.trade_type === "dividend"),
-  },
-  {
-    key: "diversified_3",
-    title: "Spreading Out",
-    description: "Hold 3 different assets",
-    emoji: "🌱",
-    check: (ctx) => new Set(ctx.trades.map((t) => t.symbol)).size >= 3,
-  },
-  {
-    key: "diversified_5",
-    title: "Well Diversified",
-    description: "Trade 5 different assets",
-    emoji: "🌳",
-    check: (ctx) => new Set(ctx.trades.map((t) => t.symbol)).size >= 5,
-  },
-  {
-    key: "multi_asset",
-    title: "Asset Explorer",
-    description: "Trade across 3 asset types",
-    emoji: "🧭",
-    check: (ctx) => new Set(ctx.trades.map((t) => t.asset_type)).size >= 3,
-  },
-  {
-    key: "profitable_month",
-    title: "Monthly Win",
-    description: "Have a month with positive P&L",
-    emoji: "🏆",
-    check: (ctx) => {
-      const sorted = [...ctx.trades].sort(
-        (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
-      );
+      const sorted = [...ctx.trades].sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
       const positions = new Map<string, { qty: number; avgCost: number }>();
       const monthPnl = new Map<string, number>();
       for (const t of sorted) {
@@ -130,20 +72,8 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
       return Array.from(monthPnl.values()).some((v) => v > 0);
     },
   },
-  {
-    key: "tagged_trade",
-    title: "Strategist",
-    description: "Tag your first trade",
-    emoji: "🏷️",
-    check: (ctx) => ctx.tagAssignmentCount > 0,
-  },
-  {
-    key: "multi_portfolio",
-    title: "Portfolio Pro",
-    description: "Create a second portfolio",
-    emoji: "📂",
-    check: (ctx) => ctx.portfolios.length >= 2,
-  },
+  { key: "tagged_trade", titleKey: "achievements.tagged_trade.title", descKey: "achievements.tagged_trade.desc", emoji: "🏷️", check: (ctx) => ctx.tagAssignmentCount > 0 },
+  { key: "multi_portfolio", titleKey: "achievements.multi_portfolio.title", descKey: "achievements.multi_portfolio.desc", emoji: "📂", check: (ctx) => ctx.portfolios.length >= 2 },
 ];
 
 function useUnlockedAchievements() {
@@ -182,6 +112,7 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
   const { data: unlocked = [], isLoading } = useUnlockedAchievements();
   const unlock = useUnlockAchievement();
   const processedRef = useRef(new Set<string>());
+  const { t } = useLanguage();
 
   const ctx: AchievementContext = useMemo(
     () => ({ trades, portfolios, tagAssignmentCount }),
@@ -195,14 +126,14 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
       const record = unlocked.find((a) => a.achievement_key === def.key);
       return {
         key: def.key,
-        title: def.title,
-        description: def.description,
+        title: t(def.titleKey as any),
+        description: t(def.descKey as any),
         emoji: def.emoji,
         unlocked: !!record,
         unlockedAt: record?.unlocked_at || null,
       };
     });
-  }, [unlocked]);
+  }, [unlocked, t]);
 
   // Check for newly earned achievements and unlock them
   useEffect(() => {
@@ -216,11 +147,14 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
         processedRef.current.add(def.key);
         unlock.mutate(def.key);
 
+        const title = t(def.titleKey as any);
+        const description = t(def.descKey as any);
+
         // Celebrate!
         setTimeout(() => {
           toast({
-            title: `${def.emoji} Achievement Unlocked!`,
-            description: `${def.title} — ${def.description}`,
+            title: `${def.emoji} ${t("achievements.achievementUnlocked" as any)}`,
+            description: `${title} — ${description}`,
           });
           confetti({
             particleCount: 80,
@@ -230,7 +164,7 @@ export function useAchievements(trades: Trade[], portfolios: Portfolio[], tagAss
         }, 500);
       }
     }
-  }, [ctx, unlockedKeys, isLoading]);
+  }, [ctx, unlockedKeys, isLoading, t]);
 
   const progress = statuses.filter((s) => s.unlocked).length;
 
