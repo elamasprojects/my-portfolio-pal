@@ -27,6 +27,7 @@ const navItems = [
   { title: "Achievements", url: "/achievements", icon: Trophy },
   { title: "Discipline", url: "/discipline", icon: Shield },
   { title: "Export PDF", url: "/export", icon: FileDown },
+  { title: "Chess AI", url: "/chess", icon: Sparkles },
 ];
 
 export function AppSidebar() {
