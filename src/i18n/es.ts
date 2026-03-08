@@ -136,6 +136,15 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.bond": "Bono",
   "addTrade.other": "Otro",
   "addTrade.max": "Máx",
+  "addTrade.inputManual": "Manual",
+  "addTrade.inputScreenshot": "Desde Captura",
+  "addTrade.uploadScreenshot": "Sube una captura de pantalla de tu confirmación de operación",
+  "addTrade.tooltipHint": "Captura tu confirmación de operación así y súbela aquí. La IA extraerá todos los detalles automáticamente.",
+  "addTrade.analyzing": "Analizando imagen...",
+  "addTrade.analyzeError": "No se pudieron extraer los datos. Intenta de nuevo o ingresa manualmente.",
+  "addTrade.dropImage": "Arrastra la imagen aquí o haz clic para subir",
+  "addTrade.supportedFormats": "JPG, PNG, WEBP soportados",
+  "addTrade.max": "Máx",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
