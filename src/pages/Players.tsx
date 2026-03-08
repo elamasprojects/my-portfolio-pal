@@ -499,6 +499,99 @@ export default function Players() {
           ) : null}
         </TabsContent>
 
+        {/* ---- COMPARE TAB ---- */}
+        <TabsContent value="compare">
+          {activePlayer ? (
+            <div className="space-y-6">
+              {/* PNL % Comparison */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-muted-foreground">PNL %</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {(["7d", "1m", "3m"] as const).map((period) => {
+                    const myVal = myPeriodPnl[`pnl${period}` as keyof typeof myPeriodPnl];
+                    const theirVal = periodPnl[`pnl${period}` as keyof typeof periodPnl];
+                    const label = t(`social.pnl${period}` as any);
+                    return (
+                      <Card key={period}>
+                        <CardHeader className="pb-1 pt-3 px-3">
+                          <CardTitle className="text-xs text-muted-foreground font-normal">{label}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{t("social.you")}</span>
+                            <span className={`text-sm font-mono font-bold ${myVal === null ? "" : myVal >= 0 ? "text-green-500" : "text-red-500"}`}>
+                              {myVal !== null ? `${myVal >= 0 ? "+" : ""}${myVal}%` : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{activePlayer.username || t("social.them")}</span>
+                            <span className={`text-sm font-mono font-bold ${theirVal === null ? "" : theirVal >= 0 ? "text-green-500" : "text-red-500"}`}>
+                              {theirVal !== null ? `${theirVal >= 0 ? "+" : ""}${theirVal}%` : "—"}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Side-by-side pie charts */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.yourAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {myPieData.length > 0 ? <PortfolioPieChart data={myPieData} /> : <p className="text-sm text-muted-foreground text-center py-8">{t("social.noTradesYet")}</p>}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.theirAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    {pieData.length > 0 ? <PortfolioPieChart data={pieData} /> : <p className="text-sm text-muted-foreground text-center py-8">{t("social.noTradesYet")}</p>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Overlaid cumulative PNL */}
+              {comparisonData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.cumulativePnl")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <div className="w-full h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={comparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "hsl(var(--background))",
+                              border: "1px solid hsl(var(--border))",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                            }}
+                          />
+                          <Legend />
+                          <Line type="monotone" dataKey="you" name={t("social.you")} stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="them" name={activePlayer.username || t("social.them")} stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("social.noConnections")}</p>
+          )}
+        </TabsContent>
+
         {/* ---- LEADERBOARD TAB ---- */}
         <TabsContent value="leaderboard">
           <div className="space-y-4">
