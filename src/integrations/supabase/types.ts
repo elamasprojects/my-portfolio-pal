@@ -62,6 +62,33 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_requests: {
+        Row: {
+          created_at: string
+          id: string
+          requester_id: string
+          status: Database["public"]["Enums"]["follow_status"]
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: Database["public"]["Enums"]["follow_status"]
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       portfolios: {
         Row: {
           created_at: string
@@ -92,18 +119,48 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      shared_exports: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          portfolio_name: string
+          stats_json: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          portfolio_name: string
+          stats_json?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          portfolio_name?: string
+          stats_json?: Json
+          user_id?: string
         }
         Relationships: []
       }
@@ -222,6 +279,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_player_summary: {
+        Args: { _requester_id: string; _target_username: string }
+        Returns: Json
+      }
       owns_trade: {
         Args: { _trade_id: string; _user_id: string }
         Returns: boolean
@@ -229,6 +290,7 @@ export type Database = {
     }
     Enums: {
       asset_type: "stock" | "etf" | "crypto" | "bond" | "other"
+      follow_status: "pending" | "accepted" | "declined"
       trade_type: "buy" | "sell" | "dividend"
     }
     CompositeTypes: {
@@ -358,6 +420,7 @@ export const Constants = {
   public: {
     Enums: {
       asset_type: ["stock", "etf", "crypto", "bond", "other"],
+      follow_status: ["pending", "accepted", "declined"],
       trade_type: ["buy", "sell", "dividend"],
     },
   },

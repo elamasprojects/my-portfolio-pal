@@ -19,6 +19,10 @@ import Achievements from "./pages/Achievements";
 import Discipline from "./pages/Discipline";
 import ExportReport from "./pages/ExportReport";
 import Chess from "./pages/Chess";
+import Settings from "./pages/Settings";
+import Players from "./pages/Players";
+import PlayerProfile from "./pages/PlayerProfile";
+import SharedExport from "./pages/SharedExport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +50,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/share/:id" element={<SharedExport />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
               <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
@@ -58,6 +63,9 @@ const App = () => (
               <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
               <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
+              <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

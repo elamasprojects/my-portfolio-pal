@@ -1,8 +1,9 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, User } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, Users, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage, TranslationKey } from "@/i18n";
+import { useProfile } from "@/hooks/useProfile";
 import { PortfolioSwitcher } from "@/components/PortfolioSwitcher";
 import {
   Sidebar,
@@ -15,7 +16,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dropdown,
   DropdownTrigger,
@@ -36,18 +37,19 @@ const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.openingBook", url: "/discipline", icon: Shield },
   { titleKey: "nav.notation", url: "/export", icon: FileDown },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
+  { titleKey: "nav.players", url: "/players", icon: Users },
+  { titleKey: "nav.settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
+  const { profile } = useProfile();
 
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "U";
+  const initials = (profile?.username || profile?.display_name || "U").slice(0, 2).toUpperCase();
 
   return (
     <Sidebar collapsible="icon">
@@ -80,17 +82,13 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <Dropdown>
           <DropdownTrigger className="w-full">
-            <div className="flex items-center gap-2 w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
+            <div className="flex items-center justify-center w-full rounded-lg px-2 py-1.5 hover:bg-sidebar-accent transition-colors cursor-pointer">
               <Avatar className="h-8 w-8">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                 <AvatarFallback className="text-xs bg-primary/10 text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              {!collapsed && (
-                <span className="text-xs text-sidebar-foreground/70 truncate flex-1 text-left">
-                  {user?.email}
-                </span>
-              )}
             </div>
           </DropdownTrigger>
           <DropdownContent placement="top" align="start" sideOffset={2} className="w-56">

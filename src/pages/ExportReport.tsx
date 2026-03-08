@@ -1,18 +1,11 @@
 import { useRef, useState, useMemo } from "react";
-import { FileDown, Printer, Sun, Moon } from "lucide-react";
+import { FileDown, Printer, Sun, Moon, Share2 } from "lucide-react";
+import { FaXTwitter } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   useTrades,
   useActivePortfolio,
@@ -20,12 +13,16 @@ import {
   computePerformance,
 } from "@/hooks/usePortfolio";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/hooks/useTheme";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 import { useLanguage } from "@/i18n";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 
 const COLORS = [
   "hsl(42, 80%, 55%)",
@@ -38,18 +35,19 @@ const COLORS = [
 ];
 
 export default function ExportReport() {
-  const reportRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { data: trades = [] } = useTrades();
   const { portfolio } = useActivePortfolio();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [previewDark, setPreviewDark] = useState(theme === "dark");
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const holdings = useMemo(() => computeHoldings(trades), [trades]);
   const performance = useMemo(() => computePerformance(trades), [trades]);
-  const recentTrades = useMemo(() => trades.slice(0, 20), [trades]);
 
   const totalInvested = holdings.reduce((s, h) => s + h.total_invested, 0);
   const pieData = holdings.map((h) => ({
@@ -58,30 +56,84 @@ export default function ExportReport() {
   }));
 
   const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
+    if (!cardRef.current) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
+      const canvas = await html2canvas(cardRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: previewDark ? "#1a1a20" : "#f0f0f2",
       });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+        orientation: "landscape",
         unit: "px",
         format: [canvas.width, canvas.height],
       });
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save(`portfolio-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      pdf.save(`portfolio-card-${format(new Date(), "yyyy-MM-dd")}.pdf`);
     } finally {
       setExporting(false);
     }
   };
 
-  const handlePrint = () => window.print();
+  const handleShareToX = async () => {
+    if (!cardRef.current || !user) return;
+    setSharing(true);
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: previewDark ? "#1a1a20" : "#f0f0f2",
+      });
 
-  const bgClass = previewDark ? "dark" : "";
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), "image/png");
+      });
+
+      const path = `${user.id}/${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from("exports")
+        .upload(path, blob, { contentType: "image/png" });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("exports")
+        .getPublicUrl(path);
+
+      const { data: exportRecord, error: insertError } = await supabase
+        .from("shared_exports")
+        .insert({
+          user_id: user.id,
+          image_url: publicUrl,
+          portfolio_name: portfolio?.name || "Portfolio",
+          stats_json: {
+            total_invested: totalInvested,
+            realized_pnl: performance.total_realized_pnl,
+            win_rate: performance.win_rate,
+            dividends: performance.total_dividends,
+            holdings_count: holdings.length,
+          },
+        })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+
+      const shareUrl = `${window.location.origin}/share/${exportRecord.id}`;
+      const tweetText = encodeURIComponent(
+        `Check out my ${portfolio?.name || "Portfolio"} performance! 📊♟️`
+      );
+      window.open(
+        `https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(shareUrl)}`,
+        "_blank"
+      );
+      toast.success("Share link created!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to share");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -99,74 +151,81 @@ export default function ExportReport() {
             <Switch checked={previewDark} onCheckedChange={setPreviewDark} />
             <Moon className="h-4 w-4 text-muted-foreground" />
           </div>
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-1" /> {t("export.print")}
-          </Button>
-          <Button size="sm" onClick={handleDownloadPDF} disabled={exporting}>
+          <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={exporting}>
             <FileDown className="h-4 w-4 mr-1" />
             {exporting ? t("export.generating") : t("export.downloadPdf")}
+          </Button>
+          <Button size="sm" onClick={handleShareToX} disabled={sharing}>
+            <FaXTwitter className="h-4 w-4 mr-1" />
+            {sharing ? t("export.sharing") : t("export.shareToX")}
           </Button>
         </div>
       </div>
 
-      {/* Report Preview */}
+      {/* Shareable Card — 1200x630 aspect ratio for Twitter */}
       <div
-        ref={reportRef}
-        className={`rounded-xl border border-border p-8 space-y-8 ${bgClass}`}
+        ref={cardRef}
+        className="rounded-xl border border-border overflow-hidden"
         style={{
+          aspectRatio: "1200 / 630",
           background: previewDark ? "#1a1a20" : "#f0f0f2",
           color: previewDark ? "#fafafa" : "#1a1a20",
         }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
-          <div>
-            <h2 className="text-xl font-bold">{portfolio?.name || "Portfolio"} {t("export.report")}</h2>
-            <p className="text-sm opacity-60">{user?.email}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-medium">{format(new Date(), "MMMM d, yyyy")}</p>
-            <p className="text-xs opacity-60">{trades.length} {t("export.totalTrades")}</p>
-          </div>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
-            { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, color: performance.total_realized_pnl >= 0 },
-            { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
-            { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-lg p-4 text-center"
-              style={{ background: previewDark ? "#252530" : "#ffffff" }}
-            >
-              <p className="text-xs opacity-60 mb-1">{stat.label}</p>
-              <p
-                className="text-lg font-bold font-mono"
-                style={
-                  stat.color !== undefined
-                    ? { color: stat.color ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }
-                    : {}
-                }
-              >
-                {stat.value}
-              </p>
+        <div className="h-full flex flex-col p-8">
+          {/* Card Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                <AvatarFallback className="text-xs" style={{ background: previewDark ? "#333" : "#ddd" }}>
+                  {(profile?.username || profile?.display_name || "U").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-bold text-sm">{profile?.username || profile?.display_name || "Trader"}</p>
+                <p className="text-xs opacity-60">{portfolio?.name || "Portfolio"} • {format(new Date(), "MMM d, yyyy")}</p>
+              </div>
             </div>
-          ))}
-        </div>
+            <p className="text-xs opacity-40 font-mono">♟ Chess</p>
+          </div>
 
-        {/* Allocation Chart */}
-        {pieData.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.portfolioAllocation")}</h3>
-            <div className="flex items-center gap-6 flex-wrap">
-              <div className="w-48 h-48">
-                <ResponsiveContainer width="100%" height="100%">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            {[
+              { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
+              { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, positive: performance.total_realized_pnl >= 0 },
+              { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
+              { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-lg p-4 text-center"
+                style={{ background: previewDark ? "#252530" : "#ffffff" }}
+              >
+                <p className="text-[10px] opacity-60 mb-1">{stat.label}</p>
+                <p
+                  className="text-lg font-bold font-mono"
+                  style={
+                    stat.positive !== undefined
+                      ? { color: stat.positive ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }
+                      : {}
+                  }
+                >
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Allocation + Holdings */}
+          <div className="flex-1 flex gap-6 min-h-0">
+            {pieData.length > 0 && (
+              <div className="flex-shrink-0 w-40">
+                <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.portfolioAllocation")}</p>
+                <ResponsiveContainer width="100%" height={140}>
                   <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} strokeWidth={0}>
+                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} strokeWidth={0}>
                       {pieData.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
@@ -175,121 +234,33 @@ export default function ExportReport() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {pieData.map((d, i) => (
-                  <Badge key={d.name} variant="outline" style={{ borderColor: COLORS[i % COLORS.length], color: COLORS[i % COLORS.length] }}>
-                    {d.name}: ${d.value.toFixed(0)}
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {holdings.slice(0, 12).map((h, i) => (
+                  <Badge
+                    key={h.symbol}
+                    variant="outline"
+                    className="text-[10px]"
+                    style={{ borderColor: COLORS[i % COLORS.length], color: COLORS[i % COLORS.length] }}
+                  >
+                    {h.symbol}: ${h.total_invested.toFixed(0)}
                   </Badge>
                 ))}
+                {holdings.length > 12 && (
+                  <Badge variant="outline" className="text-[10px] opacity-60">
+                    +{holdings.length - 12} more
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
-        )}
 
-        {/* Holdings Table */}
-        {holdings.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.holdings")}</h3>
-            <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Avg Cost</TableHead>
-                    <TableHead className="text-right">Invested</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {holdings.map((h) => (
-                    <TableRow key={h.symbol}>
-                      <TableCell className="font-medium">{h.symbol}</TableCell>
-                      <TableCell className="text-right font-mono">{h.net_quantity}</TableCell>
-                      <TableCell className="text-right font-mono">${h.avg_cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${h.total_invested.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          {/* Footer */}
+          <div className="text-center text-[10px] opacity-30 mt-4 pt-3 border-t" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
+            {t("export.generatedBy")} • {format(new Date(), "yyyy-MM-dd")}
           </div>
-        )}
-
-        {/* P&L by Symbol */}
-        {performance.by_symbol.filter((s) => s.total_sells > 0 || s.dividends_received > 0).length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.pnlByAsset")}</h3>
-            <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead className="text-right">Realized P&L</TableHead>
-                    <TableHead className="text-right">Dividends</TableHead>
-                    <TableHead className="text-right">Total Return</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {performance.by_symbol
-                    .filter((s) => s.total_sells > 0 || s.dividends_received > 0)
-                    .map((s) => (
-                      <TableRow key={s.symbol}>
-                        <TableCell className="font-medium">{s.symbol}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ color: s.realized_pnl >= 0 ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }}>
-                          ${s.realized_pnl.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">${s.dividends_received.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono" style={{ color: s.total_return >= 0 ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }}>
-                          ${s.total_return.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
-
-        {/* Recent Trades */}
-        {recentTrades.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.recentTrades")}</h3>
-            <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentTrades.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="text-xs">{format(new Date(t.trade_date), "MMM d, yy")}</TableCell>
-                      <TableCell className="font-medium">{t.symbol}</TableCell>
-                      <TableCell>
-                        <Badge variant={t.trade_type === "buy" ? "default" : t.trade_type === "sell" ? "destructive" : "secondary"} className="text-xs">
-                          {t.trade_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">{t.quantity}</TableCell>
-                      <TableCell className="text-right font-mono">${t.price_per_unit.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${(t.quantity * t.price_per_unit).toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="text-center text-xs opacity-40 pt-4 border-t" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
-          {t("export.generatedBy")} • {format(new Date(), "yyyy-MM-dd HH:mm")}
         </div>
       </div>
     </div>
