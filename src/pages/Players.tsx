@@ -398,6 +398,7 @@ export default function Players() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{t("social.createLeaderboard")}</DialogTitle>
+                  <DialogDescription>{t("social.leaderboardName")}</DialogDescription>
                 </DialogHeader>
                 <Input
                   placeholder={t("social.leaderboardName")}
