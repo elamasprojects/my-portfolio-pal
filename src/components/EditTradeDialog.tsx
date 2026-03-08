@@ -41,6 +41,7 @@ interface EditTradeDialogProps {
 
 export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: allTags = [] } = useTags();
   const { data: assignments = [] } = useTradeTagAssignments(trade ? [trade.id] : []);
   const assignTag = useAssignTag();
