@@ -759,9 +759,24 @@ const AddTrade = () => {
                             <div className="grid grid-cols-2 gap-3">
                               {inputMode === "shares" ? (
                                 <div className="space-y-1.5">
-                                  <Label htmlFor="quantity" className="text-xs text-muted-foreground">
-                                    Shares
-                                  </Label>
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor="quantity" className="text-xs text-muted-foreground">
+                                      Shares
+                                    </Label>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span className="text-foreground font-medium">Shares</span>
+                                      <Switch
+                                        checked={inputMode === "amount"}
+                                        onCheckedChange={(checked) => {
+                                          setInputMode(checked ? "amount" : "shares");
+                                          setAmount("");
+                                          setQuantity("");
+                                        }}
+                                        className="scale-75"
+                                      />
+                                      <span>Amount</span>
+                                    </div>
+                                  </div>
                                   <div className="flex gap-1.5">
                                     <Input
                                       id="quantity"
