@@ -61,6 +61,7 @@ function downloadCSV(content: string, filename: string) {
 }
 
 const TradeLog = () => {
+  const { t } = useLanguage();
   const { data: trades = [], isLoading } = useTrades();
   const { data: tags = [] } = useTags();
   const queryClient = useQueryClient();
