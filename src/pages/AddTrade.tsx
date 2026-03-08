@@ -193,11 +193,11 @@ const AddTrade = () => {
         if (!error && data) {
           // If data came from screenshot, only update asset name — preserve AI-extracted price/date
           if (fromScreenshotRef.current) {
-            if (data.name) setAssetName(data.name);
+            if (data.name && !userEditedName.current) setAssetName(data.name);
             fromScreenshotRef.current = false;
           } else {
-            if (data.price > 0) setPrice(String(data.price));
-            if (data.name) setAssetName(data.name);
+            if (data.price > 0 && !userEditedPrice.current) setPrice(String(data.price));
+            if (data.name && !userEditedName.current) setAssetName(data.name);
           }
         }
       } catch {
