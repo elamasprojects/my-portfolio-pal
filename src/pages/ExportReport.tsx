@@ -27,13 +27,13 @@ import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 
 const COLORS = [
-  "hsl(328, 85%, 70%)",
-  "hsl(351, 94%, 71%)",
-  "hsl(327, 87%, 81%)",
-  "hsl(352, 95%, 81%)",
-  "hsl(240, 3%, 46%)",
-  "hsl(174, 62%, 40%)",
-  "hsl(40, 90%, 50%)",
+  "hsl(42, 80%, 55%)",
+  "hsl(152, 55%, 45%)",
+  "hsl(220, 8%, 60%)",
+  "hsl(30, 60%, 50%)",
+  "hsl(220, 10%, 35%)",
+  "hsl(42, 60%, 70%)",
+  "hsl(152, 40%, 60%)",
 ];
 
 export default function ExportReport() {
