@@ -225,7 +225,7 @@ export default function ReportCard() {
         <Card>
           <CardContent className="py-16 text-center">
             <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground">No trades yet to generate a report card.</p>
+            <p className="text-muted-foreground">{t("report.noTrades")}</p>
           </CardContent>
         </Card>
       ) : (
