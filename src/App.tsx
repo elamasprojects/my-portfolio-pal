@@ -51,6 +51,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/install" element={<Install />} />
               <Route path="/share/:id" element={<SharedExport />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
