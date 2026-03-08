@@ -197,7 +197,7 @@ function downloadTemplate() {
 // --- Component ---
 const ImportTrades = () => {
   const { user } = useAuth();
-  const { data: portfolio } = useDefaultPortfolio();
+  const { portfolio } = useActivePortfolio();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
