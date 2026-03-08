@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useDefaultPortfolio } from "@/hooks/usePortfolio";
+import { useActivePortfolio } from "@/hooks/usePortfolio";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -197,7 +197,7 @@ function downloadTemplate() {
 // --- Component ---
 const ImportTrades = () => {
   const { user } = useAuth();
-  const { data: portfolio } = useDefaultPortfolio();
+  const { portfolio } = useActivePortfolio();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
