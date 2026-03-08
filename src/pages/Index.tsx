@@ -366,7 +366,7 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
-      )
+      )}
 
       {/* Recent Trades */}
       <Card>
