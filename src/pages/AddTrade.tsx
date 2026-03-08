@@ -182,8 +182,14 @@ const AddTrade = () => {
           body: { symbol: symbol.trim() },
         });
         if (!error && data) {
-          if (data.price > 0) setPrice(String(data.price));
-          if (data.name) setAssetName(data.name);
+          // If data came from screenshot, only update asset name — preserve AI-extracted price/date
+          if (fromScreenshotRef.current) {
+            if (data.name) setAssetName(data.name);
+            fromScreenshotRef.current = false;
+          } else {
+            if (data.price > 0) setPrice(String(data.price));
+            if (data.name) setAssetName(data.name);
+          }
         }
       } catch {
       } finally {
