@@ -280,7 +280,7 @@ const AddTrade = () => {
         trade_type: tradeType as any,
         quantity: finalQuantity,
         price_per_unit: finalPrice,
-        total_amount: finalTotal,
+        
         trade_date: new Date(tradeDate).toISOString(),
         notes: notes || null,
       }).select("id").single();
