@@ -189,7 +189,7 @@ export default function Discipline() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                   <CardTitle className="text-sm font-medium">
-                    Violations ({discipline.violations.length})
+                    {t("discipline.violationsTitle")} ({discipline.violations.length})
                   </CardTitle>
                 </div>
                 {violationsOpen ? (

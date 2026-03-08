@@ -275,7 +275,9 @@ export default function ReportCard() {
                   <Card className="border-border">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
+                        <Star className="h-4 w-4 text-primary" />
                         <span className="text-sm font-medium text-foreground">{t("report.bestTrade")}</span>
+                      </div>
                       <p className="text-lg font-bold text-foreground">{stats.bestTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--gain))" }}>
                         +${stats.bestTrade.pnl.toFixed(2)}
@@ -287,7 +289,9 @@ export default function ReportCard() {
                   <Card className="border-border">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
+                        <TrendingDown className="h-4 w-4 text-destructive" />
                         <span className="text-sm font-medium text-foreground">{t("report.worstTrade")}</span>
+                      </div>
                       <p className="text-lg font-bold text-foreground">{stats.worstTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--loss))" }}>
                         ${stats.worstTrade.pnl.toFixed(2)}
@@ -298,7 +302,9 @@ export default function ReportCard() {
                 <Card className="border-border">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium text-foreground">{t("report.mostTraded")}</span>
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">{t("report.mostTraded")}</span>
+                    </div>
                     <p className="text-lg font-bold text-foreground">{stats.mostTradedAsset}</p>
                     <p className="text-sm text-muted-foreground">{t("report.byTradeCount")}</p>
                   </CardContent>
