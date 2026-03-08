@@ -230,8 +230,8 @@ const AddTrade = () => {
         body: { symbol: sym },
       });
       if (!error && data) {
-        if (data.price > 0) setPrice(String(data.price));
-        if (data.name) setAssetName(data.name);
+        if (data.price > 0 && !userEditedPrice.current) setPrice(String(data.price));
+        if (data.name && !userEditedName.current) setAssetName(data.name);
       }
     } catch {
     } finally {
