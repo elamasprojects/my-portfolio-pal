@@ -395,6 +395,9 @@ export const en = {
   "social.totalInvested": "Total Invested",
   "social.holdingsCount": "Holdings",
   "social.acceptedYourRequest": "Accepted your request",
+  "social.myConnections": "My Connections",
+  "social.noConnections": "No connections yet.",
+  "social.search": "Search",
 } as const;
 
 export type TranslationKey = keyof typeof en;
