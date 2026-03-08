@@ -137,8 +137,8 @@ const Index = () => {
                     </Pie>
                     <Tooltip
                       formatter={(value: number) => `$${value.toFixed(2)}`}
-                      contentStyle={{ background: "hsl(222, 47%, 8%)", border: "1px solid hsl(222, 30%, 16%)", borderRadius: "8px" }}
-                      itemStyle={{ color: "hsl(210, 40%, 95%)" }}
+                      contentStyle={{ background: "hsl(226, 16%, 19%)", border: "1px solid hsl(226, 16%, 19%)", borderRadius: "4px" }}
+                      itemStyle={{ color: "hsl(227, 14%, 84%)" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>

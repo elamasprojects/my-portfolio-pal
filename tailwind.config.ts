@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Trebuchet MS", "Lucida Grande", "Lucida Sans Unicode", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {

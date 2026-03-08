@@ -59,7 +59,7 @@ const Auth = () => {
             <TrendingUp className="h-8 w-8" />
             <span className="text-2xl font-bold tracking-tight text-foreground">Portfolio Tracker</span>
           </div>
-          <p className="text-muted-foreground text-sm">Track your investments, maximize your returns</p>
+          <p className="text-muted-foreground text-sm">Look first. Then leap.</p>
         </div>
 
         <Card className="border-border/50 bg-card/80 backdrop-blur">
