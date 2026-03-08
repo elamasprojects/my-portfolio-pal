@@ -55,12 +55,14 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {navItems.map((item) => {
+                const useEnd = item.url === "/" || !item.url.match(/^\/(add|analysis|progress)$/);
+                return (
                 <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end
+                      end={useEnd}
                       className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                     >
@@ -69,7 +71,8 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
