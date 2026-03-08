@@ -82,17 +82,17 @@ export default function Players() {
 
   // Fetch selected player summary
   const { data: playerSummary, isLoading: loadingSummary } = useQuery({
-    queryKey: ["player-summary", activePlayer?.username],
+    queryKey: ["player-summary", activePlayer?.id],
     queryFn: async () => {
-      if (!user || !activePlayer?.username) return null;
-      const { data, error } = await supabase.rpc("get_player_summary", {
+      if (!user || !activePlayer?.id) return null;
+      const { data, error } = await supabase.rpc("get_player_summary_by_id" as any, {
         _requester_id: user.id,
-        _target_username: activePlayer.username,
+        _target_id: activePlayer.id,
       });
       if (error) throw error;
       return data as any;
     },
-    enabled: !!user && !!activePlayer?.username,
+    enabled: !!user && !!activePlayer?.id,
   });
 
   // Leaderboards
