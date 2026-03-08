@@ -12,6 +12,7 @@ import {
   computeHoldings,
   computePerformance,
 } from "@/hooks/usePortfolio";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/hooks/useTheme";
