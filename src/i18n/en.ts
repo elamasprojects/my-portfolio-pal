@@ -25,7 +25,7 @@ export const en = {
   "nav.scoreSheet": "Score Sheet",
   "nav.titles": "Titles",
   "nav.openingBook": "Opening Book",
-  "nav.notation": "Notation",
+  "nav.notation": "Portfolio",
   "nav.chess": "Chess",
   "nav.players": "Players",
   "nav.settings": "Settings",
