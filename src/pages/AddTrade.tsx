@@ -98,6 +98,8 @@ const AddTrade = () => {
         if (data.price_per_unit) setPrice(String(data.price_per_unit));
         if (data.trade_date) setTradeDate(data.trade_date);
 
+        // Mark as from screenshot so quote fetch only updates asset name
+        fromScreenshotRef.current = true;
         // Switch to manual mode for review
         setEntryMode("manual");
         toast.success("Trade data extracted! Review and submit.");
