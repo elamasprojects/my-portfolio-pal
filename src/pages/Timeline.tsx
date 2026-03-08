@@ -54,6 +54,7 @@ export default function Timeline() {
   const { activeId } = useActivePortfolio();
   const { data: trades = [], isLoading } = useTrades(activeId || undefined);
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>("all");
   const [tradeTypeFilter, setTradeTypeFilter] = useState<string>("all");
 
