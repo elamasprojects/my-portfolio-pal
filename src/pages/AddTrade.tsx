@@ -44,6 +44,7 @@ const AddTrade = () => {
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fromScreenshotRef = useRef(false);
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
