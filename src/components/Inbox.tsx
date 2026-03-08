@@ -1,8 +1,10 @@
+import { useState, useCallback, useEffect } from "react";
 import { Bell, Check, X, UserCheck } from "lucide-react";
 import { useFollows } from "@/hooks/useFollows";
 import { useLanguage } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,9 +17,34 @@ interface Profile {
   username: string | null;
 }
 
+function getStorageKey(userId: string) {
+  return `inbox-read-ids-${userId}`;
+}
+
+function loadReadIds(userId: string | undefined): Set<string> {
+  if (!userId) return new Set();
+  try {
+    const raw = localStorage.getItem(getStorageKey(userId));
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadIds(userId: string, ids: Set<string>) {
+  localStorage.setItem(getStorageKey(userId), JSON.stringify([...ids]));
+}
+
 export function Inbox() {
+  const { user } = useAuth();
   const { incomingRequests, acceptedSentRequests, respondToRequest } = useFollows();
   const { t } = useLanguage();
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds(user?.id));
+
+  // Re-sync when user changes
+  useEffect(() => {
+    setReadIds(loadReadIds(user?.id));
+  }, [user?.id]);
 
   // Fetch profiles for incoming requesters
   const requesterIds = incomingRequests.map((r) => r.requester_id);
@@ -65,16 +92,32 @@ export function Inbox() {
     );
   };
 
+  const allIds = [
+    ...incomingRequests.map((r) => r.id),
+    ...acceptedSentRequests.map((r) => r.id),
+  ];
+  const unreadCount = allIds.filter((id) => !readIds.has(id)).length;
   const totalCount = incomingRequests.length + acceptedSentRequests.length;
 
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && user?.id && allIds.length > 0) {
+        const merged = new Set([...readIds, ...allIds]);
+        setReadIds(merged);
+        saveReadIds(user.id, merged);
+      }
+    },
+    [user?.id, allIds, readIds]
+  );
+
   return (
-    <Popover>
+    <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4 text-muted-foreground" />
-          {totalCount > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-              {totalCount}
+              {unreadCount}
             </span>
           )}
         </Button>
@@ -87,8 +130,9 @@ export function Inbox() {
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {incomingRequests.map((req) => {
               const profile = getRequesterProfile(req.requester_id);
+              const isRead = readIds.has(req.id);
               return (
-                <div key={req.id} className="flex items-center gap-3">
+                <div key={req.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
                   <Avatar className="h-8 w-8">
                     {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                     <AvatarFallback className="text-xs">
@@ -124,8 +168,9 @@ export function Inbox() {
             })}
             {acceptedSentRequests.map((req) => {
               const profile = getAcceptedProfile(req.target_id);
+              const isRead = readIds.has(req.id);
               return (
-                <div key={req.id} className="flex items-center gap-3">
+                <div key={req.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
                   <Avatar className="h-8 w-8">
                     {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                     <AvatarFallback className="text-xs">
