@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
@@ -58,6 +59,24 @@ const AddTrade = () => {
 
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
+
+  // URL params pre-fill (for duplicate trade)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    if (prefillApplied.current) return;
+    const pSymbol = searchParams.get("symbol");
+    if (!pSymbol) return;
+    prefillApplied.current = true;
+    const pType = searchParams.get("type") || "buy";
+    setTradeType(pType);
+    setSymbol(pSymbol);
+    setAssetName(searchParams.get("name") || "");
+    setAssetType(searchParams.get("asset") || "stock");
+    setPrice(searchParams.get("price") || "");
+    setNotes(searchParams.get("notes") || "");
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const holdings = useMemo(() => {
     if (!trades) return [];

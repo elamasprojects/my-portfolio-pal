@@ -29,8 +29,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, Copy } from "lucide-react";
 
 interface EditTradeDialogProps {
   trade: Trade | null;
@@ -40,6 +41,7 @@ interface EditTradeDialogProps {
 
 export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: allTags = [] } = useTags();
   const { data: assignments = [] } = useTradeTagAssignments(trade ? [trade.id] : []);
   const assignTag = useAssignTag();
@@ -257,6 +259,25 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
           </AlertDialog>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  symbol: trade.symbol,
+                  name: trade.asset_name,
+                  type: trade.trade_type,
+                  asset: trade.asset_type,
+                  price: String(trade.price_per_unit),
+                  ...(trade.notes ? { notes: trade.notes } : {}),
+                });
+                onOpenChange(false);
+                navigate(`/add?${params.toString()}`);
+              }}
+            >
+              <Copy className="h-4 w-4 mr-1" />
+              Duplicate
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}

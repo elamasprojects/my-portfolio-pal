@@ -1,9 +1,10 @@
-import { useTrades, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
+import { useMemo } from "react";
+import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
@@ -19,6 +20,7 @@ const Index = () => {
   const navigate = useNavigate();
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
+  const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
@@ -310,6 +312,56 @@ const Index = () => {
                     ))}
                   </Bar>
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Cumulative P&L Over Time */}
+      {cumulativePnL.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">P&L Over Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={cumulativePnL} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                  <defs>
+                    <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--gain))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--gain))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `$${v}`}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                  <Tooltip
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Cumulative P&L"]}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cumulative_pnl"
+                    stroke="hsl(var(--gain))"
+                    fill="url(#pnlGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>

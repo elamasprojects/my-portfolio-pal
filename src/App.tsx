@@ -11,6 +11,7 @@ import AddTrade from "./pages/AddTrade";
 import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
 import ImportTrades from "./pages/ImportTrades";
+import Performance from "./pages/Performance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
             <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
             <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
+            <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
