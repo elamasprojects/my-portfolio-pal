@@ -127,7 +127,7 @@ export default function ExportReport() {
           </div>
           <div className="text-right">
             <p className="text-sm font-medium">{format(new Date(), "MMMM d, yyyy")}</p>
-            <p className="text-xs opacity-60">{trades.length} total trades</p>
+            <p className="text-xs opacity-60">{trades.length} {t("export.totalTrades")}</p>
           </div>
         </div>
 
