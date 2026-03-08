@@ -303,7 +303,7 @@ const TradeLog = () => {
       {/* Floating bulk action bar */}
       {selectionMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-popover border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <span className="text-sm font-medium">{selectedIds.size} {t("common.selected")}</span>
           <div className="h-5 w-px bg-border" />
           <Button
             variant="destructive"
