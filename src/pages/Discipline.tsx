@@ -171,7 +171,7 @@ export default function Discipline() {
                 </div>
                 {result.violations_count > 0 && (
                   <Badge variant="destructive" className="text-xs">
-                    {result.violations_count} violation{result.violations_count > 1 ? "s" : ""}
+                    {result.violations_count} {result.violations_count > 1 ? t("discipline.violations") : t("discipline.violation")}
                   </Badge>
                 )}
               </CardContent>
