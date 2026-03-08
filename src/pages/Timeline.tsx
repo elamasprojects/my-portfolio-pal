@@ -9,6 +9,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { GitBranch, ArrowUpCircle, ArrowDownCircle, Coins, Filter } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 const TRADE_TYPE_COLORS: Record<string, string> = {
   buy: "hsl(var(--gain))",
