@@ -237,15 +237,15 @@ const TradeLog = () => {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Asset</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Tags</TableHead>
+                  <TableHead>{t("tradeLog.date")}</TableHead>
+                  <TableHead>{t("tradeLog.symbol")}</TableHead>
+                  <TableHead>{t("tradeLog.name")}</TableHead>
+                  <TableHead>{t("tradeLog.type")}</TableHead>
+                  <TableHead>{t("tradeLog.asset")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.qty")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.price")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.total")}</TableHead>
+                  <TableHead>{t("tradeLog.tags")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
