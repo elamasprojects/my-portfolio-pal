@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,9 +16,11 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info } from "lucide-react";
 import confetti from "canvas-confetti";
+import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
 interface SubmittedTrade {
   symbol: string;
@@ -37,6 +39,11 @@ const AddTrade = () => {
   const { data: trades } = useTrades();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
+
+  const [entryMode, setEntryMode] = useState<"" | "manual" | "screenshot">("");
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
@@ -59,6 +66,60 @@ const AddTrade = () => {
 
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
+
+  // Image analysis handler
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setImagePreview(base64);
+      setAnalyzingImage(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke("analyze-trade-image", {
+          body: { image: base64 },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        // Auto-populate fields
+        if (data.trade_type) setTradeType(data.trade_type);
+        if (data.symbol) setSymbol(data.symbol.toUpperCase());
+        if (data.asset_name) setAssetName(data.asset_name);
+        if (data.asset_type) setAssetType(data.asset_type);
+        if (data.quantity) setQuantity(String(data.quantity));
+        if (data.price_per_unit) setPrice(String(data.price_per_unit));
+        if (data.trade_date) setTradeDate(data.trade_date);
+
+        // Switch to manual mode for review
+        setEntryMode("manual");
+        toast.success("Trade data extracted! Review and submit.");
+      } catch (err: any) {
+        console.error("Image analysis error:", err);
+        toast.error(err.message || "Could not extract trade data. Please try again or enter manually.");
+      } finally {
+        setAnalyzingImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageUpload(file);
+  }, [handleImageUpload]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+  }, [handleImageUpload]);
 
   // URL params pre-fill (for duplicate trade)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -253,6 +314,7 @@ const AddTrade = () => {
   const handleAddAnother = () => {
     setFlipped(false);
     setTimeout(() => {
+      setEntryMode("");
       setTradeType("");
       setSymbol("");
       setAssetName("");
@@ -266,6 +328,7 @@ const AddTrade = () => {
       setSubmittedTrade(null);
       setSelectedTagIds([]);
       setDividendAmount("");
+      setImagePreview(null);
     }, 600);
   };
 
@@ -325,7 +388,126 @@ const AddTrade = () => {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-0">
+                  {/* Entry Mode Selector */}
+                  {entryMode === "" && (
+                    <div className="space-y-3 mb-5">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Input Method</span>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEntryMode("manual")}
+                          className="flex-1 h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
+                        >
+                          <PenLine className="h-5 w-5 text-primary" />
+                          Manual
+                        </button>
+                        <div className="flex-1 relative">
+                          <button
+                            type="button"
+                            onClick={() => setEntryMode("screenshot")}
+                            className="w-full h-20 rounded-xl text-sm font-semibold transition-all flex flex-col items-center justify-center gap-1.5 border-2 border-border bg-card hover:border-primary/50 text-foreground"
+                          >
+                            <Camera className="h-5 w-5 text-primary" />
+                            From Screenshot
+                          </button>
+                          <HoverCard openDelay={200}>
+                            <HoverCardTrigger asChild>
+                              <button type="button" className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+                                <Info className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-80" side="top">
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                                </p>
+                                <img
+                                  src={tradeScreenshotExample}
+                                  alt="Trade screenshot example"
+                                  className="rounded-md border border-border w-full"
+                                />
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Screenshot Upload */}
+                  {entryMode === "screenshot" && (
+                    <div className="space-y-3 mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upload Screenshot</span>
+                        <HoverCard openDelay={200}>
+                          <HoverCardTrigger asChild>
+                            <button type="button" className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+                              <Info className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80" side="top">
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground">
+                                Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
+                              </p>
+                              <img
+                                src={tradeScreenshotExample}
+                                alt="Trade screenshot example"
+                                className="rounded-md border border-border w-full"
+                              />
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
+                          analyzingImage
+                            ? "border-primary/50 bg-primary/5"
+                            : "border-border hover:border-primary/40 hover:bg-accent/30"
+                        }`}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                        {analyzingImage ? (
+                          <>
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-sm font-medium text-primary">Analyzing image...</p>
+                          </>
+                        ) : imagePreview ? (
+                          <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
+                        ) : (
+                          <>
+                            <Upload className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium text-foreground">Drop image here or click to upload</p>
+                            <p className="text-xs text-muted-foreground">JPG, PNG, WEBP supported</p>
+                          </>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEntryMode("");
+                          setImagePreview(null);
+                        }}
+                        className="text-xs text-muted-foreground"
+                      >
+                        ← Back to input method
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Step 1: Trade Type */}
+                  {entryMode === "manual" && (<>
                   <div className="space-y-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
                     <div className="flex gap-3">
@@ -726,6 +908,7 @@ const AddTrade = () => {
                       )}
                     </>
                   )}
+                  </>)}
                 </form>
               </CardContent>
 

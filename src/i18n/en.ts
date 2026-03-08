@@ -134,6 +134,14 @@ export const en = {
   "addTrade.bond": "Bond",
   "addTrade.other": "Other",
   "addTrade.max": "Max",
+  "addTrade.inputManual": "Manual",
+  "addTrade.inputScreenshot": "From Screenshot",
+  "addTrade.uploadScreenshot": "Upload a screenshot of your trade confirmation",
+  "addTrade.tooltipHint": "Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.",
+  "addTrade.analyzing": "Analyzing image...",
+  "addTrade.analyzeError": "Could not extract trade data. Please try again or enter manually.",
+  "addTrade.dropImage": "Drop image here or click to upload",
+  "addTrade.supportedFormats": "JPG, PNG, WEBP supported",
 
   // Trade Log
   "tradeLog.title": "Move History",
