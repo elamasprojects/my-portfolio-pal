@@ -47,6 +47,8 @@ const AddTrade = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fromScreenshotRef = useRef(false);
+  const userEditedPrice = useRef(false);
+  const userEditedName = useRef(false);
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
@@ -191,11 +193,11 @@ const AddTrade = () => {
         if (!error && data) {
           // If data came from screenshot, only update asset name — preserve AI-extracted price/date
           if (fromScreenshotRef.current) {
-            if (data.name) setAssetName(data.name);
+            if (data.name && !userEditedName.current) setAssetName(data.name);
             fromScreenshotRef.current = false;
           } else {
-            if (data.price > 0) setPrice(String(data.price));
-            if (data.name) setAssetName(data.name);
+            if (data.price > 0 && !userEditedPrice.current) setPrice(String(data.price));
+            if (data.name && !userEditedName.current) setAssetName(data.name);
           }
         }
       } catch {
@@ -228,8 +230,8 @@ const AddTrade = () => {
         body: { symbol: sym },
       });
       if (!error && data) {
-        if (data.price > 0) setPrice(String(data.price));
-        if (data.name) setAssetName(data.name);
+        if (data.price > 0 && !userEditedPrice.current) setPrice(String(data.price));
+        if (data.name && !userEditedName.current) setAssetName(data.name);
       }
     } catch {
     } finally {
@@ -346,6 +348,8 @@ const AddTrade = () => {
       setSelectedTagIds([]);
       setDividendAmount("");
       setImagePreview(null);
+      userEditedPrice.current = false;
+      userEditedName.current = false;
     }, 600);
   };
 
@@ -358,6 +362,8 @@ const AddTrade = () => {
     setAmount("");
     setNotes("");
     setSelectedHolding("");
+    userEditedPrice.current = false;
+    userEditedName.current = false;
     setInputMode("amount");
     setSelectedTagIds([]);
     setDividendAmount("");
@@ -685,7 +691,7 @@ const AddTrade = () => {
                                   id="assetName"
                                   placeholder="Apple Inc."
                                   value={assetName}
-                                  onChange={(e) => setAssetName(e.target.value)}
+                                  onChange={(e) => { setAssetName(e.target.value); userEditedName.current = true; }}
                                   required
                                 />
                               </div>
@@ -877,7 +883,7 @@ const AddTrade = () => {
                                   step="any"
                                   placeholder="150.00"
                                   value={price}
-                                  onChange={(e) => setPrice(e.target.value)}
+                                  onChange={(e) => { setPrice(e.target.value); userEditedPrice.current = true; }}
                                   className="font-mono"
                                   required
                                 />
