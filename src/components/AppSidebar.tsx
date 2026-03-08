@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, TrendingUp, Upload } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
