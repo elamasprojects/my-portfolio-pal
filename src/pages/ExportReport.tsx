@@ -12,6 +12,7 @@ import {
   computeHoldings,
   computePerformance,
 } from "@/hooks/usePortfolio";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useTheme } from "@/hooks/useTheme";
@@ -49,7 +50,19 @@ export default function ExportReport() {
   const holdings = useMemo(() => computeHoldings(trades), [trades]);
   const performance = useMemo(() => computePerformance(trades), [trades]);
 
+  const { prices: marketPrices } = useMarketPrices(holdings.map(h => h.symbol));
+
   const totalInvested = holdings.reduce((s, h) => s + h.total_invested, 0);
+  const marketValue = holdings.reduce((s, h) => {
+    const price = marketPrices.get(h.symbol.toUpperCase());
+    return s + (price ? price * h.net_quantity : h.total_invested);
+  }, 0);
+  const unrealizedPnl = holdings.reduce((s, h) => {
+    const price = marketPrices.get(h.symbol.toUpperCase());
+    if (!price) return s;
+    return s + (price - h.avg_cost) * h.net_quantity;
+  }, 0);
+
   const pieData = holdings.map((h) => ({
     name: h.symbol,
     value: Math.round(h.total_invested * 100) / 100,
@@ -191,9 +204,11 @@ export default function ExportReport() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-6">
             {[
               { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
+              { label: t("board.marketValue"), value: `$${marketValue.toFixed(2)}` },
+              { label: t("board.unrealizedPnl"), value: `${unrealizedPnl >= 0 ? "+" : ""}$${unrealizedPnl.toFixed(2)}`, positive: unrealizedPnl >= 0 },
               { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, positive: performance.total_realized_pnl >= 0 },
               { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
               { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },

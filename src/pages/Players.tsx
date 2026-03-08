@@ -908,6 +908,23 @@ const PIE_COLORS = [
 ];
 
 function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }) {
+  const renderLabel = ({ name, value, cx, x }: any) => {
+    const isLeft = x < cx;
+    return (
+      <text
+        x={x}
+        y={undefined}
+        fill="hsl(var(--foreground))"
+        fontSize={11}
+        fontWeight={500}
+        textAnchor={isLeft ? "end" : "start"}
+        dominantBaseline="central"
+      >
+        {name} {value}%
+      </text>
+    );
+  };
+
   return (
     <div className="w-full h-[250px]">
       <ResponsiveContainer width="100%" height="100%">
@@ -920,8 +937,8 @@ function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }
             innerRadius={45}
             dataKey="value"
             nameKey="name"
-            label={({ name, value }) => `${name} ${value}%`}
-            labelLine={false}
+            label={renderLabel}
+            labelLine={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }}
             strokeWidth={1}
             stroke="hsl(var(--background))"
           >
@@ -932,11 +949,13 @@ function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }
           <Tooltip
             formatter={(value: number) => [`${value}%`, ""]}
             contentStyle={{
-              backgroundColor: "hsl(var(--background))",
+              backgroundColor: "hsl(var(--popover))",
               border: "1px solid hsl(var(--border))",
               borderRadius: "8px",
               fontSize: "12px",
+              color: "hsl(var(--popover-foreground))",
             }}
+            itemStyle={{ color: "hsl(var(--popover-foreground))" }}
           />
         </PieChart>
       </ResponsiveContainer>

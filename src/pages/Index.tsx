@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote, LineChart as LineChartIcon } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
@@ -23,6 +25,26 @@ const Index = () => {
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
+
+  // Live market prices
+  const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
+
+  const marketValue = useMemo(() => 
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      return s + (price ? price * h.net_quantity : h.total_invested);
+    }, 0),
+    [holdings, marketPrices]
+  );
+
+  const unrealizedPnl = useMemo(() => 
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      if (!price) return s;
+      return s + (price - h.avg_cost) * h.net_quantity;
+    }, 0),
+    [holdings, marketPrices]
+  );
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
@@ -57,7 +79,7 @@ const Index = () => {
         <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
@@ -78,6 +100,22 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.marketValue")}</p>
+                <p className="text-2xl font-bold font-mono mt-1">
+                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : `$${marketValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <LineChartIcon className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
                 <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
                   {performance.total_realized_pnl >= 0 ? "+" : ""}
@@ -86,6 +124,31 @@ const Index = () => {
               </div>
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
                 {performance.total_realized_pnl >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-gain" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-loss" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.unrealizedPnl")}</p>
+                {pricesLoading ? (
+                  <Skeleton className="h-8 w-24 mt-1" />
+                ) : (
+                  <p className={`text-2xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                    {unrealizedPnl >= 0 ? "+" : ""}
+                    ${unrealizedPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${unrealizedPnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {unrealizedPnl >= 0 ? (
                   <TrendingUp className="h-5 w-5 text-gain" />
                 ) : (
                   <TrendingDown className="h-5 w-5 text-loss" />
@@ -220,21 +283,36 @@ const Index = () => {
                     <TableHead>{t("board.name")}</TableHead>
                     <TableHead>{t("board.type")}</TableHead>
                     <TableHead className="text-right">{t("board.qty")}</TableHead>
-                    <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                    <TableHead className="text-right">{t("board.currentPrice")}</TableHead>
                     <TableHead className="text-right">{t("board.total")}</TableHead>
+                    <TableHead className="text-right">{t("board.unrealizedPnl")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {holdings.map((h) => (
+                  {holdings.map((h) => {
+                    const currentPrice = marketPrices.get(h.symbol.toUpperCase());
+                    const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
+                    const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
+                    return (
                     <TableRow key={h.symbol} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/asset/${h.symbol}`)}>
                       <TableCell className="font-mono font-semibold text-primary">{h.symbol}</TableCell>
                       <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
                       <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
                       <TableCell className="text-right font-mono">{h.net_quantity}</TableCell>
                       <TableCell className="text-right font-mono">${h.avg_cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${h.total_invested.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `$${currentPrice.toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? `$${mktVal.toFixed(2)}` : `$${h.total_invested.toFixed(2)}`}
+                      </TableCell>
+                      <TableCell className={`text-right font-mono font-semibold ${uPnl === null ? "" : uPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}$${uPnl.toFixed(2)}` : "—"}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (

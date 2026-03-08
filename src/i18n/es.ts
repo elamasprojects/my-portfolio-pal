@@ -90,6 +90,9 @@ export const es: Record<TranslationKey, string> = {
   "board.total": "Total",
   "board.loadingPortfolio": "Cargando portafolio...",
   "board.cumulativePnl": "P&L Acumulado",
+  "board.marketValue": "Valor de Mercado",
+  "board.unrealizedPnl": "P&L No Realizado",
+  "board.currentPrice": "Precio",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",
