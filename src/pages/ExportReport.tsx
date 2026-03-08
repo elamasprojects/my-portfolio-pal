@@ -25,6 +25,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 const COLORS = [
   "hsl(42, 80%, 55%)",
