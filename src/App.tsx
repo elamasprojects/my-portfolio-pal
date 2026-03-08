@@ -12,6 +12,7 @@ import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
 import ImportTrades from "./pages/ImportTrades";
 import Performance from "./pages/Performance";
+import Achievements from "./pages/Achievements";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
