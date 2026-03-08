@@ -9,6 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { GraduationCap, Download, TrendingUp, TrendingDown, BarChart3, Star, Award, Coins } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
 import html2canvas from "html2canvas";
+import { useLanguage } from "@/i18n";
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
+import html2canvas from "html2canvas";
 
 interface MonthStats {
   month: string;
