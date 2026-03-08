@@ -142,10 +142,8 @@ export default function Timeline() {
         <Card>
           <CardContent className="py-16 text-center">
             <GitBranch className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground">No trades to display on the timeline.</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">
-              Add trades to see your trading history unfold.
-            </p>
+            <p className="text-muted-foreground">{t("timeline.noTrades")}</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">{t("timeline.addTrades")}</p>
           </CardContent>
         </Card>
       ) : (
