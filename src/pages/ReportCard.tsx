@@ -298,9 +298,7 @@ export default function ReportCard() {
                 <Card className="border-border">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <BarChart3 className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium text-foreground">Most Traded</span>
-                    </div>
+                        <span className="text-sm font-medium text-foreground">{t("report.mostTraded")}</span>
                     <p className="text-lg font-bold text-foreground">{stats.mostTradedAsset}</p>
                     <p className="text-sm text-muted-foreground">By trade count</p>
                   </CardContent>
