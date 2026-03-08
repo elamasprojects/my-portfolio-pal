@@ -92,16 +92,32 @@ export function Inbox() {
     );
   };
 
+  const allIds = [
+    ...incomingRequests.map((r) => r.id),
+    ...acceptedSentRequests.map((r) => r.id),
+  ];
+  const unreadCount = allIds.filter((id) => !readIds.has(id)).length;
   const totalCount = incomingRequests.length + acceptedSentRequests.length;
 
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && user?.id && allIds.length > 0) {
+        const merged = new Set([...readIds, ...allIds]);
+        setReadIds(merged);
+        saveReadIds(user.id, merged);
+      }
+    },
+    [user?.id, allIds, readIds]
+  );
+
   return (
-    <Popover>
+    <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4 text-muted-foreground" />
-          {totalCount > 0 && (
+          {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
-              {totalCount}
+              {unreadCount}
             </span>
           )}
         </Button>
