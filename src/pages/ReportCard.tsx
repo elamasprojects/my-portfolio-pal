@@ -287,9 +287,7 @@ export default function ReportCard() {
                   <Card className="border-border">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <TrendingDown className="h-4 w-4 text-destructive" />
-                        <span className="text-sm font-medium text-foreground">Worst Trade</span>
-                      </div>
+                        <span className="text-sm font-medium text-foreground">{t("report.worstTrade")}</span>
                       <p className="text-lg font-bold text-foreground">{stats.worstTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--loss))" }}>
                         ${stats.worstTrade.pnl.toFixed(2)}
