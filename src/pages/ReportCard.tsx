@@ -182,7 +182,7 @@ export default function ReportCard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Loading report card…</div>
+        <div className="animate-pulse text-muted-foreground">{t("report.loadingReport")}</div>
       </div>
     );
   }
