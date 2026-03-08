@@ -250,12 +250,12 @@ export default function ReportCard() {
                   {stats.grade}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {stats.grade === "A+" && "Outstanding!"}
-                  {stats.grade === "A" && "Excellent"}
-                  {stats.grade === "B" && "Good job"}
-                  {stats.grade === "C" && "Holding steady"}
-                  {stats.grade === "D" && "Room to improve"}
-                  {stats.grade === "F" && "Tough month"}
+                  {stats.grade === "A+" && t("report.outstanding")}
+                  {stats.grade === "A" && t("report.excellent")}
+                  {stats.grade === "B" && t("report.goodJob")}
+                  {stats.grade === "C" && t("report.holdingSteady")}
+                  {stats.grade === "D" && t("report.roomToImprove")}
+                  {stats.grade === "F" && t("report.toughMonth")}
                 </p>
               </div>
             </div>
