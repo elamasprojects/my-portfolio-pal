@@ -50,6 +50,7 @@ function ScoreGauge({ score }: { score: number }) {
 }
 
 export default function Discipline() {
+  const { t } = useLanguage();
   const { data: trades = [] } = useTrades();
   const { data: savedRules = [], isLoading } = useDisciplineRules();
   const upsertRule = useUpsertRule();
