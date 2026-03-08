@@ -88,12 +88,12 @@ export default function Timeline() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h1 className="text-2xl chess-title flex items-center gap-2">
             <GitBranch className="h-6 w-6 text-primary" />
-            Trade Timeline
+            Game Clock
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Visual replay of your trading history. Hover to explore, click to dive in.
+            Visual replay of your moves. Hover to explore, click to dive in.
           </p>
         </div>
       </div>

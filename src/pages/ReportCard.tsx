@@ -187,12 +187,12 @@ export default function ReportCard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h1 className="text-2xl chess-title flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
-            Monthly Report Card
+            Score Sheet
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your monthly trading performance, graded.
+            Your monthly performance, graded.
           </p>
         </div>
         <div className="flex items-center gap-3">

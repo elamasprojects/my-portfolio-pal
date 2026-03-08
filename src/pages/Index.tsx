@@ -8,11 +8,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
-  "hsl(227, 100%, 58%)",
-  "hsl(174, 62%, 40%)",
-  "hsl(36, 100%, 49%)",
-  "hsl(291, 52%, 51%)",
-  "hsl(54, 100%, 61%)",
+  "hsl(42, 80%, 55%)",
+  "hsl(152, 55%, 45%)",
+  "hsl(220, 8%, 60%)",
+  "hsl(30, 60%, 50%)",
+  "hsl(220, 10%, 35%)",
 ];
 
 const Index = () => {
@@ -52,8 +52,8 @@ const Index = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Your portfolio overview</p>
+        <h1 className="text-2xl chess-title">Board</h1>
+        <p className="text-muted-foreground text-sm">Your portfolio at a glance</p>
       </div>
 
       {/* Summary Cards */}

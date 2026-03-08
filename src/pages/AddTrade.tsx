@@ -165,7 +165,7 @@ const AddTrade = () => {
       particleCount: 150,
       spread: 80,
       origin: { y: 0.6 },
-      colors: ["#3b82f6", "#60a5fa", "#93c5fd", "#22c55e", "#a855f7"],
+      colors: ["#d4a843", "#f5e6c8", "#c0c0c0", "#b8860b", "#e8d5a3"],
     });
   };
 
@@ -304,7 +304,7 @@ const AddTrade = () => {
   return (
     <div className={`max-w-lg mx-auto transition-all duration-700 ${flipped ? "py-8" : ""}`}>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Add Trade</h1>
+        <h1 className="text-2xl chess-title">New Move</h1>
         <p className="text-muted-foreground text-sm">Log a new buy, sell, or dividend</p>
       </div>
 
@@ -327,7 +327,7 @@ const AddTrade = () => {
                 <form onSubmit={handleSubmit} className="space-y-0">
                   {/* Step 1: Trade Type */}
                   <div className="space-y-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 1</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening</span>
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -410,7 +410,7 @@ const AddTrade = () => {
                     <>
                       <Separator className="my-5" />
                       <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 2</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</span>
                         {tradeType === "buy" ? (
                           <>
                             <div className="flex items-center gap-2">
@@ -472,7 +472,7 @@ const AddTrade = () => {
                         <>
                           <Separator className="my-5" />
                           <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3</span>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Execute</span>
                             <div className="flex items-center gap-2">
                               <Tag className="h-4 w-4 text-primary" />
                               <span className="text-sm font-bold">Asset Details</span>

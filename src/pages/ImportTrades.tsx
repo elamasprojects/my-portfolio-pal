@@ -320,9 +320,9 @@ const ImportTrades = () => {
     <div className="min-h-[calc(100vh-4rem)] p-4 md:p-8 max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-2xl chess-title flex items-center gap-2">
           <FileSpreadsheet className="h-6 w-6 text-primary" />
-          Import Trades
+          Import PGN
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Upload a CSV exported from Excel or Google Sheets

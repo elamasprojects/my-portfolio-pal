@@ -103,9 +103,9 @@ export default function Discipline() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-2xl chess-title flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          Trading Discipline
+          Opening Book
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Define your rules and measure how well you stick to them.
