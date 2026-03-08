@@ -283,21 +283,36 @@ const Index = () => {
                     <TableHead>{t("board.name")}</TableHead>
                     <TableHead>{t("board.type")}</TableHead>
                     <TableHead className="text-right">{t("board.qty")}</TableHead>
-                    <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                    <TableHead className="text-right">{t("board.currentPrice")}</TableHead>
                     <TableHead className="text-right">{t("board.total")}</TableHead>
+                    <TableHead className="text-right">{t("board.unrealizedPnl")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {holdings.map((h) => (
+                  {holdings.map((h) => {
+                    const currentPrice = marketPrices.get(h.symbol.toUpperCase());
+                    const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
+                    const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
+                    return (
                     <TableRow key={h.symbol} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/asset/${h.symbol}`)}>
                       <TableCell className="font-mono font-semibold text-primary">{h.symbol}</TableCell>
                       <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
                       <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
                       <TableCell className="text-right font-mono">{h.net_quantity}</TableCell>
                       <TableCell className="text-right font-mono">${h.avg_cost.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${h.total_invested.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `$${currentPrice.toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? `$${mktVal.toFixed(2)}` : `$${h.total_invested.toFixed(2)}`}
+                      </TableCell>
+                      <TableCell className={`text-right font-mono font-semibold ${uPnl === null ? "" : uPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}$${uPnl.toFixed(2)}` : "—"}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
