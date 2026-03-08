@@ -190,7 +190,7 @@ export default function ExportReport() {
         {/* Holdings Table */}
         {holdings.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Holdings</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.holdings")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
