@@ -5,6 +5,7 @@ import { useAuth } from "./useAuth";
 import { Trade, Portfolio, computePerformance } from "./usePortfolio";
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
+import { useLanguage } from "@/i18n";
 
 export interface AchievementDef {
   key: string;
