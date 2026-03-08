@@ -396,23 +396,30 @@ export default function Players() {
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <StatCard label={t("social.totalTrades")} value={playerSummary.total_trades} />
-                <StatCard label={t("social.totalInvested")} value={`$${Number(playerSummary.total_invested).toFixed(2)}`} />
                 <StatCard label={t("social.holdingsCount")} value={playerSummary.holdings_count} />
-                <StatCard
-                  label={t("social.realizedPnl")}
-                  value={`$${Number(playerSummary.realized_pnl).toFixed(2)}`}
-                  color={Number(playerSummary.realized_pnl) >= 0 ? "text-green-500" : "text-red-500"}
-                />
-                <StatCard label={t("social.dividends")} value={`$${Number(playerSummary.total_dividends).toFixed(2)}`} />
-                <StatCard
-                  label={t("social.totalReturn")}
-                  value={`$${Number(playerSummary.total_return).toFixed(2)}`}
-                  color={Number(playerSummary.total_return) >= 0 ? "text-green-500" : "text-red-500"}
-                />
                 <StatCard label={t("social.winRate")} value={`${playerSummary.win_rate}%`} />
               </div>
+
+              {/* Period PNL % cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <PnlCard label={t("social.pnl7d")} value={periodPnl.pnl7d} />
+                <PnlCard label={t("social.pnl1m")} value={periodPnl.pnl1m} />
+                <PnlCard label={t("social.pnl3m")} value={periodPnl.pnl3m} />
+              </div>
+
+              {/* Portfolio pie chart */}
+              {pieData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-4">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">{t("social.portfolioAllocation")}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                    <PortfolioPieChart data={pieData} />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ) : null}
         </TabsContent>
