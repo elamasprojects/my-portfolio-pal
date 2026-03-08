@@ -14,7 +14,107 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      portfolios: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      trades: {
+        Row: {
+          asset_name: string
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          created_at: string
+          id: string
+          notes: string | null
+          portfolio_id: string
+          price_per_unit: number
+          quantity: number
+          symbol: string
+          total_amount: number | null
+          trade_date: string
+          trade_type: Database["public"]["Enums"]["trade_type"]
+          user_id: string
+        }
+        Insert: {
+          asset_name: string
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          notes?: string | null
+          portfolio_id: string
+          price_per_unit: number
+          quantity: number
+          symbol: string
+          total_amount?: number | null
+          trade_date?: string
+          trade_type?: Database["public"]["Enums"]["trade_type"]
+          user_id: string
+        }
+        Update: {
+          asset_name?: string
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          created_at?: string
+          id?: string
+          notes?: string | null
+          portfolio_id?: string
+          price_per_unit?: number
+          quantity?: number
+          symbol?: string
+          total_amount?: number | null
+          trade_date?: string
+          trade_type?: Database["public"]["Enums"]["trade_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +123,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      asset_type: "stock" | "etf" | "crypto" | "bond" | "other"
+      trade_type: "buy" | "sell"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +251,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      asset_type: ["stock", "etf", "crypto", "bond", "other"],
+      trade_type: ["buy", "sell"],
+    },
   },
 } as const
