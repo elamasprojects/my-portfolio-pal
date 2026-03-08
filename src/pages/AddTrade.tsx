@@ -44,6 +44,7 @@ const AddTrade = () => {
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fromScreenshotRef = useRef(false);
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
@@ -57,7 +58,7 @@ const AddTrade = () => {
   const [fetchingQuote, setFetchingQuote] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const [inputMode, setInputMode] = useState<"shares" | "amount">("shares");
+  const [inputMode, setInputMode] = useState<"shares" | "amount">("amount");
   const [amount, setAmount] = useState("");
   const [flipped, setFlipped] = useState(false);
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
@@ -97,6 +98,8 @@ const AddTrade = () => {
         if (data.price_per_unit) setPrice(String(data.price_per_unit));
         if (data.trade_date) setTradeDate(data.trade_date);
 
+        // Mark as from screenshot so quote fetch only updates asset name
+        fromScreenshotRef.current = true;
         // Switch to manual mode for review
         setEntryMode("manual");
         toast.success("Trade data extracted! Review and submit.");
@@ -179,8 +182,14 @@ const AddTrade = () => {
           body: { symbol: symbol.trim() },
         });
         if (!error && data) {
-          if (data.price > 0) setPrice(String(data.price));
-          if (data.name) setAssetName(data.name);
+          // If data came from screenshot, only update asset name — preserve AI-extracted price/date
+          if (fromScreenshotRef.current) {
+            if (data.name) setAssetName(data.name);
+            fromScreenshotRef.current = false;
+          } else {
+            if (data.price > 0) setPrice(String(data.price));
+            if (data.name) setAssetName(data.name);
+          }
         }
       } catch {
       } finally {
@@ -271,7 +280,7 @@ const AddTrade = () => {
         trade_type: tradeType as any,
         quantity: finalQuantity,
         price_per_unit: finalPrice,
-        total_amount: finalTotal,
+        
         trade_date: new Date(tradeDate).toISOString(),
         notes: notes || null,
       }).select("id").single();
@@ -323,7 +332,7 @@ const AddTrade = () => {
       setAmount("");
       setNotes("");
       setTradeDate(new Date().toISOString().split("T")[0]);
-      setInputMode("shares");
+      setInputMode("amount");
       setSelectedHolding("");
       setSubmittedTrade(null);
       setSelectedTagIds([]);
@@ -341,7 +350,7 @@ const AddTrade = () => {
     setAmount("");
     setNotes("");
     setSelectedHolding("");
-    setInputMode("shares");
+    setInputMode("amount");
     setSelectedTagIds([]);
     setDividendAmount("");
   };
@@ -702,21 +711,6 @@ const AddTrade = () => {
                               {tradeType === "dividend" ? "Dividend Details" : "Trade Details"}
                             </span>
                           </div>
-                          {tradeType !== "dividend" && (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
-                              <Switch
-                                checked={inputMode === "amount"}
-                                onCheckedChange={(checked) => {
-                                  setInputMode(checked ? "amount" : "shares");
-                                  setAmount("");
-                                  setQuantity("");
-                                }}
-                                className="scale-75"
-                              />
-                              <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
-                            </div>
-                          )}
                         </div>
 
                         {tradeType === "dividend" ? (
@@ -765,9 +759,24 @@ const AddTrade = () => {
                             <div className="grid grid-cols-2 gap-3">
                               {inputMode === "shares" ? (
                                 <div className="space-y-1.5">
-                                  <Label htmlFor="quantity" className="text-xs text-muted-foreground">
-                                    Shares
-                                  </Label>
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor="quantity" className="text-xs text-muted-foreground">
+                                      Shares
+                                    </Label>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span className="text-foreground font-medium">Shares</span>
+                                      <Switch
+                                        checked={false}
+                                        onCheckedChange={(checked) => {
+                                          setInputMode(checked ? "amount" : "shares");
+                                          setAmount("");
+                                          setQuantity("");
+                                        }}
+                                        className="scale-75"
+                                      />
+                                      <span>Amount</span>
+                                    </div>
+                                  </div>
                                   <div className="flex gap-1.5">
                                     <Input
                                       id="quantity"
@@ -800,9 +809,24 @@ const AddTrade = () => {
                                 </div>
                               ) : (
                                 <div className="space-y-1.5">
-                                  <Label htmlFor="amount" className="text-xs text-muted-foreground">
-                                    Dollar Amount
-                                  </Label>
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor="amount" className="text-xs text-muted-foreground">
+                                      Dollar Amount
+                                    </Label>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      <span>Shares</span>
+                                      <Switch
+                                        checked={inputMode === "amount"}
+                                        onCheckedChange={(checked) => {
+                                          setInputMode(checked ? "amount" : "shares");
+                                          setAmount("");
+                                          setQuantity("");
+                                        }}
+                                        className="scale-75"
+                                      />
+                                      <span className="text-foreground font-medium">Amount</span>
+                                    </div>
+                                  </div>
                                   <div className="flex gap-1.5">
                                     <Input
                                       id="amount"
