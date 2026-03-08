@@ -340,6 +340,14 @@ export type Database = {
         Args: { _requester_id: string; _target_username: string }
         Returns: Json
       }
+      is_leaderboard_creator: {
+        Args: { _leaderboard_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_leaderboard_member: {
+        Args: { _leaderboard_id: string; _user_id: string }
+        Returns: boolean
+      }
       owns_trade: {
         Args: { _trade_id: string; _user_id: string }
         Returns: boolean
