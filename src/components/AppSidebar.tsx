@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Import CSV", url: "/import", icon: Upload },
   { title: "Trade Log", url: "/trades", icon: List },
   { title: "Performance", url: "/performance", icon: BarChart3 },
+  { title: "Achievements", url: "/achievements", icon: Trophy },
 ];
 
 export function AppSidebar() {
