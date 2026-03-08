@@ -207,7 +207,7 @@ const TradeLog = () => {
               <SelectValue placeholder="Tag" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tags</SelectItem>
+              <SelectItem value="all">{t("tradeLog.allTags")}</SelectItem>
               {tags.map((tag) => (
                 <SelectItem key={tag.id} value={tag.id}>
                   <span className="flex items-center gap-1.5">
