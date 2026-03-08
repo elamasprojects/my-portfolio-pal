@@ -90,7 +90,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex flex-col items-center gap-2">
           <Inbox />
           <Dropdown>
             <DropdownTrigger className="flex-1">

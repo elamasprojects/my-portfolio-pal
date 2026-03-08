@@ -20,7 +20,7 @@ export const es: Record<TranslationKey, string> = {
   // Nav
   "nav.board": "Tablero",
   "nav.newMove": "Nueva Jugada",
-  "nav.importPgn": "Importar PGN",
+  "nav.importPgn": "Importar CSV",
   "nav.moveHistory": "Historial",
   "nav.analysis": "Análisis",
   "nav.gameClock": "Reloj",
@@ -139,12 +139,20 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.max": "Máx",
   "addTrade.inputManual": "Manual",
   "addTrade.inputScreenshot": "Desde Captura",
-  "addTrade.uploadScreenshot": "Sube una captura de pantalla de tu confirmación de operación",
+  "addTrade.uploadScreenshot": "Sube una captura de tu confirmación de operación",
   "addTrade.tooltipHint": "Captura tu confirmación de operación así y súbela aquí. La IA extraerá todos los detalles automáticamente.",
   "addTrade.analyzing": "Analizando imagen...",
   "addTrade.analyzeError": "No se pudieron extraer los datos. Intenta de nuevo o ingresa manualmente.",
   "addTrade.dropImage": "Arrastra la imagen aquí o haz clic para subir",
   "addTrade.supportedFormats": "JPG, PNG, WEBP soportados",
+  "addTrade.inputMethod": "Método de Entrada",
+  "addTrade.backToInput": "← Volver al método de entrada",
+  "addTrade.symbol": "Símbolo",
+  "addTrade.asset": "Activo",
+  "addTrade.type": "Tipo",
+  "addTrade.price": "Precio",
+  "addTrade.date": "Fecha",
+  "addTrade.total": "Total",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
@@ -280,7 +288,7 @@ export const es: Record<TranslationKey, string> = {
   "export.sharing": "Compartiendo…",
 
   // Import
-  "import.title": "Importar PGN",
+  "import.title": "Importar CSV",
   "import.subtitle": "Sube un CSV exportado de Excel o Google Sheets",
   "import.upload": "Subir",
   "import.mapReview": "Mapear y Revisar",
@@ -400,4 +408,19 @@ export const es: Record<TranslationKey, string> = {
   "social.myConnections": "Mis Conexiones",
   "social.noConnections": "Aún no tienes conexiones.",
   "social.search": "Buscar",
+
+  // Install
+  "install.back": "Volver",
+  "install.title": "Instalar Chess",
+  "install.subtitle": "Agrega Chess a tu pantalla de inicio para acceso rápido — sin tienda de apps.",
+  "install.alreadyInstalled": "✓ Chess ya está instalado!",
+  "install.installButton": "Instalar Chess",
+  "install.iosTitle": "Instalar en iOS",
+  "install.androidTitle": "Instalar en Android",
+  "install.iosStep1": "Toca el botón Compartir en Safari",
+  "install.iosStep2": "Desplázate y toca \"Agregar a pantalla de inicio\"",
+  "install.iosStep3": "Toca \"Agregar\" para confirmar",
+  "install.androidStep1": "Toca el menú (⋮) en Chrome",
+  "install.androidStep2": "Toca \"Instalar app\" o \"Agregar a pantalla de inicio\"",
+  "install.androidStep3": "Toca \"Instalar\" para confirmar",
 };

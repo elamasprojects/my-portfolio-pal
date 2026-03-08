@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Share, MoreVertical, Plus, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/i18n";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function Install() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
 
@@ -46,72 +48,48 @@ export default function Install() {
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {t("install.back")}
         </button>
 
         <div className="text-center space-y-2">
           <img src="/pwa-192x192.png" alt="Chess app icon" className="w-20 h-20 mx-auto rounded-2xl shadow-lg" />
-          <h1 className="text-2xl font-bold text-foreground font-serif">Install Chess</h1>
+          <h1 className="text-2xl font-bold text-foreground font-serif">{t("install.title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Add Chess to your home screen for quick access — no app store needed.
+            {t("install.subtitle")}
           </p>
         </div>
 
         {isInstalled ? (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="p-6 text-center">
-              <p className="text-primary font-medium">✓ Chess is already installed!</p>
+              <p className="text-primary font-medium">{t("install.alreadyInstalled")}</p>
             </CardContent>
           </Card>
         ) : deferredPrompt ? (
           <Button onClick={handleInstall} className="w-full gap-2" size="lg">
             <Download className="h-5 w-5" />
-            Install Chess
+            {t("install.installButton")}
           </Button>
         ) : isIOS ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Install on iOS</CardTitle>
+              <CardTitle className="text-lg">{t("install.iosTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Step
-                number={1}
-                icon={<Share className="h-4 w-4" />}
-                text='Tap the Share button in Safari'
-              />
-              <Step
-                number={2}
-                icon={<Plus className="h-4 w-4" />}
-                text='Scroll down and tap "Add to Home Screen"'
-              />
-              <Step
-                number={3}
-                icon={<Download className="h-4 w-4" />}
-                text='Tap "Add" to confirm'
-              />
+              <Step number={1} icon={<Share className="h-4 w-4" />} text={t("install.iosStep1")} />
+              <Step number={2} icon={<Plus className="h-4 w-4" />} text={t("install.iosStep2")} />
+              <Step number={3} icon={<Download className="h-4 w-4" />} text={t("install.iosStep3")} />
             </CardContent>
           </Card>
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Install on Android</CardTitle>
+              <CardTitle className="text-lg">{t("install.androidTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Step
-                number={1}
-                icon={<MoreVertical className="h-4 w-4" />}
-                text="Tap the menu (⋮) in Chrome"
-              />
-              <Step
-                number={2}
-                icon={<Download className="h-4 w-4" />}
-                text='Tap "Install app" or "Add to Home screen"'
-              />
-              <Step
-                number={3}
-                icon={<Plus className="h-4 w-4" />}
-                text='Tap "Install" to confirm'
-              />
+              <Step number={1} icon={<MoreVertical className="h-4 w-4" />} text={t("install.androidStep1")} />
+              <Step number={2} icon={<Download className="h-4 w-4" />} text={t("install.androidStep2")} />
+              <Step number={3} icon={<Plus className="h-4 w-4" />} text={t("install.androidStep3")} />
             </CardContent>
           </Card>
         )}
