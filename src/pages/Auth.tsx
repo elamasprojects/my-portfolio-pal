@@ -5,10 +5,9 @@ import { DottedSurface } from "@/components/ui/dotted-surface";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { TrendingUp } from "lucide-react";
+import { FcGoogle } from "react-icons/fc";
 
 const Auth = () => {
   const { session, loading } = useAuth();
@@ -52,66 +51,88 @@ const Auth = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) toast.error(error.message);
+  };
+
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
       <DottedSurface className="pointer-events-none z-0" />
-      <div className="relative z-10 w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-primary">
-            <TrendingUp className="h-8 w-8" />
-            <span className="text-2xl font-bold tracking-tight text-foreground">Portfolio Tracker</span>
-          </div>
-          <p className="text-muted-foreground text-sm">Look first. Then leap.</p>
-        </div>
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="rounded-md border border-border bg-card/80 backdrop-blur">
+          <div className="flex flex-col gap-6 p-6">
+            {/* Logo & heading */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-primary">
+                <TrendingUp className="h-7 w-7" />
+                <span className="text-xl font-bold tracking-tight text-foreground">
+                  Portfolio Tracker
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">Look first. Then leap.</p>
+              {isLogin ? (
+                <p className="text-sm font-medium text-foreground mt-2">Welcome back</p>
+              ) : (
+                <p className="text-sm font-medium text-foreground mt-2">Create an account</p>
+              )}
+            </div>
 
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl">{isLogin ? "Welcome back" : "Create account"}</CardTitle>
-            <CardDescription>
-              {isLogin ? "Sign in to your account" : "Start tracking your portfolio"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
                 <Input
-                  id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
                 <Input
-                  id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting
+                    ? "Loading..."
+                    : isLogin
+                      ? "Sign In"
+                      : "Create an account"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleSignIn}
+                >
+                  <FcGoogle className="mr-2 size-4" />
+                  {isLogin ? "Sign in with Google" : "Sign up with Google"}
+                </Button>
+              </div>
             </form>
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+
+            {/* Toggle login/signup */}
+            <div className="text-center text-sm text-muted-foreground">
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
               <button
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-primary hover:underline font-medium"
               >
-                {isLogin ? "Sign up" : "Sign in"}
+                {isLogin ? "Sign up" : "Login"}
               </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
