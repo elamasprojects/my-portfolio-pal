@@ -275,9 +275,7 @@ export default function ReportCard() {
                   <Card className="border-border">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Star className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-foreground">Best Trade</span>
-                      </div>
+                        <span className="text-sm font-medium text-foreground">{t("report.bestTrade")}</span>
                       <p className="text-lg font-bold text-foreground">{stats.bestTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--gain))" }}>
                         +${stats.bestTrade.pnl.toFixed(2)}
