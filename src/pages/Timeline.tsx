@@ -111,7 +111,7 @@ export default function Timeline() {
                 <SelectValue placeholder="Asset type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Assets</SelectItem>
+                <SelectItem value="all">{t("timeline.allAssets")}</SelectItem>
                 {assetTypes.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
