@@ -62,6 +62,7 @@ const Auth = () => {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
       <DottedSurface className="pointer-events-none z-0" />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_at_center,_hsl(var(--background)/0.85)_0%,_transparent_70%)]" />
       <div className="relative z-10 w-full max-w-sm">
         <div className="rounded-md border border-border bg-card/80 backdrop-blur">
           <div className="flex flex-col gap-6 p-6">
