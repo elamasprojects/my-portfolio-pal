@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Moon, Sun, BarChart3, Trophy, FileDown, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
