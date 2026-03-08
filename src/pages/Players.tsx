@@ -865,6 +865,37 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
   );
 }
 
+function CumulativePnlChart({ data }: { data: { date: string; cumulative_pnl: number }[] }) {
+  const isPositive = data.length > 0 && data[data.length - 1].cumulative_pnl >= 0;
+  const color = isPositive ? "hsl(142 76% 36%)" : "hsl(0 84% 60%)";
+  return (
+    <div className="w-full h-[200px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--background))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+          />
+          <Area type="monotone" dataKey="cumulative_pnl" stroke={color} fill="url(#pnlGradient)" strokeWidth={2} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 const PIE_COLORS = [
   "hsl(var(--primary))",
   "hsl(var(--accent))",
