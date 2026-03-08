@@ -182,10 +182,10 @@ const TradeLog = () => {
             <SelectValue placeholder="Trade type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="buy">Buy</SelectItem>
-            <SelectItem value="sell">Sell</SelectItem>
-            <SelectItem value="dividend">Dividend</SelectItem>
+            <SelectItem value="all">{t("tradeLog.allTypes")}</SelectItem>
+            <SelectItem value="buy">{t("addTrade.buy")}</SelectItem>
+            <SelectItem value="sell">{t("addTrade.sell")}</SelectItem>
+            <SelectItem value="dividend">{t("addTrade.dividend")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterAsset} onValueChange={setFilterAsset}>
