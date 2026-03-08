@@ -81,7 +81,7 @@ export default function Timeline() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Loading timeline…</div>
+        <div className="animate-pulse text-muted-foreground">{t("timeline.loadingTimeline")}</div>
       </div>
     );
   }
