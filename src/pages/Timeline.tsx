@@ -92,11 +92,9 @@ export default function Timeline() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <GitBranch className="h-6 w-6 text-primary" />
-            Game Clock
+            {t("timeline.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Visual replay of your moves. Hover to explore, click to dive in.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t("timeline.subtitle")}</p>
         </div>
       </div>
 
