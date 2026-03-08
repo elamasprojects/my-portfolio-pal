@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, UserPlus, Check, Clock, Search, Trophy, Plus, Crown, Medal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { computeHoldings, computePerformance, type Trade } from "@/hooks/usePortfolio";
+import { subDays, subMonths } from "date-fns";
 
 interface Profile {
   id: string;

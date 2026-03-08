@@ -426,6 +426,10 @@ export const en = {
   "social.noRankings": "No rankings yet — invite players and start trading!",
   "social.noLeaderboards": "Create a leaderboard to compete with your connections.",
   "social.rank": "Rank",
+  "social.pnl7d": "PNL 7D",
+  "social.pnl1m": "PNL 1M",
+  "social.pnl3m": "PNL 3M",
+  "social.portfolioAllocation": "Portfolio Allocation",
 
   // Install
   "install.back": "Back",
