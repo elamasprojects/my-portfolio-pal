@@ -1,8 +1,10 @@
+import { useState, useCallback, useEffect } from "react";
 import { Bell, Check, X, UserCheck } from "lucide-react";
 import { useFollows } from "@/hooks/useFollows";
 import { useLanguage } from "@/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,9 +17,34 @@ interface Profile {
   username: string | null;
 }
 
+function getStorageKey(userId: string) {
+  return `inbox-read-ids-${userId}`;
+}
+
+function loadReadIds(userId: string | undefined): Set<string> {
+  if (!userId) return new Set();
+  try {
+    const raw = localStorage.getItem(getStorageKey(userId));
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadIds(userId: string, ids: Set<string>) {
+  localStorage.setItem(getStorageKey(userId), JSON.stringify([...ids]));
+}
+
 export function Inbox() {
+  const { user } = useAuth();
   const { incomingRequests, acceptedSentRequests, respondToRequest } = useFollows();
   const { t } = useLanguage();
+  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds(user?.id));
+
+  // Re-sync when user changes
+  useEffect(() => {
+    setReadIds(loadReadIds(user?.id));
+  }, [user?.id]);
 
   // Fetch profiles for incoming requesters
   const requesterIds = incomingRequests.map((r) => r.requester_id);
