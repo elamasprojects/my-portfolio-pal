@@ -5,12 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Lock } from "lucide-react";
 import { useMemo } from "react";
+import { useLanguage } from "@/i18n";
 
 const Achievements = () => {
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
   const { data: portfolios = [], isLoading: portfoliosLoading } = usePortfolios();
   const tradeIds = useMemo(() => trades.map((t) => t.id), [trades]);
   const { data: assignments = [] } = useTradeTagAssignments(tradeIds);
+  const { t } = useLanguage();
 
   const { statuses, progress, total, isLoading } = useAchievements(
     trades,
@@ -19,7 +21,7 @@ const Achievements = () => {
   );
 
   if (tradesLoading || portfoliosLoading || isLoading) {
-    return <div className="animate-pulse text-muted-foreground text-center py-12">Loading...</div>;
+    return <div className="animate-pulse text-muted-foreground text-center py-12">{t("common.loading")}</div>;
   }
 
   const pct = total > 0 ? (progress / total) * 100 : 0;
@@ -27,9 +29,9 @@ const Achievements = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl chess-title">Titles</h1>
+        <h1 className="text-2xl chess-title">{t("achievements.title")}</h1>
         <p className="text-muted-foreground text-sm">
-          {progress} of {total} unlocked
+          {progress} {t("achievements.unlocked", { total: String(total) })}
         </p>
       </div>
 
@@ -42,11 +44,7 @@ const Achievements = () => {
         {statuses.map((a) => (
           <Card
             key={a.key}
-            className={`transition-all ${
-              a.unlocked
-                ? "border-primary/30 bg-card"
-                : "opacity-50 grayscale"
-            }`}
+            className={`transition-all ${a.unlocked ? "border-primary/30 bg-card" : "opacity-50 grayscale"}`}
           >
             <CardContent className="p-5">
               <div className="flex items-start gap-3">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { Trophy, AlertTriangle, Tag } from "lucide-react";
+import { useLanguage } from "@/i18n";
 
 type Period = "month" | "quarter";
 
@@ -68,6 +69,7 @@ const fmt = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2,
 const Performance = () => {
   const { data: trades = [], isLoading } = useTrades();
   const [period, setPeriod] = useState<Period>("month");
+  const { t } = useLanguage();
 
   const periodicData = useMemo(() => computePeriodicPnL(trades, period), [trades, period]);
   const performance = useMemo(() => computePerformance(trades), [trades]);
@@ -87,21 +89,20 @@ const Performance = () => {
   );
 
   if (isLoading) {
-    return <div className="animate-pulse text-muted-foreground text-center py-12">Loading...</div>;
+    return <div className="animate-pulse text-muted-foreground text-center py-12">{t("common.loading")}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl chess-title">Analysis</h1>
-        <p className="text-muted-foreground text-sm">Periodic realized P&L, dividends, and strategy comparison</p>
+        <h1 className="text-2xl chess-title">{t("performance.title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("performance.subtitle")}</p>
       </div>
 
-      {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Return</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("performance.totalReturn")}</p>
             <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
               {performance.total_return >= 0 ? "+" : ""}${fmt(performance.total_return)}
             </p>
@@ -112,7 +113,9 @@ const Performance = () => {
             <CardContent className="p-4">
               <div className="flex items-center gap-1.5">
                 <Trophy className="h-3.5 w-3.5 text-gain" />
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Best {period === "month" ? "Month" : "Quarter"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {period === "month" ? t("performance.bestMonth") : t("performance.bestQuarter")}
+                </p>
               </div>
               <p className="text-xl font-bold font-mono mt-1 text-gain">+${fmt(bestPeriod.total)}</p>
               <p className="text-xs text-muted-foreground">{bestPeriod.period}</p>
@@ -124,7 +127,9 @@ const Performance = () => {
             <CardContent className="p-4">
               <div className="flex items-center gap-1.5">
                 <AlertTriangle className="h-3.5 w-3.5 text-loss" />
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Worst {period === "month" ? "Month" : "Quarter"}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  {period === "month" ? t("performance.worstMonth") : t("performance.worstQuarter")}
+                </p>
               </div>
               <p className={`text-xl font-bold font-mono mt-1 ${worstPeriod.total >= 0 ? "text-gain" : "text-loss"}`}>
                 {worstPeriod.total >= 0 ? "+" : ""}${fmt(worstPeriod.total)}
@@ -135,7 +140,9 @@ const Performance = () => {
         )}
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg {period === "month" ? "Monthly" : "Quarterly"}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              {period === "month" ? t("performance.avgMonthly") : t("performance.avgQuarterly")}
+            </p>
             <p className={`text-xl font-bold font-mono mt-1 ${avgReturn >= 0 ? "text-gain" : "text-loss"}`}>
               {avgReturn >= 0 ? "+" : ""}${fmt(avgReturn)}
             </p>
@@ -143,13 +150,14 @@ const Performance = () => {
         </Card>
       </div>
 
-      {/* Periodic Chart */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">P&L by {period === "month" ? "Month" : "Quarter"}</CardTitle>
+          <CardTitle className="text-base">
+            {period === "month" ? t("performance.pnlByMonth") : t("performance.pnlByQuarter")}
+          </CardTitle>
           <div className="flex gap-1">
-            <Button variant={period === "month" ? "default" : "outline"} size="sm" onClick={() => setPeriod("month")}>Monthly</Button>
-            <Button variant={period === "quarter" ? "default" : "outline"} size="sm" onClick={() => setPeriod("quarter")}>Quarterly</Button>
+            <Button variant={period === "month" ? "default" : "outline"} size="sm" onClick={() => setPeriod("month")}>{t("performance.monthly")}</Button>
+            <Button variant={period === "quarter" ? "default" : "outline"} size="sm" onClick={() => setPeriod("quarter")}>{t("performance.quarterly")}</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -162,77 +170,62 @@ const Performance = () => {
                   <YAxis tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name === "realized" ? "Realized P&L" : "Dividends"]}
+                    formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name === "realized" ? t("performance.realizedPnl") : t("performance.dividends")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
                   <Legend />
-                  <Bar dataKey="realized" name="Realized P&L" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="dividends" name="Dividends" stackId="a" fill="hsl(var(--gain))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="realized" name={t("performance.realizedPnl")} stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="dividends" name={t("performance.dividends")} stackId="a" fill="hsl(var(--gain))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm text-center py-12">
-              No sell or dividend trades yet — P&L data will appear here once you close positions or receive dividends.
-            </p>
+            <p className="text-muted-foreground text-sm text-center py-12">{t("performance.noSellsYet")}</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Strategy Comparison */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Tag className="h-4 w-4 text-primary" />
-            <CardTitle className="text-base">Strategy Comparison</CardTitle>
+            <CardTitle className="text-base">{t("performance.strategyComparison")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {stratLoading ? (
-            <div className="animate-pulse text-muted-foreground text-sm py-8 text-center">Loading strategies...</div>
+            <div className="animate-pulse text-muted-foreground text-sm py-8 text-center">{t("performance.loadingStrategies")}</div>
           ) : strategyData.length === 0 ? (
-            <p className="text-muted-foreground text-sm text-center py-12">
-              Tag your trades with strategies to compare them here.
-            </p>
+            <p className="text-muted-foreground text-sm text-center py-12">{t("performance.tagTrades")}</p>
           ) : (
             <div className="space-y-6">
-              {/* Table */}
               <div className="overflow-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Strategy</TableHead>
-                      <TableHead className="text-right">Trades</TableHead>
-                      <TableHead className="text-right">Sells</TableHead>
-                      <TableHead className="text-right">Win Rate</TableHead>
-                      <TableHead className="text-right">Realized P&L</TableHead>
-                      <TableHead className="text-right">Dividends</TableHead>
-                      <TableHead className="text-right">Total Return</TableHead>
+                      <TableHead>{t("performance.strategy")}</TableHead>
+                      <TableHead className="text-right">{t("performance.trades")}</TableHead>
+                      <TableHead className="text-right">{t("performance.sells")}</TableHead>
+                      <TableHead className="text-right">{t("performance.winRate")}</TableHead>
+                      <TableHead className="text-right">{t("performance.realizedPnl")}</TableHead>
+                      <TableHead className="text-right">{t("performance.dividends")}</TableHead>
+                      <TableHead className="text-right">{t("performance.totalReturn")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {strategyData.map((s) => (
                       <TableRow key={s.tagId}>
                         <TableCell>
-                          <Badge
-                            className="text-xs"
-                            style={{ backgroundColor: s.tagColor, color: "#fff" }}
-                          >
-                            {s.tagName}
-                          </Badge>
+                          <Badge className="text-xs" style={{ backgroundColor: s.tagColor, color: "#fff" }}>{s.tagName}</Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">{s.totalTrades}</TableCell>
                         <TableCell className="text-right font-mono text-sm">{s.sells}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {s.sells > 0 ? `${s.winRate}%` : "—"}
-                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{s.sells > 0 ? `${s.winRate}%` : "—"}</TableCell>
                         <TableCell className={`text-right font-mono text-sm ${s.realizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
                           {s.realizedPnl >= 0 ? "+" : ""}${fmt(s.realizedPnl)}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm text-gain">
-                          +${fmt(s.dividends)}
-                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm text-gain">+${fmt(s.dividends)}</TableCell>
                         <TableCell className={`text-right font-mono text-sm font-semibold ${s.totalReturn >= 0 ? "text-gain" : "text-loss"}`}>
                           {s.totalReturn >= 0 ? "+" : ""}${fmt(s.totalReturn)}
                         </TableCell>
@@ -242,7 +235,6 @@ const Performance = () => {
                 </Table>
               </div>
 
-              {/* Horizontal bar chart */}
               <div style={{ height: Math.max(strategyData.length * 50, 120) }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={strategyData} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 80 }}>
@@ -251,10 +243,10 @@ const Performance = () => {
                     <YAxis type="category" dataKey="tagName" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} width={70} />
                     <ReferenceLine x={0} stroke="hsl(var(--border))" />
                     <Tooltip
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, "Total Return"]}
+                      formatter={(value: number) => [`$${value.toFixed(2)}`, t("performance.totalReturn")]}
                       contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     />
-                    <Bar dataKey="totalReturn" name="Total Return" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="totalReturn" name={t("performance.totalReturn")} radius={[0, 4, 4, 0]}>
                       {strategyData.map((s) => (
                         <rect key={s.tagId} fill={s.tagColor} />
                       ))}
