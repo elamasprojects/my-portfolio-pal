@@ -388,7 +388,7 @@ export default function Players() {
                         {(c.username || "?").slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm truncate">{c.username || c.display_name}</span>
+                    <span className="text-sm truncate">{c.username || c.display_name || t("social.unknownUser")}</span>
                   </button>
                 ))}
               </div>
