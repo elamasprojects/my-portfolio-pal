@@ -416,7 +416,7 @@ const AddTrade = () => {
                                 <Info className="h-3 w-3 text-muted-foreground" />
                               </button>
                             </HoverCardTrigger>
-                            <HoverCardContent className="w-80" side="top">
+                            <HoverCardContent className="w-[50vw] max-w-lg" side="top">
                               <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">
                                   Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.
