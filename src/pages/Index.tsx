@@ -1,9 +1,10 @@
-import { useTrades, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
+import { useMemo } from "react";
+import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
