@@ -1,7 +1,8 @@
-import { LayoutDashboard, Plus, List, LogOut, TrendingUp, Upload, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { PortfolioSwitcher } from "@/components/PortfolioSwitcher";
 import {
   Sidebar,
   SidebarContent,
@@ -31,12 +32,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        <div className="flex items-center gap-2 px-4 py-5">
-          <TrendingUp className="h-6 w-6 text-sidebar-primary shrink-0" />
-          {!collapsed && (
-            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Portfolio</span>
-          )}
-        </div>
+        <PortfolioSwitcher />
 
         <SidebarGroup>
           <SidebarGroupContent>

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useDefaultPortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
+import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
+import { useAssignTag } from "@/hooks/useTags";
+import { TagPicker } from "@/components/TagPicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote } from "lucide-react";
 import confetti from "canvas-confetti";
 
 interface SubmittedTrade {
@@ -30,9 +32,10 @@ interface SubmittedTrade {
 
 const AddTrade = () => {
   const { user } = useAuth();
-  const { data: portfolio } = useDefaultPortfolio();
+  const { portfolio } = useActivePortfolio();
   const { data: trades } = useTrades();
   const queryClient = useQueryClient();
+  const assignTag = useAssignTag();
 
   const [tradeType, setTradeType] = useState<string>("");
   const [symbol, setSymbol] = useState("");
@@ -51,13 +54,19 @@ const AddTrade = () => {
   const [flipped, setFlipped] = useState(false);
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
   const [selectedHolding, setSelectedHolding] = useState<string>("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // Dividend-specific
+  const [dividendAmount, setDividendAmount] = useState("");
 
   const holdings = useMemo(() => {
     if (!trades) return [];
     return computeHoldings(trades);
   }, [trades]);
 
-  const symbolResolved = assetName.trim() !== "" && price.trim() !== "";
+  const symbolResolved = tradeType === "dividend"
+    ? selectedHolding !== ""
+    : assetName.trim() !== "" && price.trim() !== "";
 
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
@@ -66,11 +75,16 @@ const AddTrade = () => {
   }, [tradeType, selectedHolding, holdings]);
 
   const computedQuantity =
-    inputMode === "amount" && parseFloat(price) > 0 && parseFloat(amount) > 0
+    tradeType === "dividend"
+      ? 1
+      : inputMode === "amount" && parseFloat(price) > 0 && parseFloat(amount) > 0
       ? parseFloat(amount) / parseFloat(price)
       : parseFloat(quantity || "0");
 
-  const total = computedQuantity * parseFloat(price || "0");
+  const total =
+    tradeType === "dividend"
+      ? parseFloat(dividendAmount || "0")
+      : computedQuantity * parseFloat(price || "0");
 
   // Auto-fetch quote when symbol changes (buy mode)
   useEffect(() => {
@@ -107,6 +121,9 @@ const AddTrade = () => {
     setSymbol(h.symbol);
     setAssetName(h.asset_name);
     setAssetType(h.asset_type);
+
+    if (tradeType === "dividend") return; // No price needed for dividends
+
     setPrice(String(h.avg_cost));
 
     setFetchingQuote(true);
@@ -137,19 +154,35 @@ const AddTrade = () => {
     e.preventDefault();
     if (!user || !portfolio) return;
 
-    const finalQuantity =
-      inputMode === "amount" && parseFloat(price) > 0
-        ? parseFloat(amount) / parseFloat(price)
-        : parseFloat(quantity);
+    let finalQuantity: number;
+    let finalPrice: number;
+    let finalTotal: number;
 
-    if (tradeType === "sell" && finalQuantity > availableShares) {
-      toast.error(`You only have ${availableShares.toFixed(4)} shares available to sell.`);
-      return;
+    if (tradeType === "dividend") {
+      finalQuantity = 1;
+      finalPrice = parseFloat(dividendAmount);
+      finalTotal = finalPrice;
+      if (isNaN(finalPrice) || finalPrice <= 0) {
+        toast.error("Enter a valid dividend amount");
+        return;
+      }
+    } else {
+      finalQuantity =
+        inputMode === "amount" && parseFloat(price) > 0
+          ? parseFloat(amount) / parseFloat(price)
+          : parseFloat(quantity);
+      finalPrice = parseFloat(price);
+      finalTotal = finalQuantity * finalPrice;
+
+      if (tradeType === "sell" && finalQuantity > availableShares) {
+        toast.error(`You only have ${availableShares.toFixed(4)} shares available to sell.`);
+        return;
+      }
     }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("trades").insert({
+      const { data: insertedTrade, error } = await supabase.from("trades").insert({
         portfolio_id: portfolio.id,
         user_id: user.id,
         symbol: symbol.toUpperCase(),
@@ -157,12 +190,22 @@ const AddTrade = () => {
         asset_type: assetType as any,
         trade_type: tradeType as any,
         quantity: finalQuantity,
-        price_per_unit: parseFloat(price),
+        price_per_unit: finalPrice,
+        total_amount: finalTotal,
         trade_date: new Date(tradeDate).toISOString(),
         notes: notes || null,
-      });
+      }).select("id").single();
 
       if (error) throw error;
+
+      // Assign tags
+      if (insertedTrade && selectedTagIds.length > 0) {
+        await Promise.all(
+          selectedTagIds.map((tagId) =>
+            assignTag.mutateAsync({ tradeId: insertedTrade.id, tagId })
+          )
+        );
+      }
 
       queryClient.invalidateQueries({ queryKey: ["trades"] });
 
@@ -171,8 +214,8 @@ const AddTrade = () => {
         assetName,
         tradeType,
         quantity: finalQuantity,
-        price: parseFloat(price),
-        total: finalQuantity * parseFloat(price),
+        price: finalPrice,
+        total: finalTotal,
         tradeDate,
         notes,
       });
@@ -202,6 +245,8 @@ const AddTrade = () => {
       setInputMode("shares");
       setSelectedHolding("");
       setSubmittedTrade(null);
+      setSelectedTagIds([]);
+      setDividendAmount("");
     }, 600);
   };
 
@@ -215,6 +260,8 @@ const AddTrade = () => {
     setNotes("");
     setSelectedHolding("");
     setInputMode("shares");
+    setSelectedTagIds([]);
+    setDividendAmount("");
   };
 
   const handleMaxQuantity = () => {
@@ -225,14 +272,21 @@ const AddTrade = () => {
     }
   };
 
-  const tradeTypeSelected = tradeType === "buy" || tradeType === "sell";
+  const handleTagToggle = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const tradeTypeSelected = tradeType === "buy" || tradeType === "sell" || tradeType === "dividend";
   const canSell = holdings.length > 0;
+  const canDividend = holdings.length > 0;
 
   return (
     <div className={`max-w-lg mx-auto transition-all duration-700 ${flipped ? "py-8" : ""}`}>
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Add Trade</h1>
-        <p className="text-muted-foreground text-sm">Log a new buy or sell</p>
+        <p className="text-muted-foreground text-sm">Log a new buy, sell, or dividend</p>
       </div>
 
       {/* 3D Flip Container */}
@@ -264,8 +318,8 @@ const AddTrade = () => {
                         }}
                         className={`flex-1 h-14 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
                           tradeType === "buy"
-                            ? "border-[hsl(var(--gain))] bg-[hsl(var(--gain))]/10 text-[hsl(var(--gain))] shadow-md"
-                            : "border-border bg-card hover:border-[hsl(var(--gain))]/50 text-foreground"
+                            ? "border-gain bg-gain/10 text-gain shadow-md"
+                            : "border-border bg-card hover:border-gain/50 text-foreground"
                         }`}
                       >
                         <ArrowDownLeft className="h-4 w-4" />
@@ -285,8 +339,8 @@ const AddTrade = () => {
                                 !canSell
                                   ? "border-border bg-card opacity-40 cursor-not-allowed text-muted-foreground"
                                   : tradeType === "sell"
-                                  ? "border-[hsl(var(--loss))] bg-[hsl(var(--loss))]/10 text-[hsl(var(--loss))] shadow-md"
-                                  : "border-border bg-card hover:border-[hsl(var(--loss))]/50 text-foreground"
+                                  ? "border-loss bg-loss/10 text-loss shadow-md"
+                                  : "border-border bg-card hover:border-loss/50 text-foreground"
                               }`}
                             >
                               <ArrowUpRight className="h-4 w-4" />
@@ -300,10 +354,39 @@ const AddTrade = () => {
                           )}
                         </Tooltip>
                       </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!canDividend) return;
+                                setTradeType("dividend");
+                                resetFields();
+                              }}
+                              className={`flex-1 h-14 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
+                                !canDividend
+                                  ? "border-border bg-card opacity-40 cursor-not-allowed text-muted-foreground"
+                                  : tradeType === "dividend"
+                                  ? "border-primary bg-primary/10 text-primary shadow-md"
+                                  : "border-border bg-card hover:border-primary/50 text-foreground"
+                              }`}
+                            >
+                              <Banknote className="h-4 w-4" />
+                              Dividend
+                            </button>
+                          </TooltipTrigger>
+                          {!canDividend && (
+                            <TooltipContent>
+                              <p>Add a buy trade first</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
 
-                  {/* Step 2: Symbol / Holdings Picker — only shown after trade type selected */}
+                  {/* Step 2: Symbol / Holdings Picker */}
                   {tradeTypeSelected && (
                     <>
                       <Separator className="my-5" />
@@ -334,7 +417,9 @@ const AddTrade = () => {
                           <>
                             <div className="flex items-center gap-2">
                               <Search className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-bold">Select Asset to Sell</span>
+                              <span className="text-sm font-bold">
+                                {tradeType === "dividend" ? "Select Asset" : "Select Asset to Sell"}
+                              </span>
                               {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                             </div>
                             <Select value={selectedHolding} onValueChange={handleHoldingSelect}>
@@ -349,7 +434,7 @@ const AddTrade = () => {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {selectedHolding && symbolResolved && (
+                            {tradeType === "sell" && selectedHolding && symbolResolved && (
                               <p className="text-xs text-muted-foreground">
                                 Current price: <span className="font-medium text-foreground">${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                                 {" · "}{availableShares.toFixed(2)} shares available
@@ -361,7 +446,7 @@ const AddTrade = () => {
                     </>
                   )}
 
-                  {/* Step 3: Asset Details (buy only) + Trade Details — only shown after symbol resolved */}
+                  {/* Step 3: Asset Details (buy only) + Trade Details */}
                   {tradeTypeSelected && symbolResolved && (
                     <>
                       {tradeType === "buy" && (
@@ -412,135 +497,189 @@ const AddTrade = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-bold">Trade Details</span>
+                            <span className="text-sm font-bold">
+                              {tradeType === "dividend" ? "Dividend Details" : "Trade Details"}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
-                            <Switch
-                              checked={inputMode === "amount"}
-                              onCheckedChange={(checked) => {
-                                setInputMode(checked ? "amount" : "shares");
-                                setAmount("");
-                                setQuantity("");
-                              }}
-                              className="scale-75"
-                            />
-                            <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
-                          </div>
+                          {tradeType !== "dividend" && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
+                              <Switch
+                                checked={inputMode === "amount"}
+                                onCheckedChange={(checked) => {
+                                  setInputMode(checked ? "amount" : "shares");
+                                  setAmount("");
+                                  setQuantity("");
+                                }}
+                                className="scale-75"
+                              />
+                              <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            {inputMode === "shares" ? (
-                              <div className="space-y-1.5">
-                                <Label htmlFor="quantity" className="text-xs text-muted-foreground">
-                                  Shares
-                                </Label>
-                                <div className="flex gap-1.5">
-                                  <Input
-                                    id="quantity"
-                                    type="number"
-                                    step="any"
-                                    placeholder="10"
-                                    value={quantity}
-                                    onChange={(e) => setQuantity(e.target.value)}
-                                    className="font-mono"
-                                    required
-                                    max={tradeType === "sell" ? availableShares : undefined}
-                                  />
-                                  {tradeType === "sell" && availableShares > 0 && (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="shrink-0 text-xs h-10 px-2.5"
-                                      onClick={handleMaxQuantity}
-                                    >
-                                      Max
-                                    </Button>
-                                  )}
-                                </div>
-                                {tradeType === "sell" && availableShares > 0 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {availableShares.toFixed(4)} shares available
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5">
-                                <Label htmlFor="amount" className="text-xs text-muted-foreground">
-                                  Dollar Amount
-                                </Label>
-                                <div className="flex gap-1.5">
-                                  <Input
-                                    id="amount"
-                                    type="number"
-                                    step="any"
-                                    placeholder="1,500.00"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="font-mono"
-                                    required
-                                    max={tradeType === "sell" && parseFloat(price) > 0 ? availableShares * parseFloat(price) : undefined}
-                                  />
-                                  {tradeType === "sell" && availableShares > 0 && (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="shrink-0 text-xs h-10 px-2.5"
-                                      onClick={handleMaxQuantity}
-                                    >
-                                      Max
-                                    </Button>
-                                  )}
-                                </div>
-                                {parseFloat(amount) > 0 && parseFloat(price) > 0 && (
-                                  <p className="text-xs text-muted-foreground">
-                                    ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} shares
-                                    {tradeType === "sell" && ` / ${availableShares.toFixed(4)} available`}
-                                  </p>
-                                )}
-                              </div>
-                            )}
+
+                        {tradeType === "dividend" ? (
+                          <div className="space-y-3">
                             <div className="space-y-1.5">
-                              <Label htmlFor="price" className="text-xs text-muted-foreground">
-                                Price per Unit ($)
+                              <Label htmlFor="dividendAmount" className="text-xs text-muted-foreground">
+                                Amount Received ($)
                               </Label>
                               <Input
-                                id="price"
+                                id="dividendAmount"
                                 type="number"
                                 step="any"
-                                placeholder="150.00"
-                                value={price}
-                                onChange={(e) => setPrice(e.target.value)}
+                                placeholder="50.00"
+                                value={dividendAmount}
+                                onChange={(e) => setDividendAmount(e.target.value)}
                                 className="font-mono"
                                 required
                               />
                             </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
+                                Date Received
+                              </Label>
+                              <Input
+                                id="tradeDate"
+                                type="date"
+                                value={tradeDate}
+                                onChange={(e) => setTradeDate(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                                Notes (optional)
+                              </Label>
+                              <Textarea
+                                id="notes"
+                                placeholder="Quarterly dividend, etc."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                rows={2}
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
-                              Trade Date
-                            </Label>
-                            <Input
-                              id="tradeDate"
-                              type="date"
-                              value={tradeDate}
-                              onChange={(e) => setTradeDate(e.target.value)}
-                            />
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              {inputMode === "shares" ? (
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="quantity" className="text-xs text-muted-foreground">
+                                    Shares
+                                  </Label>
+                                  <div className="flex gap-1.5">
+                                    <Input
+                                      id="quantity"
+                                      type="number"
+                                      step="any"
+                                      placeholder="10"
+                                      value={quantity}
+                                      onChange={(e) => setQuantity(e.target.value)}
+                                      className="font-mono"
+                                      required
+                                      max={tradeType === "sell" ? availableShares : undefined}
+                                    />
+                                    {tradeType === "sell" && availableShares > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0 text-xs h-10 px-2.5"
+                                        onClick={handleMaxQuantity}
+                                      >
+                                        Max
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {tradeType === "sell" && availableShares > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {availableShares.toFixed(4)} shares available
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="amount" className="text-xs text-muted-foreground">
+                                    Dollar Amount
+                                  </Label>
+                                  <div className="flex gap-1.5">
+                                    <Input
+                                      id="amount"
+                                      type="number"
+                                      step="any"
+                                      placeholder="1,500.00"
+                                      value={amount}
+                                      onChange={(e) => setAmount(e.target.value)}
+                                      className="font-mono"
+                                      required
+                                      max={tradeType === "sell" && parseFloat(price) > 0 ? availableShares * parseFloat(price) : undefined}
+                                    />
+                                    {tradeType === "sell" && availableShares > 0 && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0 text-xs h-10 px-2.5"
+                                        onClick={handleMaxQuantity}
+                                      >
+                                        Max
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {parseFloat(amount) > 0 && parseFloat(price) > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      ≈ {(parseFloat(amount) / parseFloat(price)).toFixed(4)} shares
+                                      {tradeType === "sell" && ` / ${availableShares.toFixed(4)} available`}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              <div className="space-y-1.5">
+                                <Label htmlFor="price" className="text-xs text-muted-foreground">
+                                  Price per Unit ($)
+                                </Label>
+                                <Input
+                                  id="price"
+                                  type="number"
+                                  step="any"
+                                  placeholder="150.00"
+                                  value={price}
+                                  onChange={(e) => setPrice(e.target.value)}
+                                  className="font-mono"
+                                  required
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="tradeDate" className="text-xs text-muted-foreground">
+                                Trade Date
+                              </Label>
+                              <Input
+                                id="tradeDate"
+                                type="date"
+                                value={tradeDate}
+                                onChange={(e) => setTradeDate(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                                Notes (optional)
+                              </Label>
+                              <Textarea
+                                id="notes"
+                                placeholder="Earnings play, DCA, etc."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                rows={2}
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="notes" className="text-xs text-muted-foreground">
-                              Notes (optional)
-                            </Label>
-                            <Textarea
-                              id="notes"
-                              placeholder="Earnings play, DCA, etc."
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              rows={2}
-                            />
-                          </div>
+                        )}
+
+                        {/* Tags */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Tags (optional)</Label>
+                          <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
                         </div>
                       </div>
 
@@ -549,12 +688,20 @@ const AddTrade = () => {
                         <>
                           <Separator className="my-5" />
                           <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center">
-                            <span className="text-sm text-muted-foreground">
-                              {computedQuantity.toFixed(4)} shares × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
-                            </span>
-                            <span className="font-mono font-bold text-foreground">
-                              ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
+                            {tradeType === "dividend" ? (
+                              <span className="font-mono font-bold text-foreground">
+                                Dividend: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-sm text-muted-foreground">
+                                  {computedQuantity.toFixed(4)} shares × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
+                                </span>
+                                <span className="font-mono font-bold text-foreground">
+                                  ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </>
                       )}
@@ -593,12 +740,14 @@ const AddTrade = () => {
             {submittedTrade && (
               <Card className="border-primary/30 overflow-hidden bg-gradient-to-br from-primary/10 to-card">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
-                  <div className="h-16 w-16 rounded-full bg-[hsl(var(--gain))]/20 flex items-center justify-center">
-                    <CheckCircle2 className="h-10 w-10 text-[hsl(var(--gain))]" />
+                  <div className="h-16 w-16 rounded-full bg-gain/20 flex items-center justify-center">
+                    <CheckCircle2 className="h-10 w-10 text-gain" />
                   </div>
 
                   <div className="space-y-1">
-                    <h2 className="text-2xl font-bold">Trade Submitted!</h2>
+                    <h2 className="text-2xl font-bold">
+                      {submittedTrade.tradeType === "dividend" ? "Dividend Recorded!" : "Trade Submitted!"}
+                    </h2>
                     <p className="text-muted-foreground text-sm">Your trade has been recorded successfully.</p>
                   </div>
 
@@ -618,8 +767,10 @@ const AddTrade = () => {
                       <Badge
                         className={
                           submittedTrade.tradeType === "buy"
-                            ? "bg-[hsl(var(--gain))] text-[hsl(var(--gain-foreground))]"
-                            : "bg-[hsl(var(--loss))] text-[hsl(var(--loss-foreground))]"
+                            ? "bg-gain text-gain-foreground"
+                            : submittedTrade.tradeType === "sell"
+                            ? "bg-loss text-loss-foreground"
+                            : "bg-primary text-primary-foreground"
                         }
                       >
                         {submittedTrade.tradeType.toUpperCase()}
@@ -628,16 +779,20 @@ const AddTrade = () => {
 
                     <Separator />
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Shares</span>
-                      <span className="font-mono">{submittedTrade.quantity.toFixed(4)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">Price</span>
-                      <span className="font-mono">
-                        ${submittedTrade.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
+                    {submittedTrade.tradeType !== "dividend" && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground text-sm">Shares</span>
+                          <span className="font-mono">{submittedTrade.quantity.toFixed(4)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground text-sm">Price</span>
+                          <span className="font-mono">
+                            ${submittedTrade.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">Date</span>
                       <span className="text-sm">
@@ -652,7 +807,9 @@ const AddTrade = () => {
                     <Separator />
 
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Total</span>
+                      <span className="font-semibold">
+                        {submittedTrade.tradeType === "dividend" ? "Amount" : "Total"}
+                      </span>
                       <span className="font-mono font-bold text-xl">
                         ${submittedTrade.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>

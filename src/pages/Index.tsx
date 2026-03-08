@@ -1,9 +1,9 @@
-import { useTrades, computeHoldings } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 import { useNavigate } from "react-router-dom";
 
 const CHART_COLORS = [
@@ -18,9 +18,9 @@ const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
   const navigate = useNavigate();
   const holdings = computeHoldings(trades);
+  const performance = computePerformance(trades);
 
-  const totalInvested = holdings.reduce((sum, h) => sum + h.total_invested, 0);
-  const totalTrades = trades.length;
+  const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
 
   const allocationData = holdings.reduce((acc, h) => {
@@ -32,6 +32,12 @@ const Index = () => {
     }
     return acc;
   }, [] as { name: string; value: number }[]);
+
+  // P&L by asset chart data
+  const pnlByAsset = performance.by_symbol
+    .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
+    .sort((a, b) => b.total_return - a.total_return)
+    .slice(0, 10);
 
   if (isLoading) {
     return (
@@ -54,9 +60,9 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Invested</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Cost Basis (Open)</p>
                 <p className="text-2xl font-bold font-mono mt-1">
-                  ${totalInvested.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${performance.total_cost_basis.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -70,43 +76,89 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Holdings</p>
-                <p className="text-2xl font-bold font-mono mt-1">{holdings.length}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Trades</p>
-                <p className="text-2xl font-bold font-mono mt-1">{totalTrades}</p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Buys / Sells</p>
-                <p className="text-2xl font-bold font-mono mt-1">
-                  {trades.filter((t) => t.trade_type === "buy").length} / {trades.filter((t) => t.trade_type === "sell").length}
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Realized P&L</p>
+                <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
+                  {performance.total_realized_pnl >= 0 ? "+" : ""}
+                  ${performance.total_realized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <TrendingDown className="h-5 w-5 text-primary" />
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {performance.total_realized_pnl >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-gain" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-loss" />
+                )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Win Rate</p>
+                <p className="text-2xl font-bold font-mono mt-1">
+                  {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
+                </p>
+                {performance.total_sells > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {performance.winning_sells}/{performance.total_sells} sells
+                  </p>
+                )}
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Dividends</p>
+                <p className="text-2xl font-bold font-mono mt-1 text-gain">
+                  ${performance.total_dividends.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-gain/10 flex items-center justify-center">
+                <Banknote className="h-5 w-5 text-gain" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Secondary stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Holdings</p>
+            <p className="text-xl font-bold font-mono mt-1">{holdings.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Trades</p>
+            <p className="text-xl font-bold font-mono mt-1">{totalTrades}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Buys / Sells</p>
+            <p className="text-xl font-bold font-mono mt-1">
+              {trades.filter((t) => t.trade_type === "buy").length} / {trades.filter((t) => t.trade_type === "sell").length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Return</p>
+            <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
+              {performance.total_return >= 0 ? "+" : ""}${performance.total_return.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -216,6 +268,54 @@ const Index = () => {
         </Card>
       </div>
 
+      {/* P&L by Asset Chart */}
+      {pnlByAsset.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">P&L by Asset</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis
+                    type="number"
+                    tickFormatter={(v) => `$${v}`}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="symbol"
+                    tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }}
+                    width={55}
+                  />
+                  <ReferenceLine x={0} stroke="hsl(var(--border))" />
+                  <Tooltip
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Total Return"]}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                  />
+                  <Bar dataKey="total_return" radius={[0, 4, 4, 0]}>
+                    {pnlByAsset.map((entry, i) => (
+                      <Cell
+                        key={i}
+                        fill={entry.total_return >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent Trades */}
       <Card>
         <CardHeader>
@@ -240,12 +340,22 @@ const Index = () => {
                     <TableCell className="text-muted-foreground">{new Date(t.trade_date).toLocaleDateString()}</TableCell>
                     <TableCell className="font-mono font-semibold">{t.symbol}</TableCell>
                     <TableCell>
-                      <span className={t.trade_type === "buy" ? "text-[hsl(var(--gain))]" : "text-[hsl(var(--loss))]"}>
+                      <span className={
+                        t.trade_type === "buy"
+                          ? "text-gain"
+                          : t.trade_type === "sell"
+                          ? "text-loss"
+                          : "text-primary"
+                      }>
                         {t.trade_type.toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{t.quantity}</TableCell>
-                    <TableCell className="text-right font-mono">${Number(t.price_per_unit).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {t.trade_type === "dividend" ? "—" : t.quantity}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
+                    </TableCell>
                     <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
