@@ -259,6 +259,25 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
           </AlertDialog>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  symbol: trade.symbol,
+                  name: trade.asset_name,
+                  type: trade.trade_type,
+                  asset: trade.asset_type,
+                  price: String(trade.price_per_unit),
+                  ...(trade.notes ? { notes: trade.notes } : {}),
+                });
+                onOpenChange(false);
+                navigate(`/add?${params.toString()}`);
+              }}
+            >
+              <Copy className="h-4 w-4 mr-1" />
+              Duplicate
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}

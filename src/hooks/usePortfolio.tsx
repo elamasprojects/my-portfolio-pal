@@ -319,3 +319,42 @@ export function computePerformance(trades: Trade[]): PortfolioPerformance {
     by_symbol: symbolPerfs,
   };
 }
+
+// --- Cumulative P&L over time ---
+export interface CumulativePnLPoint {
+  date: string;
+  cumulative_pnl: number;
+}
+
+export function computeCumulativePnL(trades: Trade[]): CumulativePnLPoint[] {
+  const sorted = [...trades].sort(
+    (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+  );
+
+  const positions = new Map<string, { qty: number; avgCost: number }>();
+  const points: CumulativePnLPoint[] = [];
+  let cumulative = 0;
+
+  for (const t of sorted) {
+    const pos = positions.get(t.symbol) || { qty: 0, avgCost: 0 };
+
+    if (t.trade_type === "buy") {
+      const totalCost = pos.avgCost * pos.qty + t.price_per_unit * t.quantity;
+      pos.qty += t.quantity;
+      pos.avgCost = pos.qty > 0 ? totalCost / pos.qty : 0;
+      positions.set(t.symbol, pos);
+    } else if (t.trade_type === "sell") {
+      const pnl = (t.price_per_unit - pos.avgCost) * t.quantity;
+      cumulative += pnl;
+      pos.qty -= t.quantity;
+      if (pos.qty <= 0) { pos.qty = 0; pos.avgCost = 0; }
+      positions.set(t.symbol, pos);
+      points.push({ date: t.trade_date.split("T")[0], cumulative_pnl: Math.round(cumulative * 100) / 100 });
+    } else if (t.trade_type === "dividend") {
+      cumulative += Number(t.total_amount) || t.price_per_unit * t.quantity;
+      points.push({ date: t.trade_date.split("T")[0], cumulative_pnl: Math.round(cumulative * 100) / 100 });
+    }
+  }
+
+  return points;
+}
