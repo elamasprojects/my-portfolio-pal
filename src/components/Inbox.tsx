@@ -168,8 +168,9 @@ export function Inbox() {
             })}
             {acceptedSentRequests.map((req) => {
               const profile = getAcceptedProfile(req.target_id);
+              const isRead = readIds.has(req.id);
               return (
-                <div key={req.id} className="flex items-center gap-3">
+                <div key={req.id} className={`flex items-center gap-3 ${isRead ? "opacity-60" : ""}`}>
                   <Avatar className="h-8 w-8">
                     {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
                     <AvatarFallback className="text-xs">
