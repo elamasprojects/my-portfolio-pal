@@ -93,11 +93,8 @@ export default function Discipline() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Shield className="h-16 w-16 text-muted-foreground/40" />
-        <h2 className="text-xl font-semibold text-foreground">No Trades Yet</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Start adding trades to see your discipline score. Configure your trading rules and the app
-          will check every trade for compliance.
-        </p>
+        <h2 className="text-xl font-semibold text-foreground">{t("discipline.noTrades")}</h2>
+        <p className="text-muted-foreground text-center max-w-md">{t("discipline.noTradesDesc")}</p>
       </div>
     );
   }
