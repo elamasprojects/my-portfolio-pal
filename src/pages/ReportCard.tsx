@@ -300,7 +300,7 @@ export default function ReportCard() {
                     <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-foreground">{t("report.mostTraded")}</span>
                     <p className="text-lg font-bold text-foreground">{stats.mostTradedAsset}</p>
-                    <p className="text-sm text-muted-foreground">By trade count</p>
+                    <p className="text-sm text-muted-foreground">{t("report.byTradeCount")}</p>
                   </CardContent>
                 </Card>
               </div>
