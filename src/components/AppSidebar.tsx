@@ -69,7 +69,7 @@ export function AppSidebar() {
                       className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
+                      <item.icon className="mr-2 h-4 w-4 shrink-0" />
                       {!collapsed && <span>{t(item.titleKey)}</span>}
                     </NavLink>
                   </SidebarMenuButton>
