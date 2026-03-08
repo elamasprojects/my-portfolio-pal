@@ -410,7 +410,7 @@ const AddTrade = () => {
                     <>
                       <Separator className="my-5" />
                       <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 2</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Position</span>
                         {tradeType === "buy" ? (
                           <>
                             <div className="flex items-center gap-2">
