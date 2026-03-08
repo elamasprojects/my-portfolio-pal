@@ -124,10 +124,10 @@ export default function Timeline() {
                 <SelectValue placeholder="Trade type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="buy">Buy</SelectItem>
-                <SelectItem value="sell">Sell</SelectItem>
-                <SelectItem value="dividend">Dividend</SelectItem>
+                <SelectItem value="all">{t("timeline.allTypes")}</SelectItem>
+                <SelectItem value="buy">{t("timeline.buy")}</SelectItem>
+                <SelectItem value="sell">{t("timeline.sell")}</SelectItem>
+                <SelectItem value="dividend">{t("timeline.dividend")}</SelectItem>
               </SelectContent>
             </Select>
             <Badge variant="secondary" className="ml-auto">
