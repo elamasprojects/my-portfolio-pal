@@ -144,7 +144,6 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.analyzeError": "No se pudieron extraer los datos. Intenta de nuevo o ingresa manualmente.",
   "addTrade.dropImage": "Arrastra la imagen aquí o haz clic para subir",
   "addTrade.supportedFormats": "JPG, PNG, WEBP soportados",
-  "addTrade.max": "Máx",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
