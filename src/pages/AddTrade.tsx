@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefaultPortfolio } from "@/hooks/usePortfolio";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 
 const AddTrade = () => {
   const { user } = useAuth();
@@ -26,6 +26,30 @@ const AddTrade = () => {
   const [tradeDate, setTradeDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [fetchingQuote, setFetchingQuote] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!symbol.trim()) return;
+
+    debounceRef.current = setTimeout(async () => {
+      setFetchingQuote(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-quote', {
+          body: { symbol: symbol.trim() },
+        });
+        if (!error && data) {
+          if (data.price > 0) setPrice(String(data.price));
+          if (data.name) setAssetName(data.name);
+        }
+      } catch {} finally {
+        setFetchingQuote(false);
+      }
+    }, 500);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [symbol]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
