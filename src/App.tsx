@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import AddTrade from "./pages/AddTrade";
 import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
+import ImportTrades from "./pages/ImportTrades";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
