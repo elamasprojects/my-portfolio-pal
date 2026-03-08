@@ -3,22 +3,13 @@ import { MessageSquare, Send, Loader2 } from "lucide-react";
 import { ChessKnight } from "@/components/ChessKnight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { useLanguage } from "@/i18n";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chess-chat`;
-
-const starterQuestions = [
-  "What's my best performing asset?",
-  "Am I diversified enough?",
-  "Summarize my portfolio",
-  "Compare my strategies",
-  "What's my average trade size?",
-  "Do I have a pattern in my trading?",
-];
 
 async function streamChat({
   messages,
@@ -81,7 +72,6 @@ async function streamChat({
     }
   }
 
-  // flush
   if (buf.trim()) {
     for (let raw of buf.split("\n")) {
       if (!raw) continue;
@@ -106,6 +96,12 @@ export default function Chess() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
+
+  const starterQuestions = [
+    t("chess.q1"), t("chess.q2"), t("chess.q3"),
+    t("chess.q4"), t("chess.q5"), t("chess.q6"),
+  ];
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -151,18 +147,16 @@ export default function Chess() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] max-w-4xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-border mb-4">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
           <ChessKnight className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl chess-title text-foreground">Chess</h1>
-          <p className="text-sm text-muted-foreground">Your Personal Portfolio Analyst</p>
+          <h1 className="text-xl chess-title text-foreground">{t("chess.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("chess.subtitle")}</p>
         </div>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pr-2">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
@@ -170,10 +164,8 @@ export default function Chess() {
               <MessageSquare className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground mb-1">Ask Chess anything about your portfolio</h2>
-              <p className="text-sm text-muted-foreground max-w-md">
-                I analyze your real trades, holdings, and performance to give you personalized insights.
-              </p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">{t("chess.askAnything")}</h2>
+              <p className="text-sm text-muted-foreground max-w-md">{t("chess.analyzeDesc")}</p>
             </div>
             <div className="flex flex-wrap gap-2 max-w-lg justify-center">
               {starterQuestions.map((q) => (
@@ -190,13 +182,7 @@ export default function Chess() {
         ) : (
           messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                  m.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
-                }`}
-              >
+              <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
                 {m.role === "assistant" ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_table]:my-2">
                     <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -217,17 +203,13 @@ export default function Chess() {
         )}
       </div>
 
-      {/* Input */}
       <div className="pt-4 border-t border-border mt-4">
-        <form
-          onSubmit={(e) => { e.preventDefault(); send(input); }}
-          className="flex gap-2"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex gap-2">
           <Input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your portfolio..."
+            placeholder={t("chess.placeholder")}
             disabled={isLoading}
             className="flex-1"
           />

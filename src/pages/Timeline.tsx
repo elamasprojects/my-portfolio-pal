@@ -9,6 +9,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { GitBranch, ArrowUpCircle, ArrowDownCircle, Coins, Filter } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 const TRADE_TYPE_COLORS: Record<string, string> = {
   buy: "hsl(var(--gain))",
@@ -53,6 +54,7 @@ export default function Timeline() {
   const { activeId } = useActivePortfolio();
   const { data: trades = [], isLoading } = useTrades(activeId || undefined);
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>("all");
   const [tradeTypeFilter, setTradeTypeFilter] = useState<string>("all");
 
@@ -79,7 +81,7 @@ export default function Timeline() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Loading timeline…</div>
+        <div className="animate-pulse text-muted-foreground">{t("timeline.loadingTimeline")}</div>
       </div>
     );
   }
@@ -90,11 +92,9 @@ export default function Timeline() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <GitBranch className="h-6 w-6 text-primary" />
-            Game Clock
+            {t("timeline.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Visual replay of your moves. Hover to explore, click to dive in.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t("timeline.subtitle")}</p>
         </div>
       </div>
 
@@ -104,14 +104,14 @@ export default function Timeline() {
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Filters</span>
+              <span className="text-sm font-medium text-foreground">{t("timeline.filters")}</span>
             </div>
             <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Asset type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Assets</SelectItem>
+                <SelectItem value="all">{t("timeline.allAssets")}</SelectItem>
                 {assetTypes.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -124,10 +124,10 @@ export default function Timeline() {
                 <SelectValue placeholder="Trade type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="buy">Buy</SelectItem>
-                <SelectItem value="sell">Sell</SelectItem>
-                <SelectItem value="dividend">Dividend</SelectItem>
+                <SelectItem value="all">{t("timeline.allTypes")}</SelectItem>
+                <SelectItem value="buy">{t("timeline.buy")}</SelectItem>
+                <SelectItem value="sell">{t("timeline.sell")}</SelectItem>
+                <SelectItem value="dividend">{t("timeline.dividend")}</SelectItem>
               </SelectContent>
             </Select>
             <Badge variant="secondary" className="ml-auto">
@@ -142,10 +142,8 @@ export default function Timeline() {
         <Card>
           <CardContent className="py-16 text-center">
             <GitBranch className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground">No trades to display on the timeline.</p>
-            <p className="text-sm text-muted-foreground/60 mt-1">
-              Add trades to see your trading history unfold.
-            </p>
+            <p className="text-muted-foreground">{t("timeline.noTrades")}</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">{t("timeline.addTrades")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -255,17 +253,17 @@ export default function Timeline() {
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.buy }} />
-                <span className="text-xs text-muted-foreground">Buy</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.buy")}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.sell }} />
-                <span className="text-xs text-muted-foreground">Sell</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.sell")}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: TRADE_TYPE_COLORS.dividend }} />
-                <span className="text-xs text-muted-foreground">Dividend</span>
+                <span className="text-xs text-muted-foreground">{t("timeline.dividend")}</span>
               </div>
-              <span className="text-xs text-muted-foreground ml-auto">Node size = trade amount</span>
+              <span className="text-xs text-muted-foreground ml-auto">{t("timeline.nodeSize")}</span>
             </div>
           </CardContent>
         </Card>

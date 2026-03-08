@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "@/i18n";
 
 const CHART_COLORS = [
   "hsl(42, 80%, 55%)",
@@ -18,6 +19,7 @@ const CHART_COLORS = [
 const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
@@ -35,7 +37,6 @@ const Index = () => {
     return acc;
   }, [] as { name: string; value: number }[]);
 
-  // P&L by asset chart data
   const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
     .sort((a, b) => b.total_return - a.total_return)
@@ -44,7 +45,7 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Loading portfolio...</div>
+        <div className="animate-pulse text-muted-foreground">{t("board.loadingPortfolio")}</div>
       </div>
     );
   }
@@ -52,17 +53,16 @@ const Index = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl chess-title">Board</h1>
-        <p className="text-muted-foreground text-sm">Your portfolio at a glance</p>
+        <h1 className="text-2xl chess-title">{t("board.title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Cost Basis (Open)</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.costBasis")}</p>
                 <p className="text-2xl font-bold font-mono mt-1">
                   ${performance.total_cost_basis.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
@@ -78,7 +78,7 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Realized P&L</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
                 <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
                   {performance.total_realized_pnl >= 0 ? "+" : ""}
                   ${performance.total_realized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -99,13 +99,13 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Win Rate</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.winRate")}</p>
                 <p className="text-2xl font-bold font-mono mt-1">
                   {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
                 </p>
                 {performance.total_sells > 0 && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {performance.winning_sells}/{performance.total_sells} sells
+                    {performance.winning_sells}/{performance.total_sells} {t("common.sells")}
                   </p>
                 )}
               </div>
@@ -120,7 +120,7 @@ const Index = () => {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Dividends</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.dividends")}</p>
                 <p className="text-2xl font-bold font-mono mt-1 text-gain">
                   ${performance.total_dividends.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
@@ -133,23 +133,22 @@ const Index = () => {
         </Card>
       </div>
 
-      {/* Secondary stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Holdings</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.holdings")}</p>
             <p className="text-xl font-bold font-mono mt-1">{holdings.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Trades</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalTrades")}</p>
             <p className="text-xl font-bold font-mono mt-1">{totalTrades}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Buys / Sells</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.buysSells")}</p>
             <p className="text-xl font-bold font-mono mt-1">
               {trades.filter((t) => t.trade_type === "buy").length} / {trades.filter((t) => t.trade_type === "sell").length}
             </p>
@@ -157,7 +156,7 @@ const Index = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Return</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalReturn")}</p>
             <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
               {performance.total_return >= 0 ? "+" : ""}${performance.total_return.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
@@ -166,37 +165,23 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Allocation Pie Chart */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-base">Allocation by Type</CardTitle>
+            <CardTitle className="text-base">{t("board.allocationByType")}</CardTitle>
           </CardHeader>
           <CardContent>
             {allocationData.length > 0 ? (
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={allocationData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
+                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
                       {allocationData.map((_, index) => (
                         <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip
                       formatter={(value: number) => `$${value.toFixed(2)}`}
-                      contentStyle={{
-                        background: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        color: "hsl(var(--popover-foreground))",
-                      }}
+                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                       itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
                   </PieChart>
@@ -212,41 +197,36 @@ const Index = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
-                <p className="text-muted-foreground text-sm">No holdings yet</p>
+                <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
                 <Button size="sm" onClick={() => navigate("/add")}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Your First Trade
+                  {t("board.addFirstTrade")}
                 </Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Holdings Table */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Holdings</CardTitle>
+            <CardTitle className="text-base">{t("board.holdings")}</CardTitle>
           </CardHeader>
           <CardContent>
             {holdings.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Avg Cost</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>{t("board.symbol")}</TableHead>
+                    <TableHead>{t("board.name")}</TableHead>
+                    <TableHead>{t("board.type")}</TableHead>
+                    <TableHead className="text-right">{t("board.qty")}</TableHead>
+                    <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                    <TableHead className="text-right">{t("board.total")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {holdings.map((h) => (
-                    <TableRow
-                      key={h.symbol}
-                      className="cursor-pointer hover:bg-accent/50"
-                      onClick={() => navigate(`/asset/${h.symbol}`)}
-                    >
+                    <TableRow key={h.symbol} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/asset/${h.symbol}`)}>
                       <TableCell className="font-mono font-semibold text-primary">{h.symbol}</TableCell>
                       <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
                       <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
@@ -259,10 +239,10 @@ const Index = () => {
               </Table>
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
-                <p className="text-muted-foreground text-sm">No holdings yet</p>
+                <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
                 <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Trade
+                  {t("board.addTrade")}
                 </Button>
               </div>
             )}
@@ -270,45 +250,27 @@ const Index = () => {
         </Card>
       </div>
 
-      {/* P&L by Asset Chart */}
       {pnlByAsset.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">P&L by Asset</CardTitle>
+            <CardTitle className="text-base">{t("board.pnlByAsset")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    type="number"
-                    tickFormatter={(v) => `$${v}`}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="symbol"
-                    tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }}
-                    width={55}
-                  />
+                  <XAxis type="number" tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
                   <ReferenceLine x={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Total Return"]}
-                    contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--popover-foreground))",
-                    }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.totalReturn")]}
+                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
                   <Bar dataKey="total_return" radius={[0, 4, 4, 0]}>
                     {pnlByAsset.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={entry.total_return >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"}
-                      />
+                      <Cell key={i} fill={entry.total_return >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -318,11 +280,10 @@ const Index = () => {
         </Card>
       )}
 
-      {/* Cumulative P&L Over Time */}
       {cumulativePnL.length > 1 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">P&L Over Time</CardTitle>
+            <CardTitle className="text-base">{t("board.pnlOverTime")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -335,32 +296,15 @@ const Index = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => `$${v}`}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  />
+                  <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, "Cumulative P&L"]}
-                    contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--popover-foreground))",
-                    }}
+                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.cumulativePnl")]}
+                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="cumulative_pnl"
-                    stroke="hsl(var(--gain))"
-                    fill="url(#pnlGradient)"
-                    strokeWidth={2}
-                  />
+                  <Area type="monotone" dataKey="cumulative_pnl" stroke="hsl(var(--gain))" fill="url(#pnlGradient)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -368,57 +312,56 @@ const Index = () => {
         </Card>
       )}
 
-      {/* Recent Trades */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent Trades</CardTitle>
+          <CardTitle className="text-base">{t("board.recentTrades")}</CardTitle>
         </CardHeader>
         <CardContent>
           {recentTrades.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>{t("board.date")}</TableHead>
+                  <TableHead>{t("board.symbol")}</TableHead>
+                  <TableHead>{t("board.type")}</TableHead>
+                  <TableHead className="text-right">{t("board.qty")}</TableHead>
+                  <TableHead className="text-right">{t("board.price")}</TableHead>
+                  <TableHead className="text-right">{t("board.total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentTrades.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="text-muted-foreground">{new Date(t.trade_date).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-mono font-semibold">{t.symbol}</TableCell>
+                {recentTrades.map((t_) => (
+                  <TableRow key={t_.id}>
+                    <TableCell className="text-muted-foreground">{new Date(t_.trade_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-mono font-semibold">{t_.symbol}</TableCell>
                     <TableCell>
                       <span className={
-                        t.trade_type === "buy"
+                        t_.trade_type === "buy"
                           ? "text-gain"
-                          : t.trade_type === "sell"
+                          : t_.trade_type === "sell"
                           ? "text-loss"
                           : "text-primary"
                       }>
-                        {t.trade_type.toUpperCase()}
+                        {t_.trade_type.toUpperCase()}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {t.trade_type === "dividend" ? "—" : t.quantity}
+                      {t_.trade_type === "dividend" ? "—" : t_.quantity}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
+                      {t_.trade_type === "dividend" ? "—" : `$${Number(t_.price_per_unit).toFixed(2)}`}
                     </TableCell>
-                    <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${Number(t_.total_amount).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
             <div className="flex flex-col items-center gap-3 py-8">
-              <p className="text-muted-foreground text-sm">No trades yet</p>
+              <p className="text-muted-foreground text-sm">{t("board.noTrades")}</p>
               <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
                 <Plus className="h-4 w-4 mr-1" />
-                Get Started
+                {t("board.getStarted")}
               </Button>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
+import { useLanguage } from "@/i18n";
 import { useTags, useTradeTagAssignments, useAssignTag } from "@/hooks/useTags";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
 import { TagBadges, TagPicker } from "@/components/TagPicker";
@@ -60,6 +61,7 @@ function downloadCSV(content: string, filename: string) {
 }
 
 const TradeLog = () => {
+  const { t } = useLanguage();
   const { data: trades = [], isLoading } = useTrades();
   const { data: tags = [] } = useTags();
   const queryClient = useQueryClient();
@@ -155,21 +157,21 @@ const TradeLog = () => {
   };
 
   if (isLoading) {
-    return <div className="animate-pulse text-muted-foreground text-center py-12">Loading trades...</div>;
+    return <div className="animate-pulse text-muted-foreground text-center py-12">{t("tradeLog.loadingTrades")}</div>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl chess-title">Move History</h1>
-        <p className="text-muted-foreground text-sm">All your transactions</p>
+        <h1 className="text-2xl chess-title">{t("tradeLog.title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("tradeLog.subtitle")}</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="relative w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search symbol or name..."
+            placeholder={t("tradeLog.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -180,10 +182,10 @@ const TradeLog = () => {
             <SelectValue placeholder="Trade type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="buy">Buy</SelectItem>
-            <SelectItem value="sell">Sell</SelectItem>
-            <SelectItem value="dividend">Dividend</SelectItem>
+            <SelectItem value="all">{t("tradeLog.allTypes")}</SelectItem>
+            <SelectItem value="buy">{t("addTrade.buy")}</SelectItem>
+            <SelectItem value="sell">{t("addTrade.sell")}</SelectItem>
+            <SelectItem value="dividend">{t("addTrade.dividend")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterAsset} onValueChange={setFilterAsset}>
@@ -191,12 +193,12 @@ const TradeLog = () => {
             <SelectValue placeholder="Asset type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Assets</SelectItem>
-            <SelectItem value="stock">Stock</SelectItem>
-            <SelectItem value="etf">ETF</SelectItem>
-            <SelectItem value="crypto">Crypto</SelectItem>
-            <SelectItem value="bond">Bond</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            <SelectItem value="all">{t("tradeLog.allAssets")}</SelectItem>
+            <SelectItem value="stock">{t("addTrade.stock")}</SelectItem>
+            <SelectItem value="etf">{t("addTrade.etf")}</SelectItem>
+            <SelectItem value="crypto">{t("addTrade.crypto")}</SelectItem>
+            <SelectItem value="bond">{t("addTrade.bond")}</SelectItem>
+            <SelectItem value="other">{t("addTrade.other")}</SelectItem>
           </SelectContent>
         </Select>
         {tags.length > 0 && (
@@ -205,7 +207,7 @@ const TradeLog = () => {
               <SelectValue placeholder="Tag" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tags</SelectItem>
+              <SelectItem value="all">{t("tradeLog.allTags")}</SelectItem>
               {tags.map((tag) => (
                 <SelectItem key={tag.id} value={tag.id}>
                   <span className="flex items-center gap-1.5">
@@ -219,7 +221,7 @@ const TradeLog = () => {
         )}
         <Button variant="outline" size="sm" onClick={() => handleExport(filtered)} className="ml-auto">
           <Download className="h-4 w-4 mr-1" />
-          Export CSV
+          {t("tradeLog.exportCsv")}
         </Button>
       </div>
 
@@ -235,15 +237,15 @@ const TradeLog = () => {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Asset</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Tags</TableHead>
+                  <TableHead>{t("tradeLog.date")}</TableHead>
+                  <TableHead>{t("tradeLog.symbol")}</TableHead>
+                  <TableHead>{t("tradeLog.name")}</TableHead>
+                  <TableHead>{t("tradeLog.type")}</TableHead>
+                  <TableHead>{t("tradeLog.asset")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.qty")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.price")}</TableHead>
+                  <TableHead className="text-right">{t("tradeLog.total")}</TableHead>
+                  <TableHead>{t("tradeLog.tags")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,7 +294,7 @@ const TradeLog = () => {
             </Table>
           ) : (
             <p className="text-muted-foreground text-sm text-center py-12">
-              {trades.length === 0 ? "No trades yet" : "No trades match your filters"}
+              {trades.length === 0 ? t("tradeLog.noTrades") : t("tradeLog.noMatch")}
             </p>
           )}
         </CardContent>
@@ -301,7 +303,7 @@ const TradeLog = () => {
       {/* Floating bulk action bar */}
       {selectionMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-popover border border-border rounded-xl shadow-lg px-4 py-3 flex items-center gap-3">
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <span className="text-sm font-medium">{selectedIds.size} {t("common.selected")}</span>
           <div className="h-5 w-px bg-border" />
           <Button
             variant="destructive"
@@ -309,14 +311,14 @@ const TradeLog = () => {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Delete
+            {t("common.delete")}
           </Button>
           {tags.length > 0 && (
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Tag className="h-4 w-4 mr-1" />
-                  Tag
+                  {t("tradeLog.tag")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2" align="center" side="top">
@@ -344,10 +346,10 @@ const TradeLog = () => {
             }}
           >
             <Download className="h-4 w-4 mr-1" />
-            Export
+            {t("common.export")}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-            Clear
+            {t("common.clear")}
           </Button>
         </div>
       )}
@@ -355,19 +357,19 @@ const TradeLog = () => {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} trades?</AlertDialogTitle>
+            <AlertDialogTitle>{t("tradeLog.deleteConfirmTitle", { count: String(selectedIds.size) })}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All selected trades will be permanently deleted.
+              {t("tradeLog.deleteConfirmDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {bulkDeleting ? "Deleting..." : "Delete All"}
+              {bulkDeleting ? t("tradeLog.deleting") : t("tradeLog.deleteAll")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

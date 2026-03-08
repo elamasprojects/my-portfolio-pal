@@ -16,6 +16,7 @@ import {
   type DisciplineRule,
 } from "@/hooks/useDiscipline";
 import { format } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 function ScoreGauge({ score }: { score: number }) {
   const circumference = 2 * Math.PI * 54;
@@ -49,6 +50,7 @@ function ScoreGauge({ score }: { score: number }) {
 }
 
 export default function Discipline() {
+  const { t } = useLanguage();
   const { data: trades = [] } = useTrades();
   const { data: savedRules = [], isLoading } = useDisciplineRules();
   const upsertRule = useUpsertRule();
@@ -91,11 +93,8 @@ export default function Discipline() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Shield className="h-16 w-16 text-muted-foreground/40" />
-        <h2 className="text-xl font-semibold text-foreground">No Trades Yet</h2>
-        <p className="text-muted-foreground text-center max-w-md">
-          Start adding trades to see your discipline score. Configure your trading rules and the app
-          will check every trade for compliance.
-        </p>
+        <h2 className="text-xl font-semibold text-foreground">{t("discipline.noTrades")}</h2>
+        <p className="text-muted-foreground text-center max-w-md">{t("discipline.noTradesDesc")}</p>
       </div>
     );
   }
@@ -103,13 +102,11 @@ export default function Discipline() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-2xl chess-title flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
-          Opening Book
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Define your rules and measure how well you stick to them.
-        </p>
+          <h1 className="text-2xl chess-title flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            {t("discipline.title")}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">{t("discipline.subtitle")}</p>
       </div>
 
       {/* Score */}
@@ -118,10 +115,10 @@ export default function Discipline() {
           <ScoreGauge score={discipline.overall} />
           <p className="text-center text-sm text-muted-foreground mt-3">
             {discipline.overall >= 80
-              ? "Excellent discipline! Keep it up."
+              ? t("discipline.excellent")
               : discipline.overall >= 50
-              ? "Room for improvement — review your violations."
-              : "Your trading habits need attention."}
+              ? t("discipline.improve")
+              : t("discipline.attention")}
           </p>
         </CardContent>
       </Card>
@@ -151,10 +148,10 @@ export default function Discipline() {
                   <div className="flex items-center gap-2">
                     <Label className="text-xs text-muted-foreground whitespace-nowrap">
                       {def.rule_type === "max_position_pct"
-                        ? "Max %"
+                        ? t("discipline.maxPct")
                         : def.rule_type === "max_trade_size"
-                        ? "Max $"
-                        : "Min assets"}
+                        ? t("discipline.maxDollar")
+                        : t("discipline.minAssets")}
                     </Label>
                     <Input
                       type="number"
@@ -167,14 +164,14 @@ export default function Discipline() {
                 )}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Compliance</span>
+                    <span>{t("discipline.compliance")}</span>
                     <span className="font-mono">{result.compliance_pct}%</span>
                   </div>
                   <Progress value={result.compliance_pct} className="h-2" />
                 </div>
                 {result.violations_count > 0 && (
                   <Badge variant="destructive" className="text-xs">
-                    {result.violations_count} violation{result.violations_count > 1 ? "s" : ""}
+                    {result.violations_count} {result.violations_count > 1 ? t("discipline.violations") : t("discipline.violation")}
                   </Badge>
                 )}
               </CardContent>
@@ -192,7 +189,7 @@ export default function Discipline() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                   <CardTitle className="text-sm font-medium">
-                    Violations ({discipline.violations.length})
+                    {t("discipline.violationsTitle")} ({discipline.violations.length})
                   </CardTitle>
                 </div>
                 {violationsOpen ? (

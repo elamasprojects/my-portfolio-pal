@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { GraduationCap, Download, TrendingUp, TrendingDown, BarChart3, Star, Award, Coins } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, isWithinInterval } from "date-fns";
 import html2canvas from "html2canvas";
+import { useLanguage } from "@/i18n";
 
 interface MonthStats {
   month: string;
@@ -134,6 +135,7 @@ export default function ReportCard() {
   const { data: trades = [], isLoading } = useTrades(activeId || undefined);
   const cardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
+  const { t } = useLanguage();
 
   // Compute available months
   const availableMonths = useMemo(() => {
@@ -178,7 +180,7 @@ export default function ReportCard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-muted-foreground">Loading report card…</div>
+        <div className="animate-pulse text-muted-foreground">{t("report.loadingReport")}</div>
       </div>
     );
   }
@@ -189,11 +191,9 @@ export default function ReportCard() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
-            Score Sheet
+            {t("report.title")}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Your monthly performance, graded.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t("report.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           {availableMonths.length > 0 && (
@@ -213,7 +213,7 @@ export default function ReportCard() {
           {stats && (
             <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
               <Download className="h-4 w-4 mr-1" />
-              {exporting ? "Exporting…" : "Download PNG"}
+              {exporting ? t("report.exporting") : t("report.downloadPng")}
             </Button>
           )}
         </div>
@@ -223,7 +223,7 @@ export default function ReportCard() {
         <Card>
           <CardContent className="py-16 text-center">
             <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground">No trades yet to generate a report card.</p>
+            <p className="text-muted-foreground">{t("report.noTrades")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -238,7 +238,7 @@ export default function ReportCard() {
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                   {stats.label}
                 </p>
-                <p className="text-lg font-semibold text-foreground mt-1">Trading Report Card</p>
+                <p className="text-lg font-semibold text-foreground mt-1">{t("report.tradingReportCard")}</p>
               </div>
               <div className="flex flex-col items-center">
                 <div
@@ -248,12 +248,12 @@ export default function ReportCard() {
                   {stats.grade}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {stats.grade === "A+" && "Outstanding!"}
-                  {stats.grade === "A" && "Excellent"}
-                  {stats.grade === "B" && "Good job"}
-                  {stats.grade === "C" && "Holding steady"}
-                  {stats.grade === "D" && "Room to improve"}
-                  {stats.grade === "F" && "Tough month"}
+                  {stats.grade === "A+" && t("report.outstanding")}
+                  {stats.grade === "A" && t("report.excellent")}
+                  {stats.grade === "B" && t("report.goodJob")}
+                  {stats.grade === "C" && t("report.holdingSteady")}
+                  {stats.grade === "D" && t("report.roomToImprove")}
+                  {stats.grade === "F" && t("report.toughMonth")}
                 </p>
               </div>
             </div>
@@ -261,29 +261,10 @@ export default function ReportCard() {
             <CardContent className="p-8">
               {/* Stats grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <StatBox
-                  icon={<BarChart3 className="h-4 w-4" />}
-                  label="Total Trades"
-                  value={stats.totalTrades.toString()}
-                  sub={`${stats.buys} buys · ${stats.sells} sells`}
-                />
-                <StatBox
-                  icon={<TrendingUp className="h-4 w-4" />}
-                  label="Net P&L"
-                  value={`${stats.netRealizedPnL >= 0 ? "+" : ""}$${stats.netRealizedPnL.toFixed(2)}`}
-                  valueColor={stats.netRealizedPnL >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"}
-                />
-                <StatBox
-                  icon={<Coins className="h-4 w-4" />}
-                  label="Dividends"
-                  value={`$${stats.dividendIncome.toFixed(2)}`}
-                />
-                <StatBox
-                  icon={<Award className="h-4 w-4" />}
-                  label="Win Rate"
-                  value={stats.totalSells > 0 ? `${stats.winRate}%` : "—"}
-                  sub={stats.totalSells > 0 ? `${stats.winningSells}/${stats.totalSells} wins` : "No sells"}
-                />
+                <StatBox icon={<BarChart3 className="h-4 w-4" />} label={t("report.totalTrades")} value={stats.totalTrades.toString()} sub={`${stats.buys} ${t("report.buys")} · ${stats.sells} ${t("report.sells")}`} />
+                <StatBox icon={<TrendingUp className="h-4 w-4" />} label={t("report.netPnl")} value={`${stats.netRealizedPnL >= 0 ? "+" : ""}$${stats.netRealizedPnL.toFixed(2)}`} valueColor={stats.netRealizedPnL >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"} />
+                <StatBox icon={<Coins className="h-4 w-4" />} label={t("report.dividends")} value={`$${stats.dividendIncome.toFixed(2)}`} />
+                <StatBox icon={<Award className="h-4 w-4" />} label={t("report.winRate")} value={stats.totalSells > 0 ? `${stats.winRate}%` : "—"} sub={stats.totalSells > 0 ? `${stats.winningSells}/${stats.totalSells} ${t("report.wins")}` : t("report.noSells")} />
               </div>
 
               {/* Highlights */}
@@ -293,7 +274,7 @@ export default function ReportCard() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <Star className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-foreground">Best Trade</span>
+                        <span className="text-sm font-medium text-foreground">{t("report.bestTrade")}</span>
                       </div>
                       <p className="text-lg font-bold text-foreground">{stats.bestTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--gain))" }}>
@@ -307,7 +288,7 @@ export default function ReportCard() {
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="h-4 w-4 text-destructive" />
-                        <span className="text-sm font-medium text-foreground">Worst Trade</span>
+                        <span className="text-sm font-medium text-foreground">{t("report.worstTrade")}</span>
                       </div>
                       <p className="text-lg font-bold text-foreground">{stats.worstTrade.symbol}</p>
                       <p className="text-sm font-semibold" style={{ color: "hsl(var(--loss))" }}>
@@ -320,10 +301,10 @@ export default function ReportCard() {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <BarChart3 className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium text-foreground">Most Traded</span>
+                      <span className="text-sm font-medium text-foreground">{t("report.mostTraded")}</span>
                     </div>
                     <p className="text-lg font-bold text-foreground">{stats.mostTradedAsset}</p>
-                    <p className="text-sm text-muted-foreground">By trade count</p>
+                    <p className="text-sm text-muted-foreground">{t("report.byTradeCount")}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -332,7 +313,7 @@ export default function ReportCard() {
               {stats.totalSells > 0 && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-foreground">Win Rate</span>
+                    <span className="text-sm font-medium text-foreground">{t("report.winRate")}</span>
                     <span className="text-sm font-bold text-foreground">{stats.winRate}%</span>
                   </div>
                   <Progress value={stats.winRate} className="h-3" />

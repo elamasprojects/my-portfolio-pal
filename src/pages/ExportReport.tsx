@@ -25,6 +25,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
+import { useLanguage } from "@/i18n";
 
 const COLORS = [
   "hsl(42, 80%, 55%)",
@@ -42,6 +43,7 @@ export default function ExportReport() {
   const { portfolio } = useActivePortfolio();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [previewDark, setPreviewDark] = useState(theme === "dark");
   const [exporting, setExporting] = useState(false);
 
@@ -87,11 +89,9 @@ export default function ExportReport() {
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
             <FileDown className="h-6 w-6 text-primary" />
-            Notation
+            {t("export.title")}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Preview and download your portfolio report as PDF.
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">{t("export.subtitle")}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -100,11 +100,11 @@ export default function ExportReport() {
             <Moon className="h-4 w-4 text-muted-foreground" />
           </div>
           <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-1" /> Print
+            <Printer className="h-4 w-4 mr-1" /> {t("export.print")}
           </Button>
           <Button size="sm" onClick={handleDownloadPDF} disabled={exporting}>
             <FileDown className="h-4 w-4 mr-1" />
-            {exporting ? "Generating…" : "Download PDF"}
+            {exporting ? t("export.generating") : t("export.downloadPdf")}
           </Button>
         </div>
       </div>
@@ -121,22 +121,22 @@ export default function ExportReport() {
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
           <div>
-            <h2 className="text-xl font-bold">{portfolio?.name || "Portfolio"} Report</h2>
+            <h2 className="text-xl font-bold">{portfolio?.name || "Portfolio"} {t("export.report")}</h2>
             <p className="text-sm opacity-60">{user?.email}</p>
           </div>
           <div className="text-right">
             <p className="text-sm font-medium">{format(new Date(), "MMMM d, yyyy")}</p>
-            <p className="text-xs opacity-60">{trades.length} total trades</p>
+            <p className="text-xs opacity-60">{trades.length} {t("export.totalTrades")}</p>
           </div>
         </div>
 
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total Invested", value: `$${totalInvested.toFixed(2)}` },
-            { label: "Realized P&L", value: `$${performance.total_realized_pnl.toFixed(2)}`, color: performance.total_realized_pnl >= 0 },
-            { label: "Dividends", value: `$${performance.total_dividends.toFixed(2)}` },
-            { label: "Win Rate", value: `${performance.win_rate.toFixed(1)}%` },
+            { label: t("export.totalInvested"), value: `$${totalInvested.toFixed(2)}` },
+            { label: t("export.realizedPnl"), value: `$${performance.total_realized_pnl.toFixed(2)}`, color: performance.total_realized_pnl >= 0 },
+            { label: t("export.dividends"), value: `$${performance.total_dividends.toFixed(2)}` },
+            { label: t("export.winRate"), value: `${performance.win_rate.toFixed(1)}%` },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -161,7 +161,7 @@ export default function ExportReport() {
         {/* Allocation Chart */}
         {pieData.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Portfolio Allocation</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.portfolioAllocation")}</h3>
             <div className="flex items-center gap-6 flex-wrap">
               <div className="w-48 h-48">
                 <ResponsiveContainer width="100%" height="100%">
@@ -189,7 +189,7 @@ export default function ExportReport() {
         {/* Holdings Table */}
         {holdings.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Holdings</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.holdings")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
@@ -218,7 +218,7 @@ export default function ExportReport() {
         {/* P&L by Symbol */}
         {performance.by_symbol.filter((s) => s.total_sells > 0 || s.dividends_received > 0).length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">P&L by Asset</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.pnlByAsset")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
@@ -253,7 +253,7 @@ export default function ExportReport() {
         {/* Recent Trades */}
         {recentTrades.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold mb-3 opacity-80">Recent Trades (Last 20)</h3>
+            <h3 className="text-sm font-semibold mb-3 opacity-80">{t("export.recentTrades")}</h3>
             <div className="rounded-lg overflow-hidden" style={{ background: previewDark ? "#252530" : "#ffffff" }}>
               <Table>
                 <TableHeader>
@@ -289,7 +289,7 @@ export default function ExportReport() {
 
         {/* Footer */}
         <div className="text-center text-xs opacity-40 pt-4 border-t" style={{ borderColor: previewDark ? "#333" : "#ccc" }}>
-          Generated by Chess • {format(new Date(), "yyyy-MM-dd HH:mm")}
+          {t("export.generatedBy")} • {format(new Date(), "yyyy-MM-dd HH:mm")}
         </div>
       </div>
     </div>

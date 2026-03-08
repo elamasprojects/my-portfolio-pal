@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { LanguageProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -38,28 +39,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
-            <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
-            <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
-            <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-            <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
-            <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-            <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-            <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
-            <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
-            <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
+              <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
+              <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
+              <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+              <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
+              <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
+              <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+              <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+              <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
+              <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
+              <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </LanguageProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
