@@ -115,10 +115,10 @@ export default function Discipline() {
           <ScoreGauge score={discipline.overall} />
           <p className="text-center text-sm text-muted-foreground mt-3">
             {discipline.overall >= 80
-              ? "Excellent discipline! Keep it up."
+              ? t("discipline.excellent")
               : discipline.overall >= 50
-              ? "Room for improvement — review your violations."
-              : "Your trading habits need attention."}
+              ? t("discipline.improve")
+              : t("discipline.attention")}
           </p>
         </CardContent>
       </Card>
