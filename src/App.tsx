@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import AddTrade from "./pages/AddTrade";
 import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
+import ImportTrades from "./pages/ImportTrades";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
             <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
+            <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

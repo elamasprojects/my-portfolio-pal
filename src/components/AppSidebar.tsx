@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, TrendingUp, Upload } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Add Trade", url: "/add", icon: Plus },
+  { title: "Import CSV", url: "/import", icon: Upload },
   { title: "Trade Log", url: "/trades", icon: List },
 ];
 
