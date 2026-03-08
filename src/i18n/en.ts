@@ -29,6 +29,7 @@ export const en = {
   "nav.chess": "Chess",
   "nav.players": "Players",
   "nav.settings": "Settings",
+  "nav.progress": "Progress",
 
   // Profile dropdown
   "profile.language": "Language",

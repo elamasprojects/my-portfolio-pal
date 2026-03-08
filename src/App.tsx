@@ -8,15 +8,11 @@ import { LanguageProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import AddTrade from "./pages/AddTrade";
+import AddTradeHub from "./pages/AddTradeHub";
 import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
-import ImportTrades from "./pages/ImportTrades";
-import Performance from "./pages/Performance";
-import Timeline from "./pages/Timeline";
-import ReportCard from "./pages/ReportCard";
-import Achievements from "./pages/Achievements";
-import Discipline from "./pages/Discipline";
+import AnalysisHub from "./pages/AnalysisHub";
+import ProgressHub from "./pages/ProgressHub";
 import ExportReport from "./pages/ExportReport";
 import Chess from "./pages/Chess";
 import Settings from "./pages/Settings";
@@ -54,20 +50,27 @@ const App = () => (
               <Route path="/install" element={<Install />} />
               <Route path="/share/:id" element={<SharedExport />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/add" element={<ProtectedRoute><AddTrade /></ProtectedRoute>} />
+              <Route path="/add" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
+              <Route path="/add/import" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
               <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
-              <Route path="/import" element={<ProtectedRoute><ImportTrades /></ProtectedRoute>} />
-              <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-              <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
-              <Route path="/report" element={<ProtectedRoute><ReportCard /></ProtectedRoute>} />
+              <Route path="/analysis" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
+              <Route path="/analysis/timeline" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
+              <Route path="/analysis/report" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
+              <Route path="/progress" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
+              <Route path="/progress/discipline" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-              <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-              <Route path="/discipline" element={<ProtectedRoute><Discipline /></ProtectedRoute>} />
               <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
               <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
+              {/* Legacy redirects */}
+              <Route path="/import" element={<Navigate to="/add/import" replace />} />
+              <Route path="/performance" element={<Navigate to="/analysis" replace />} />
+              <Route path="/timeline" element={<Navigate to="/analysis/timeline" replace />} />
+              <Route path="/report" element={<Navigate to="/analysis/report" replace />} />
+              <Route path="/achievements" element={<Navigate to="/progress" replace />} />
+              <Route path="/discipline" element={<Navigate to="/progress/discipline" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

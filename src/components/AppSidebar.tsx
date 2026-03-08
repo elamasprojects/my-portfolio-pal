@@ -1,6 +1,7 @@
 import { LayoutDashboard, Plus, List, LogOut, Upload, Moon, Sun, BarChart3, Trophy, GitBranch, GraduationCap, Shield, FileDown, Sparkles, Globe, Users, Settings } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage, TranslationKey } from "@/i18n";
@@ -29,23 +30,19 @@ import {
 const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.board", url: "/", icon: LayoutDashboard },
   { titleKey: "nav.newMove", url: "/add", icon: Plus },
-  { titleKey: "nav.importPgn", url: "/import", icon: Upload },
   { titleKey: "nav.moveHistory", url: "/trades", icon: List },
-  { titleKey: "nav.analysis", url: "/performance", icon: BarChart3 },
-  { titleKey: "nav.gameClock", url: "/timeline", icon: GitBranch },
-  { titleKey: "nav.scoreSheet", url: "/report", icon: GraduationCap },
-  { titleKey: "nav.titles", url: "/achievements", icon: Trophy },
-  { titleKey: "nav.openingBook", url: "/discipline", icon: Shield },
+  { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
+  { titleKey: "nav.progress", url: "/progress", icon: Trophy },
   { titleKey: "nav.notation", url: "/export", icon: FileDown },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
-  { titleKey: "nav.settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { signOut } = useAuth();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
   const { profile } = useProfile();
@@ -60,12 +57,14 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {navItems.map((item) => {
+                const useEnd = item.url === "/" || !item.url.match(/^\/(add|analysis|progress)$/);
+                return (
                 <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end
+                      end={useEnd}
                       className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                     >
@@ -74,7 +73,8 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -113,6 +113,14 @@ export function AppSidebar() {
               <span className="text-xs text-muted-foreground">
                 {theme === "dark" ? t("profile.lightMode") : t("profile.darkMode")}
               </span>
+            </DropdownItem>
+
+            <DropdownSeparator />
+
+            {/* Settings */}
+            <DropdownItem onClick={() => navigate('/settings')}>
+              <Settings className="h-4 w-4" />
+              {t("nav.settings")}
             </DropdownItem>
 
             <DropdownSeparator />
