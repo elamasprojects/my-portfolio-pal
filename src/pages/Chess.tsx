@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, Sparkles } from "lucide-react";
+import { MessageSquare, Send, Loader2 } from "lucide-react";
+import { ChessKnight } from "@/components/ChessKnight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
