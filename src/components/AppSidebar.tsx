@@ -118,7 +118,7 @@ export function AppSidebar() {
             <DropdownSeparator />
 
             {/* Settings */}
-            <DropdownItem onClick={() => window.location.href = '/settings'}>
+            <DropdownItem onClick={() => navigate('/settings')}>
               <Settings className="h-4 w-4" />
               {t("nav.settings")}
             </DropdownItem>
