@@ -43,6 +43,8 @@ export default function ExportReport() {
   const { portfolio } = useActivePortfolio();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { t } = useLanguage();
+  const [previewDark, setPreviewDark] = useState(theme === "dark");
   const [previewDark, setPreviewDark] = useState(theme === "dark");
   const [exporting, setExporting] = useState(false);
 
