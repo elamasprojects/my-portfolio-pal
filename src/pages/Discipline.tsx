@@ -164,7 +164,7 @@ export default function Discipline() {
                 )}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Compliance</span>
+                    <span>{t("discipline.compliance")}</span>
                     <span className="font-mono">{result.compliance_pct}%</span>
                   </div>
                   <Progress value={result.compliance_pct} className="h-2" />
