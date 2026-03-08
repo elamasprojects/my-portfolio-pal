@@ -333,12 +333,12 @@ export default function Players() {
                 <Avatar className="h-14 w-14">
                   {playerSummary.avatar_url && <AvatarImage src={playerSummary.avatar_url} />}
                   <AvatarFallback className="text-lg">
-                    {(playerSummary.username || "?").slice(0, 2).toUpperCase()}
+                    {(playerSummary.username || playerSummary.display_name || "?").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-lg font-bold">{playerSummary.username}</p>
-                  {playerSummary.display_name && (
+                  <p className="text-lg font-bold">{playerSummary.username || playerSummary.display_name || t("social.anonymous")}</p>
+                  {playerSummary.display_name && playerSummary.username && (
                     <p className="text-sm text-muted-foreground">{playerSummary.display_name}</p>
                   )}
                 </div>
