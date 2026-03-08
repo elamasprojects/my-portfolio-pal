@@ -123,7 +123,8 @@ export function AppSidebar() {
               {t("profile.signOut")}
             </DropdownItem>
           </DropdownContent>
-        </Dropdown>
+          </Dropdown>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
