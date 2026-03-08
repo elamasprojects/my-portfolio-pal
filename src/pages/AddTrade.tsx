@@ -711,21 +711,6 @@ const AddTrade = () => {
                               {tradeType === "dividend" ? "Dividend Details" : "Trade Details"}
                             </span>
                           </div>
-                          {tradeType !== "dividend" && (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className={inputMode === "shares" ? "text-foreground font-medium" : ""}>Shares</span>
-                              <Switch
-                                checked={inputMode === "amount"}
-                                onCheckedChange={(checked) => {
-                                  setInputMode(checked ? "amount" : "shares");
-                                  setAmount("");
-                                  setQuantity("");
-                                }}
-                                className="scale-75"
-                              />
-                              <span className={inputMode === "amount" ? "text-foreground font-medium" : ""}>Amount</span>
-                            </div>
-                          )}
                         </div>
 
                         {tradeType === "dividend" ? (
