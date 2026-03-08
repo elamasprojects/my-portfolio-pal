@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Inbox } from "@/components/Inbox";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
