@@ -12,6 +12,7 @@ import {
   Sparkles,
   Globe,
   ArrowRight,
+  ChevronDown,
   FolderKanban,
   FileSpreadsheet,
   Trophy,
