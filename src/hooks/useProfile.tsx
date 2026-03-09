@@ -7,6 +7,7 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   username: string | null;
+  default_currency: string;
 }
 
 export function useProfile() {
