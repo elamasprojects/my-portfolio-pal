@@ -774,7 +774,13 @@ const AddTrade = () => {
                               {tradeType === "dividend" ? t("addTrade.dividendDetails") : t("addTrade.tradeDetails")}
                             </span>
                           </div>
+                          <CurrencyToggle value={tradeCurrency} onChange={setTradeCurrency} />
                         </div>
+                        {tradeCurrency === "ARS" && mepRate > 0 && (
+                          <p className="text-[10px] text-muted-foreground text-right">
+                            Dólar MEP: ${mepRate.toFixed(2)}
+                          </p>
+                        )}
 
                         {tradeType === "dividend" ? (
                           <div className="space-y-3">
