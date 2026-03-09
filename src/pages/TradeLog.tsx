@@ -313,6 +313,13 @@ const TradeLog = () => {
                     </TableCell>
                     <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
                     <TableCell>
+                      {t.strategy_id && strategyMap.get(t.strategy_id) ? (
+                        <span className="text-xs text-muted-foreground">{strategyMap.get(t.strategy_id)!.name}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <TagBadges tagIds={tagMap.get(t.id) || []} tags={tags} />
                     </TableCell>
                   </TableRow>
