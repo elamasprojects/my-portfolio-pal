@@ -164,6 +164,7 @@ export const es: Record<TranslationKey, string> = {
   "tradeLog.allTypes": "Todos los Tipos",
   "tradeLog.allAssets": "Todos los Activos",
   "tradeLog.allTags": "Todas las Etiquetas",
+  "tradeLog.allStrategies": "Todas las Estrategias",
   "tradeLog.exportCsv": "Exportar CSV",
   "tradeLog.date": "Fecha",
   "tradeLog.symbol": "Símbolo",
