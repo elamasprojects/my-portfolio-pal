@@ -359,6 +359,7 @@ const AddTrade = () => {
       setSelectedHolding("");
       setSubmittedTrade(null);
       setSelectedTagIds([]);
+      setSelectedStrategyId(defaultStrategy?.id || "none");
       setDividendAmount("");
       setImagePreview(null);
       userEditedPrice.current = false;
