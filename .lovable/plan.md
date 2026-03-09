@@ -1,105 +1,94 @@
 
 
-# Landing Page for Chess
+# Currency Display in Trade Log + Bulk Upload Plan
 
-## Overview
+## Part 1: Currency Display in Trade Log
 
-Create a public marketing landing page at `/landing` that showcases the app's features with the existing Chess branding: gold/amber accents, Cormorant Garamond serif headings, JetBrains Mono for data, and the 3D dotted wave animation.
+### Database Migration
+Add two columns to the `trades` table:
+- `original_currency` (text, default `'USD'`) — stores which currency the trade was entered in
+- `original_price` (numeric, nullable) — stores the original price before USD conversion
 
-## New File: `src/pages/Landing.tsx`
+```sql
+ALTER TABLE public.trades ADD COLUMN original_currency text NOT NULL DEFAULT 'USD';
+ALTER TABLE public.trades ADD COLUMN original_price numeric;
+```
 
-### Structure
+### Code Changes
+
+**`src/hooks/usePortfolio.tsx`** — Add `original_currency` and `original_price` to the `Trade` interface.
+
+**`src/pages/TradeLog.tsx`** — Add a "Ccy" column after "Total" showing a small badge (`🇺🇸 USD` or `🇦🇷 ARS`). Also update CSV export to include the currency column.
+
+**`src/pages/AddTrade.tsx`** — When inserting a trade, save `original_currency` and `original_price` (the price before MEP conversion) alongside the existing USD-normalized values. Find the insert call and add these two fields.
+
+**`src/components/EditTradeDialog.tsx`** — Display the original currency as read-only info when editing a trade.
+
+### Display Format
+In the Trade Log table, a new narrow column "Ccy" shows:
+- `🇺🇸` for USD trades
+- `🇦🇷` for ARS trades
+
+This is a simple visual indicator — no conversion logic in the table itself.
+
+---
+
+## Part 2: Bulk Screenshot Upload (Plan Only)
+
+### Overview
+Allow users to select multiple screenshots at once. Each image is analyzed by the existing `analyze-trade-image` edge function in parallel, then presented in a review queue before final submission.
+
+### UI Flow
 
 ```text
-┌─────────────────────────────────────────────────┐
-│  HERO                                           │
-│  - 3D DottedSurface background                  │
-│  - ChessKnight logo + "Chess" wordmark          │
-│  - Tagline: "Every move counts."                │
-│  - Subheadline: Your portfolio, played smart.   │
-│  - CTA buttons: Get Started / Sign In           │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  FEATURES GRID (3x2)                            │
-│  Each card: icon + title + short description    │
-│  - Portfolio Dashboard                          │
-│  - Trade Entry (Manual + OCR)                   │
-│  - Analysis & Reports                           │
-│  - Strategy Management                          │
-│  - AI Assistant                                 │
-│  - Multi-currency (ARS/USD)                     │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  HOW IT WORKS (3 steps)                         │
-│  1. Log your trades                             │
-│  2. Analyze performance                         │
-│  3. Improve your strategy                       │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  FEATURE HIGHLIGHTS                             │
-│  - Alternating image/text sections              │
-│  - Dashboard screenshot + description           │
-│  - OCR trade capture                            │
-│  - Strategy performance                         │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  TESTIMONIALS / SOCIAL PROOF                    │
-│  - Player avatars + quote                       │
-│  - "Join traders tracking their moves"          │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  FINAL CTA                                      │
-│  - "Start playing smarter today"                │
-│  - Sign Up button                               │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  FOOTER                                         │
-│  - Logo + copyright                             │
-│  - Links: Privacy, Terms, Install PWA           │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  Upload Screenshots                  │
+│  [Drop zone / file picker]           │
+│  "Select up to 10 images"           │
+└──────────────────────────────────────┘
+         ↓ files selected
+┌──────────────────────────────────────┐
+│  Processing Queue                    │
+│  ┌────┬──────┬────────┬──────────┐   │
+│  │ #  │ File │ Status │ Result   │   │
+│  ├────┼──────┼────────┼──────────┤   │
+│  │ 1  │ img1 │ ✅ Done │ AAPL BUY│   │
+│  │ 2  │ img2 │ ⏳ ...  │ —       │   │
+│  │ 3  │ img3 │ ❌ Fail │ Retry   │   │
+│  └────┴──────┴────────┴──────────┘   │
+└──────────────────────────────────────┘
+         ↓ all processed
+┌──────────────────────────────────────┐
+│  Review & Edit                       │
+│  Card per trade: symbol, qty, price  │
+│  [Edit] [Remove] per card           │
+│  ─────────────────────────────       │
+│  [Submit All X Trades]              │
+└──────────────────────────────────────┘
 ```
 
-### Features to Highlight
+### Implementation Details
 
-| Feature | Icon | Description |
-|---------|------|-------------|
-| Portfolio Dashboard | LayoutDashboard | Real-time market values, P&L tracking, allocation charts |
-| Smart Trade Entry | Camera | Manual entry or upload screenshots — AI extracts the details |
-| Performance Analysis | BarChart3 | Monthly/quarterly P&L, win rates, strategy comparison |
-| Strategy Management | Crosshair | Define methodologies, track which strategies perform best |
-| Chess AI | Sparkles | Ask questions about your portfolio, get personalized insights |
-| Multi-Currency | Globe | Toggle between USD and ARS with live Dólar MEP rates |
+1. **New component**: `src/components/BulkUpload.tsx`
+   - Multi-file input (`accept="image/*"`, `multiple`, max 10)
+   - State: array of `{ file, status: 'pending'|'processing'|'done'|'error', result? }`
+   - Process images with `Promise.allSettled()`, 3 concurrent max to avoid rate limits
+   - Each calls `supabase.functions.invoke("analyze-trade-image", { body: { image: base64 } })`
 
-### Additional Features (secondary grid)
-- Multi-Portfolio support
-- CSV Import
-- Achievements & Titles
-- Social features (Players)
-- Discipline rules
-- Shareable reports
+2. **Review queue**: Editable card grid showing extracted data per image
+   - Users can edit symbol, quantity, price, date, currency, trade type
+   - Remove individual trades or retry failed ones
+   - "Submit All" button inserts all trades in a single batch
 
-## Routing Change: `src/App.tsx`
+3. **Integration**: Add a "Bulk Upload" tab/button in `AddTradeHub.tsx` or as a new entry mode in `AddTrade.tsx`
 
-Add `/landing` as a public route (no auth required):
-```tsx
-<Route path="/landing" element={<Landing />} />
-```
+4. **Rate limiting**: Queue with concurrency limit (3 parallel calls), show progress bar
 
-Optionally redirect `/auth` signed-out users to `/landing` instead, or add a "Learn More" link.
+5. **Edge function**: No changes needed — the existing `analyze-trade-image` function handles single images; the bulk logic is client-side orchestration
 
-## i18n Updates
+### Files to Create/Modify
+- **New**: `src/components/BulkUpload.tsx`
+- **Modified**: `src/pages/AddTradeHub.tsx` (add bulk upload entry point)
 
-Add translation keys for landing page content in `en.ts` and `es.ts`:
-- `landing.hero.title`, `landing.hero.subtitle`, `landing.hero.cta`
-- `landing.features.*` (6 main features)
-- `landing.howItWorks.step1/2/3`
-- `landing.cta.final`
-
-## Styling Notes
-
-- Uses existing theme colors (gold primary, gain/loss colors)
-- DottedSurface component for hero background
-- ChessKnight SVG for logo
-- Responsive: mobile-first with lg breakpoints for side-by-side layouts
-- Cards use existing `Card` component with hover effects
+This bulk upload feature will be implemented in a follow-up after the currency display is complete.
 
