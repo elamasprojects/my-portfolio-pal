@@ -334,7 +334,7 @@ const Index = () => {
                         {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? fmt(cx(mktVal)) : fmt(cx(h.total_invested))}
                       </TableCell>
                       <TableCell className={`text-right font-mono font-semibold ${uPnl === null ? "" : uPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}$${uPnl.toFixed(2)}` : "—"}
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}${fmt(cx(uPnl))}` : "—"}
                       </TableCell>
                     </TableRow>
                     );
