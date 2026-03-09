@@ -328,7 +328,7 @@ const Index = () => {
                       <TableCell className="text-right font-mono">{h.net_quantity.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">{currencySymbol}{cx(h.avg_cost).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `$${currentPrice.toFixed(2)}` : "—"}
+                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `${currencySymbol}${cx(currentPrice).toFixed(2)}` : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? `$${mktVal.toFixed(2)}` : `$${h.total_invested.toFixed(2)}`}
