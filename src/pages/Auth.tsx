@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ChessKnight } from "@/components/ChessKnight";
-import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 
 const Auth = () => {
