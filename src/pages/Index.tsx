@@ -93,9 +93,17 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl chess-title">{t("board.title")}</h1>
-        <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-2xl chess-title">{t("board.title")}</h1>
+          <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
+          {isARS && mepRate > 0 && (
+            <span className="text-[10px] text-muted-foreground">{t("board.exchangeRate")} · ${mepRate.toFixed(2)}</span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
