@@ -65,6 +65,7 @@ const TradeLog = () => {
   const { t } = useLanguage();
   const { data: trades = [], isLoading } = useTrades();
   const { data: tags = [] } = useTags();
+  const { data: strategies = [] } = useStrategies();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
   const tradeIds = useMemo(() => trades.map((t) => t.id), [trades]);
