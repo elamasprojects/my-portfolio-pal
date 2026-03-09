@@ -157,6 +157,8 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.price": "Precio",
   "addTrade.date": "Fecha",
   "addTrade.total": "Total",
+  "addTrade.currency": "Moneda",
+  "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",

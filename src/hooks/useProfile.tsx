@@ -30,7 +30,7 @@ export function useProfile() {
   });
 
   const updateProfile = useMutation({
-    mutationFn: async (updates: Partial<Pick<Profile, "display_name" | "username" | "avatar_url">>) => {
+    mutationFn: async (updates: Partial<Pick<Profile, "display_name" | "username" | "avatar_url" | "default_currency">>) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase
         .from("profiles")

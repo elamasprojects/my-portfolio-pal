@@ -155,6 +155,8 @@ export const en = {
   "addTrade.price": "Price",
   "addTrade.date": "Date",
   "addTrade.total": "Total",
+  "addTrade.currency": "Currency",
+  "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
 
   // Trade Log
   "tradeLog.title": "Move History",
