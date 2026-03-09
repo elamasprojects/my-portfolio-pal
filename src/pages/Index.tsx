@@ -146,7 +146,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
                 <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
                   {performance.total_realized_pnl >= 0 ? "+" : ""}
-                  ${performance.total_realized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(cx(performance.total_realized_pnl))}
                 </p>
               </div>
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
