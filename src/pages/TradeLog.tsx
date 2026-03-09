@@ -42,6 +42,7 @@ function generateCSV(trades: Trade[], tagMap: Map<string, string[]>, tags: { id:
       t.trade_type === "dividend" ? "" : String(t.quantity),
       t.trade_type === "dividend" ? "" : String(t.price_per_unit),
       String(t.total_amount),
+      t.original_currency || "USD",
       t.notes || "",
       tagNames,
     ];
