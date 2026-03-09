@@ -23,11 +23,27 @@ const CHART_COLORS = [
 
 const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
+  const { profile } = useProfile();
+  const { venta: mepRate } = useDolarMEP();
+  const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const navigate = useNavigate();
   const { t } = useLanguage();
+
+  // Initialize display currency from profile preference
+  const [currencyInitialized, setCurrencyInitialized] = useState(false);
+  if (profile && !currencyInitialized) {
+    setDisplayCurrency((profile.default_currency as "USD" | "ARS") || "USD");
+    setCurrencyInitialized(true);
+  }
+
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
+
+  const isARS = displayCurrency === "ARS";
+  const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
+  const currencySymbol = isARS ? "ARS$" : "$";
+  const fmt = (v: number) => `${currencySymbol}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Live market prices
   const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
