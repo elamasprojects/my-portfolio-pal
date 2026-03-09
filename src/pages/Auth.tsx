@@ -57,13 +57,8 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) toast.error(error.message);
-  };
+
+
 
   const handleXSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
