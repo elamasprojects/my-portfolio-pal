@@ -95,6 +95,27 @@ export default function Landing() {
               {t("landing.hero.signIn")}
             </Button>
           </motion.div>
+
+          {/* Scroll indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 1 }}
+            className="mt-8 cursor-pointer"
+            onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <div className="flex flex-col items-center gap-2 group">
+              <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground group-hover:text-primary transition-colors">
+                Descubrí más
+              </span>
+              <motion.div
+                animate={{ y: [0, 8, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ChevronDown className="h-6 w-6 text-primary/60 group-hover:text-primary transition-colors" />
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
 
         {/* Bottom fade */}
