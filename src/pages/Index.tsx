@@ -169,8 +169,7 @@ const Index = () => {
                   <Skeleton className="h-8 w-24 mt-1" />
                 ) : (
                   <p className={`text-2xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                    {unrealizedPnl >= 0 ? "+" : ""}
-                    ${unrealizedPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {unrealizedPnl >= 0 ? "+" : ""}{fmt(cx(unrealizedPnl))}
                   </p>
                 )}
               </div>
