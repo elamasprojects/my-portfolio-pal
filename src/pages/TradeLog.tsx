@@ -74,6 +74,7 @@ const TradeLog = () => {
   const [filterType, setFilterType] = useState("all");
   const [filterAsset, setFilterAsset] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
+  const [filterStrategy, setFilterStrategy] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
