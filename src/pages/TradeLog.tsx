@@ -29,7 +29,7 @@ import { Search, Download, Trash2, Tag } from "lucide-react";
 
 function generateCSV(trades: Trade[], tagMap: Map<string, string[]>, tags: { id: string; name: string }[]): string {
   const tagNameMap = new Map(tags.map((t) => [t.id, t.name]));
-  const headers = ["Date", "Symbol", "Name", "Type", "Asset", "Quantity", "Price", "Total", "Notes", "Tags"];
+  const headers = ["Date", "Symbol", "Name", "Type", "Asset", "Quantity", "Price", "Total", "Currency", "Notes", "Tags"];
   const rows = trades.map((t) => {
     const tradeTagIds = tagMap.get(t.id) || [];
     const tagNames = tradeTagIds.map((id) => tagNameMap.get(id) || "").filter(Boolean).join("; ");
@@ -42,6 +42,7 @@ function generateCSV(trades: Trade[], tagMap: Map<string, string[]>, tags: { id:
       t.trade_type === "dividend" ? "" : String(t.quantity),
       t.trade_type === "dividend" ? "" : String(t.price_per_unit),
       String(t.total_amount),
+      t.original_currency || "USD",
       t.notes || "",
       tagNames,
     ];
@@ -271,6 +272,7 @@ const TradeLog = () => {
                   <TableHead className="text-right">{t("tradeLog.qty")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.price")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.total")}</TableHead>
+                  <TableHead className="w-10 text-center">Ccy</TableHead>
                   <TableHead>{t("strategy.select")}</TableHead>
                   <TableHead>{t("tradeLog.tags")}</TableHead>
                 </TableRow>
@@ -312,6 +314,9 @@ const TradeLog = () => {
                       {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
                     </TableCell>
                     <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-center text-base" title={t.original_currency || "USD"}>
+                      {(t.original_currency || "USD") === "ARS" ? "🇦🇷" : "🇺🇸"}
+                    </TableCell>
                     <TableCell>
                       {t.strategy_id && strategyMap.get(t.strategy_id) ? (
                         <span className="text-xs text-muted-foreground">{strategyMap.get(t.strategy_id)!.name}</span>

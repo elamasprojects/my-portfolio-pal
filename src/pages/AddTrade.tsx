@@ -326,6 +326,11 @@ const AddTrade = () => {
 
     setSubmitting(true);
     try {
+      // Compute original price before conversion
+      const originalPrice = tradeType === "dividend"
+        ? parseFloat(dividendAmount)
+        : parseFloat(price);
+
       const { data: insertedTrade, error } = await supabase.from("trades").insert({
         portfolio_id: portfolio.id,
         user_id: user.id,
@@ -336,9 +341,10 @@ const AddTrade = () => {
         strategy_id: selectedStrategyId === "none" ? null : selectedStrategyId,
         quantity: finalQuantity,
         price_per_unit: finalPrice,
-        
         trade_date: new Date(tradeDate).toISOString(),
         notes: notes || null,
+        original_currency: tradeCurrency,
+        original_price: tradeCurrency === "ARS" ? originalPrice : null,
       }).select("id").single();
 
       if (error) throw error;
