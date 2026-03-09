@@ -155,6 +155,9 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             >
               {trade.trade_type.toUpperCase()}
             </Badge>
+            <span className="text-base ml-1" title={trade.original_currency || "USD"}>
+              {(trade.original_currency || "USD") === "ARS" ? "🇦🇷" : "🇺🇸"}
+            </span>
           </DialogTitle>
           <DialogDescription>
             Modify the details of this trade.
