@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
 import { useLanguage } from "@/i18n";
 import { useTags, useTradeTagAssignments, useAssignTag } from "@/hooks/useTags";
+import { useStrategies } from "@/hooks/useStrategies";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
 import { TagBadges, TagPicker } from "@/components/TagPicker";
 import { supabase } from "@/integrations/supabase/client";
