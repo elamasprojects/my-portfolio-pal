@@ -271,6 +271,7 @@ const TradeLog = () => {
                   <TableHead className="text-right">{t("tradeLog.qty")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.price")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.total")}</TableHead>
+                  <TableHead>{t("strategy.select")}</TableHead>
                   <TableHead>{t("tradeLog.tags")}</TableHead>
                 </TableRow>
               </TableHeader>
