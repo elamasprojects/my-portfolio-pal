@@ -368,7 +368,7 @@ const Index = () => {
                   <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
                   <ReferenceLine x={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.totalReturn")]}
+                    formatter={(value: number) => [fmt(cx(value)), t("board.totalReturn")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
