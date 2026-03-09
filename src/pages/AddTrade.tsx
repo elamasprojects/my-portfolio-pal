@@ -380,6 +380,7 @@ const AddTrade = () => {
     userEditedName.current = false;
     setInputMode("amount");
     setSelectedTagIds([]);
+    setSelectedStrategyId(defaultStrategy?.id || "none");
     setDividendAmount("");
   };
 
