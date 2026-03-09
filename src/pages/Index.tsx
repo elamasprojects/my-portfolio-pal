@@ -247,7 +247,7 @@ const Index = () => {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalReturn")}</p>
             <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
-              {performance.total_return >= 0 ? "+" : ""}${performance.total_return.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {performance.total_return >= 0 ? "+" : ""}{fmt(cx(performance.total_return))}
             </p>
           </CardContent>
         </Card>
