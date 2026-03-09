@@ -453,7 +453,7 @@ const Index = () => {
                       {t_.trade_type === "dividend" ? "—" : t_.quantity}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {t_.trade_type === "dividend" ? "—" : `$${Number(t_.price_per_unit).toFixed(2)}`}
+                      {t_.trade_type === "dividend" ? "—" : fmt(cx(Number(t_.price_per_unit)))}
                     </TableCell>
                     <TableCell className="text-right font-mono">${Number(t_.total_amount).toFixed(2)}</TableCell>
                   </TableRow>
