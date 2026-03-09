@@ -211,7 +211,7 @@ const Index = () => {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.dividends")}</p>
                 <p className="text-2xl font-bold font-mono mt-1 text-gain">
-                  ${performance.total_dividends.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(cx(performance.total_dividends))}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-gain/10 flex items-center justify-center">
