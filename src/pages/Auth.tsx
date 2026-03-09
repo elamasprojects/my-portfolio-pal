@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ChessKnight } from "@/components/ChessKnight";
-import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 
 const Auth = () => {
@@ -58,13 +57,8 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) toast.error(error.message);
-  };
+
+
 
   const handleXSignIn = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -130,15 +124,8 @@ const Auth = () => {
                       ? t("auth.signIn")
                       : t("auth.createAccount")}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleSignIn}
-                >
-                  <FcGoogle className="mr-2 size-4" />
-                  {isLogin ? t("auth.signInGoogle") : t("auth.signUpGoogle")}
-                </Button>
+
+
                 <Button
                   type="button"
                   variant="outline"
