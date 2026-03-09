@@ -404,7 +404,7 @@ const Index = () => {
                   <YAxis tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.cumulativePnl")]}
+                    formatter={(value: number) => [fmt(cx(value)), t("board.cumulativePnl")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
