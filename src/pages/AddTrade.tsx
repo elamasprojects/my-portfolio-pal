@@ -115,6 +115,13 @@ const AddTrade = () => {
         if (data.price_per_unit) setPrice(String(data.price_per_unit));
         if (data.trade_date) setTradeDate(data.trade_date);
 
+        // Auto-detect currency from OCR
+        if (data.currency === "ARS") {
+          setTradeCurrency("ARS");
+        } else if (data.currency === "USD") {
+          setTradeCurrency("USD");
+        }
+
         // Auto-populate amount from quantity * price
         if (data.quantity && data.price_per_unit) {
           setAmount(String((data.quantity * data.price_per_unit).toFixed(2)));
