@@ -291,6 +291,10 @@ const AddTrade = () => {
     if (tradeType === "dividend") {
       finalQuantity = 1;
       finalPrice = parseFloat(dividendAmount);
+      // Convert ARS dividend to USD
+      if (tradeCurrency === "ARS" && mepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, mepRate);
+      }
       finalTotal = finalPrice;
       if (isNaN(finalPrice) || finalPrice <= 0) {
         toast.error(t("addTrade.validDividend"));
@@ -302,6 +306,16 @@ const AddTrade = () => {
           ? parseFloat(amount) / parseFloat(price)
           : parseFloat(quantity);
       finalPrice = parseFloat(price);
+
+      // Convert ARS price to USD before storing
+      if (tradeCurrency === "ARS" && mepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, mepRate);
+        // Recalculate quantity for amount mode with converted price
+        if (inputMode === "amount" && finalPrice > 0) {
+          finalQuantity = convertArsToUsd(parseFloat(amount), mepRate) / finalPrice;
+        }
+      }
+
       finalTotal = finalQuantity * finalPrice;
 
       if (tradeType === "sell" && finalQuantity > availableShares) {

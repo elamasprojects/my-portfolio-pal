@@ -37,14 +37,14 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, and asset names. If you cannot determine a field, use null.",
+              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, asset names, and currency. Detect currency from context clues: if you see pesos, ARS, $AR, or Argentine broker interfaces (IOL, Balanz, Bull Market, PPI, Cocos Capital), the currency is ARS. If you see USD, dollars, or US broker interfaces, the currency is USD. If you cannot determine a field, use null.",
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Analyze this trade screenshot and extract the trade details. Determine if it's a buy or sell based on context clues (e.g., 'compra'/'bought' = buy, 'venta'/'sold' = sell). Extract the ticker symbol, asset name, quantity, price per unit, trade date, and asset type.",
+                text: "Analyze this trade screenshot and extract the trade details. Determine if it's a buy or sell based on context clues (e.g., 'compra'/'bought' = buy, 'venta'/'sold' = sell). Extract the ticker symbol, asset name, quantity, price per unit, trade date, asset type, and currency (ARS or USD).",
               },
               {
                 type: "image_url",
@@ -86,14 +86,19 @@ serve(async (req) => {
                   },
                   price_per_unit: {
                     type: "number",
-                    description: "Price per share/unit in dollars",
+                    description: "Price per share/unit",
                   },
                   trade_date: {
                     type: "string",
                     description: "Trade date in YYYY-MM-DD format, or null if not found",
                   },
+                  currency: {
+                    type: "string",
+                    enum: ["USD", "ARS"],
+                    description: "Currency of the price. ARS for Argentine Pesos, USD for US Dollars. Detect from context: Argentine brokers (IOL, Balanz, Bull Market, PPI, Cocos), pesos symbol, or ARS text means ARS.",
+                  },
                 },
-                required: ["trade_type", "symbol", "asset_name", "asset_type", "quantity", "price_per_unit"],
+                required: ["trade_type", "symbol", "asset_name", "asset_type", "quantity", "price_per_unit", "currency"],
                 additionalProperties: false,
               },
             },
