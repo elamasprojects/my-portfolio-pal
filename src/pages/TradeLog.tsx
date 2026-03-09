@@ -29,7 +29,7 @@ import { Search, Download, Trash2, Tag } from "lucide-react";
 
 function generateCSV(trades: Trade[], tagMap: Map<string, string[]>, tags: { id: string; name: string }[]): string {
   const tagNameMap = new Map(tags.map((t) => [t.id, t.name]));
-  const headers = ["Date", "Symbol", "Name", "Type", "Asset", "Quantity", "Price", "Total", "Notes", "Tags"];
+  const headers = ["Date", "Symbol", "Name", "Type", "Asset", "Quantity", "Price", "Total", "Currency", "Notes", "Tags"];
   const rows = trades.map((t) => {
     const tradeTagIds = tagMap.get(t.id) || [];
     const tagNames = tradeTagIds.map((id) => tagNameMap.get(id) || "").filter(Boolean).join("; ");
