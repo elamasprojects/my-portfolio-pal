@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, BarChart3, Trophy, Users } from "lucide-react";
+import { LayoutDashboard, Plus, List, BarChart3, Trophy, Crosshair } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLanguage, TranslationKey } from "@/i18n";
 
