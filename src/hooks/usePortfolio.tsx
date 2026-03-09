@@ -18,6 +18,8 @@ export interface Trade {
   notes: string | null;
   created_at: string;
   strategy_id: string | null;
+  original_currency: string;
+  original_price: number | null;
 }
 
 export interface Portfolio {

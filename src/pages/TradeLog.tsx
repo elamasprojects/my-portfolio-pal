@@ -314,6 +314,9 @@ const TradeLog = () => {
                       {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
                     </TableCell>
                     <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-center text-base" title={t.original_currency || "USD"}>
+                      {(t.original_currency || "USD") === "ARS" ? "🇦🇷" : "🇺🇸"}
+                    </TableCell>
                     <TableCell>
                       {t.strategy_id && strategyMap.get(t.strategy_id) ? (
                         <span className="text-xs text-muted-foreground">{strategyMap.get(t.strategy_id)!.name}</span>

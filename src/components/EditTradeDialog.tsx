@@ -226,6 +226,12 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             <Input type="date" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} />
           </div>
 
+          {trade.original_currency === "ARS" && trade.original_price != null && (
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              Original price: 🇦🇷 ARS ${Number(trade.original_price).toFixed(2)}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
