@@ -269,7 +269,7 @@ const Index = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => `$${value.toFixed(2)}`}
+                      formatter={(value: number) => fmt(cx(value))}
                       contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                       itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
