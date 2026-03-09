@@ -326,7 +326,7 @@ const Index = () => {
                       <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
                       <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
                       <TableCell className="text-right font-mono">{h.net_quantity.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${h.avg_cost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">{currencySymbol}{cx(h.avg_cost).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">
                         {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `$${currentPrice.toFixed(2)}` : "—"}
                       </TableCell>
