@@ -413,6 +413,8 @@ export const en = {
   "settings.displayNamePlaceholder": "Your display name...",
   "settings.saved": "Profile saved!",
   "settings.avatarUpdated": "Avatar updated!",
+  "settings.defaultCurrency": "Default Currency",
+  "settings.currencyHelper": "Exchange rate uses Dólar MEP",
 
   // Social
   "social.playersTitle": "Players",
