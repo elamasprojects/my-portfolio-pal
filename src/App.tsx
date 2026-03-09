@@ -20,6 +20,7 @@ import Strategy from "./pages/Strategy";
 import Players from "./pages/Players";
 import PlayerProfile from "./pages/PlayerProfile";
 import SharedExport from "./pages/SharedExport";
+import Landing from "./pages/Landing";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
