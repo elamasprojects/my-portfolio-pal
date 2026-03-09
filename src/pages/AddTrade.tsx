@@ -8,6 +8,8 @@ import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
 import { useAssignTag } from "@/hooks/useTags";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/i18n";
 import { TagPicker } from "@/components/TagPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
