@@ -231,6 +231,20 @@ const TradeLog = () => {
             </SelectContent>
           </Select>
         )}
+        {strategies.length > 0 && (
+          <Select value={filterStrategy} onValueChange={setFilterStrategy}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder={t("strategy.select")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("tradeLog.allStrategies")}</SelectItem>
+              <SelectItem value="none">{t("strategy.none")}</SelectItem>
+              {strategies.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Button variant="outline" size="sm" onClick={() => handleExport(filtered)} className="ml-auto">
           <Download className="h-4 w-4 mr-1" />
           {t("tradeLog.exportCsv")}
