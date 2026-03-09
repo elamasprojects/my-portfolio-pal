@@ -247,6 +247,36 @@ export type Database = {
         }
         Relationships: []
       }
+      strategies: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_default: boolean
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trade_tag_assignments: {
         Row: {
           tag_id: string
@@ -311,6 +341,7 @@ export type Database = {
           portfolio_id: string
           price_per_unit: number
           quantity: number
+          strategy_id: string | null
           symbol: string
           total_amount: number | null
           trade_date: string
@@ -326,6 +357,7 @@ export type Database = {
           portfolio_id: string
           price_per_unit: number
           quantity: number
+          strategy_id?: string | null
           symbol: string
           total_amount?: number | null
           trade_date?: string
@@ -341,6 +373,7 @@ export type Database = {
           portfolio_id?: string
           price_per_unit?: number
           quantity?: number
+          strategy_id?: string | null
           symbol?: string
           total_amount?: number | null
           trade_date?: string
@@ -353,6 +386,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trades_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
             referencedColumns: ["id"]
           },
         ]

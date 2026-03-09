@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useStrategies, useDefaultStrategy } from "@/hooks/useStrategies";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
@@ -68,6 +69,7 @@ const AddTrade = () => {
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
   const [selectedHolding, setSelectedHolding] = useState<string>("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>("none");
 
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
@@ -132,6 +134,16 @@ const AddTrade = () => {
     const file = e.target.files?.[0];
     if (file) handleImageUpload(file);
   }, [handleImageUpload]);
+
+  // Strategies
+  const { data: strategies } = useStrategies();
+  const defaultStrategy = useDefaultStrategy();
+
+  useEffect(() => {
+    if (defaultStrategy && selectedStrategyId === "none") {
+      setSelectedStrategyId(defaultStrategy.id);
+    }
+  }, [defaultStrategy, selectedStrategyId]);
 
   // URL params pre-fill (for duplicate trade)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -287,6 +299,7 @@ const AddTrade = () => {
         asset_name: assetName,
         asset_type: assetType as any,
         trade_type: tradeType as any,
+        strategy_id: selectedStrategyId === "none" ? null : selectedStrategyId,
         quantity: finalQuantity,
         price_per_unit: finalPrice,
         
@@ -346,6 +359,7 @@ const AddTrade = () => {
       setSelectedHolding("");
       setSubmittedTrade(null);
       setSelectedTagIds([]);
+      setSelectedStrategyId(defaultStrategy?.id || "none");
       setDividendAmount("");
       setImagePreview(null);
       userEditedPrice.current = false;
@@ -366,6 +380,7 @@ const AddTrade = () => {
     userEditedName.current = false;
     setInputMode("amount");
     setSelectedTagIds([]);
+    setSelectedStrategyId(defaultStrategy?.id || "none");
     setDividendAmount("");
   };
 
@@ -915,10 +930,32 @@ const AddTrade = () => {
                           </div>
                         )}
 
-                        {/* Tags */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">{t("addTrade.tags")}</Label>
-                          <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Strategy */}
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t("strategy.select")}</Label>
+                            <Select value={selectedStrategyId} onValueChange={setSelectedStrategyId}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">{t("strategy.none")}</SelectItem>
+                                {strategies?.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Tags */}
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t("addTrade.tags")}</Label>
+                            <div className="pt-1.5">
+                              <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
+                            </div>
+                          </div>
                         </div>
                       </div>
 
