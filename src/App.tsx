@@ -20,6 +20,7 @@ import Strategy from "./pages/Strategy";
 import Players from "./pages/Players";
 import PlayerProfile from "./pages/PlayerProfile";
 import SharedExport from "./pages/SharedExport";
+import Landing from "./pages/Landing";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              <Route path="/landing" element={<Landing />} />
               <Route path="/install" element={<Install />} />
               <Route path="/share/:id" element={<SharedExport />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
