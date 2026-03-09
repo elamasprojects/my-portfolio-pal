@@ -93,6 +93,7 @@ export const es: Record<TranslationKey, string> = {
   "board.marketValue": "Valor de Mercado",
   "board.unrealizedPnl": "P&L No Realizado",
   "board.currentPrice": "Precio",
+  "board.exchangeRate": "Tipo de cambio: Dólar MEP",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",
@@ -156,6 +157,8 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.price": "Precio",
   "addTrade.date": "Fecha",
   "addTrade.total": "Total",
+  "addTrade.currency": "Moneda",
+  "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
@@ -414,6 +417,8 @@ export const es: Record<TranslationKey, string> = {
   "settings.displayNamePlaceholder": "Tu nombre para mostrar...",
   "settings.saved": "¡Perfil guardado!",
   "settings.avatarUpdated": "¡Avatar actualizado!",
+  "settings.defaultCurrency": "Moneda Predeterminada",
+  "settings.currencyHelper": "El tipo de cambio utiliza el Dólar MEP",
 
   // Social
   "social.playersTitle": "Jugadores",

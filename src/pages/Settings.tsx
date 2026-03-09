@@ -3,10 +3,11 @@ import { Settings as SettingsIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProfile } from "@/hooks/useProfile";
 import { useLanguage } from "@/i18n";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { toast } from "sonner";
 
 export default function Settings() {
@@ -14,17 +15,19 @@ export default function Settings() {
   const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState<"USD" | "ARS">("USD");
   const [initialized, setInitialized] = useState(false);
 
   if (profile && !initialized) {
     setUsername(profile.username || "");
     setDisplayName(profile.display_name || "");
+    setDefaultCurrency((profile.default_currency as "USD" | "ARS") || "USD");
     setInitialized(true);
   }
 
   const handleSave = () => {
     updateProfile.mutate(
-      { username: username || null, display_name: displayName || null },
+      { username: username || null, display_name: displayName || null, default_currency: defaultCurrency },
       {
         onSuccess: () => toast.success(t("settings.saved")),
         onError: (err: any) => toast.error(err.message),
@@ -99,11 +102,22 @@ export default function Settings() {
               placeholder={t("settings.displayNamePlaceholder")}
             />
           </div>
-          <Button onClick={handleSave} disabled={updateProfile.isPending}>
-            {updateProfile.isPending ? t("common.loading") : t("common.save")}
-          </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("settings.defaultCurrency")}</CardTitle>
+          <CardDescription className="text-xs">{t("settings.currencyHelper")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CurrencyToggle value={defaultCurrency} onChange={setDefaultCurrency} />
+        </CardContent>
+      </Card>
+
+      <Button onClick={handleSave} disabled={updateProfile.isPending} className="w-full">
+        {updateProfile.isPending ? t("common.loading") : t("common.save")}
+      </Button>
     </div>
   );
 }

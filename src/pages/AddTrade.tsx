@@ -3,11 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { useStrategies, useDefaultStrategy } from "@/hooks/useStrategies";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
 import { useAssignTag } from "@/hooks/useTags";
-import { TagPicker } from "@/components/TagPicker";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/i18n";
+import { TagPicker } from "@/components/TagPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,11 +40,21 @@ interface SubmittedTrade {
 
 const AddTrade = () => {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const { venta: mepRate, isLoading: mepLoading } = useDolarMEP();
   const { portfolio } = useActivePortfolio();
   const { data: trades } = useTrades();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
   const { t } = useLanguage();
+
+  // Currency for input
+  const [tradeCurrency, setTradeCurrency] = useState<"USD" | "ARS">("USD");
+  const [currencyInitialized, setCurrencyInitialized] = useState(false);
+  if (profile && !currencyInitialized) {
+    setTradeCurrency((profile.default_currency as "USD" | "ARS") || "USD");
+    setCurrencyInitialized(true);
+  }
 
   const [entryMode, setEntryMode] = useState<"" | "manual" | "screenshot">("");
   const [analyzingImage, setAnalyzingImage] = useState(false);
@@ -103,6 +116,13 @@ const AddTrade = () => {
         if (data.quantity) setQuantity(String(data.quantity));
         if (data.price_per_unit) setPrice(String(data.price_per_unit));
         if (data.trade_date) setTradeDate(data.trade_date);
+
+        // Auto-detect currency from OCR
+        if (data.currency === "ARS") {
+          setTradeCurrency("ARS");
+        } else if (data.currency === "USD") {
+          setTradeCurrency("USD");
+        }
 
         // Auto-populate amount from quantity * price
         if (data.quantity && data.price_per_unit) {
@@ -271,6 +291,10 @@ const AddTrade = () => {
     if (tradeType === "dividend") {
       finalQuantity = 1;
       finalPrice = parseFloat(dividendAmount);
+      // Convert ARS dividend to USD
+      if (tradeCurrency === "ARS" && mepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, mepRate);
+      }
       finalTotal = finalPrice;
       if (isNaN(finalPrice) || finalPrice <= 0) {
         toast.error(t("addTrade.validDividend"));
@@ -282,6 +306,16 @@ const AddTrade = () => {
           ? parseFloat(amount) / parseFloat(price)
           : parseFloat(quantity);
       finalPrice = parseFloat(price);
+
+      // Convert ARS price to USD before storing
+      if (tradeCurrency === "ARS" && mepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, mepRate);
+        // Recalculate quantity for amount mode with converted price
+        if (inputMode === "amount" && finalPrice > 0) {
+          finalQuantity = convertArsToUsd(parseFloat(amount), mepRate) / finalPrice;
+        }
+      }
+
       finalTotal = finalQuantity * finalPrice;
 
       if (tradeType === "sell" && finalQuantity > availableShares) {
@@ -740,7 +774,13 @@ const AddTrade = () => {
                               {tradeType === "dividend" ? t("addTrade.dividendDetails") : t("addTrade.tradeDetails")}
                             </span>
                           </div>
+                          <CurrencyToggle value={tradeCurrency} onChange={setTradeCurrency} />
                         </div>
+                        {tradeCurrency === "ARS" && mepRate > 0 && (
+                          <p className="text-[10px] text-muted-foreground text-right">
+                            Dólar MEP: ${mepRate.toFixed(2)}
+                          </p>
+                        )}
 
                         {tradeType === "dividend" ? (
                           <div className="space-y-3">
@@ -963,20 +1003,25 @@ const AddTrade = () => {
                       {total > 0 && (
                         <>
                           <Separator className="my-5" />
-                          <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center">
+                          <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center space-y-1">
                             {tradeType === "dividend" ? (
                               <span className="font-mono font-bold text-foreground">
-                                {t("addTrade.dividend")}: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {t("addTrade.dividend")}: {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             ) : (
                               <>
                                 <span className="text-sm text-muted-foreground">
-                                  {computedQuantity.toFixed(4)} {t("common.shares")} × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
+                                  {computedQuantity.toFixed(4)} {t("common.shares")} × {tradeCurrency === "ARS" ? "ARS$" : "$"}{parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
                                 </span>
                                 <span className="font-mono font-bold text-foreground">
-                                  ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </>
+                            )}
+                            {tradeCurrency === "ARS" && mepRate > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, mepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
+                              </p>
                             )}
                           </div>
                         </>

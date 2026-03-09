@@ -7,6 +7,7 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   username: string | null;
+  default_currency: string;
 }
 
 export function useProfile() {
@@ -19,7 +20,7 @@ export function useProfile() {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, username")
+        .select("id, display_name, avatar_url, username, default_currency")
         .eq("id", user.id)
         .single();
       if (error) throw error;
@@ -29,7 +30,7 @@ export function useProfile() {
   });
 
   const updateProfile = useMutation({
-    mutationFn: async (updates: Partial<Pick<Profile, "display_name" | "username" | "avatar_url">>) => {
+    mutationFn: async (updates: Partial<Pick<Profile, "display_name" | "username" | "avatar_url" | "default_currency">>) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase
         .from("profiles")

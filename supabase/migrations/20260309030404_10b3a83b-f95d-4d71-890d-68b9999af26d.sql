@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN default_currency text NOT NULL DEFAULT 'USD';

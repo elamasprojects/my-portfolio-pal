@@ -91,6 +91,7 @@ export const en = {
   "board.marketValue": "Market Value",
   "board.unrealizedPnl": "Unrealized P&L",
   "board.currentPrice": "Price",
+  "board.exchangeRate": "Exchange rate: Dólar MEP",
 
   // Add Trade
   "addTrade.title": "New Move",
@@ -154,6 +155,8 @@ export const en = {
   "addTrade.price": "Price",
   "addTrade.date": "Date",
   "addTrade.total": "Total",
+  "addTrade.currency": "Currency",
+  "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
 
   // Trade Log
   "tradeLog.title": "Move History",
@@ -413,6 +416,8 @@ export const en = {
   "settings.displayNamePlaceholder": "Your display name...",
   "settings.saved": "Profile saved!",
   "settings.avatarUpdated": "Avatar updated!",
+  "settings.defaultCurrency": "Default Currency",
+  "settings.currencyHelper": "Exchange rate uses Dólar MEP",
 
   // Social
   "social.playersTitle": "Players",

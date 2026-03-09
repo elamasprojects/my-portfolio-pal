@@ -1,6 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
+import { useProfile } from "@/hooks/useProfile";
+import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -20,11 +23,27 @@ const CHART_COLORS = [
 
 const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
+  const { profile } = useProfile();
+  const { venta: mepRate } = useDolarMEP();
+  const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const navigate = useNavigate();
   const { t } = useLanguage();
+
+  // Initialize display currency from profile preference
+  const [currencyInitialized, setCurrencyInitialized] = useState(false);
+  if (profile && !currencyInitialized) {
+    setDisplayCurrency((profile.default_currency as "USD" | "ARS") || "USD");
+    setCurrencyInitialized(true);
+  }
+
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
+
+  const isARS = displayCurrency === "ARS";
+  const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
+  const currencySymbol = isARS ? "ARS$" : "$";
+  const fmt = (v: number) => `${currencySymbol}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // Live market prices
   const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
@@ -74,9 +93,17 @@ const Index = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl chess-title">{t("board.title")}</h1>
-        <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-2xl chess-title">{t("board.title")}</h1>
+          <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
+          {isARS && mepRate > 0 && (
+            <span className="text-[10px] text-muted-foreground">{t("board.exchangeRate")} · ${mepRate.toFixed(2)}</span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -86,7 +113,7 @@ const Index = () => {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.costBasis")}</p>
                 <p className="text-2xl font-bold font-mono mt-1">
-                  ${performance.total_cost_basis.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(cx(performance.total_cost_basis))}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -102,7 +129,7 @@ const Index = () => {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.marketValue")}</p>
                 <p className="text-2xl font-bold font-mono mt-1">
-                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : `$${marketValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : fmt(cx(marketValue))}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -119,7 +146,7 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
                 <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
                   {performance.total_realized_pnl >= 0 ? "+" : ""}
-                  ${performance.total_realized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(cx(performance.total_realized_pnl))}
                 </p>
               </div>
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
@@ -142,8 +169,7 @@ const Index = () => {
                   <Skeleton className="h-8 w-24 mt-1" />
                 ) : (
                   <p className={`text-2xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                    {unrealizedPnl >= 0 ? "+" : ""}
-                    ${unrealizedPnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {unrealizedPnl >= 0 ? "+" : ""}{fmt(cx(unrealizedPnl))}
                   </p>
                 )}
               </div>
@@ -185,7 +211,7 @@ const Index = () => {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.dividends")}</p>
                 <p className="text-2xl font-bold font-mono mt-1 text-gain">
-                  ${performance.total_dividends.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmt(cx(performance.total_dividends))}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-gain/10 flex items-center justify-center">
@@ -221,7 +247,7 @@ const Index = () => {
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalReturn")}</p>
             <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
-              {performance.total_return >= 0 ? "+" : ""}${performance.total_return.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {performance.total_return >= 0 ? "+" : ""}{fmt(cx(performance.total_return))}
             </p>
           </CardContent>
         </Card>
@@ -243,7 +269,7 @@ const Index = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => `$${value.toFixed(2)}`}
+                      formatter={(value: number) => fmt(cx(value))}
                       contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                       itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                     />
@@ -300,15 +326,15 @@ const Index = () => {
                       <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
                       <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
                       <TableCell className="text-right font-mono">{h.net_quantity.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">${h.avg_cost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">{currencySymbol}{cx(h.avg_cost).toFixed(2)}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `$${currentPrice.toFixed(2)}` : "—"}
+                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `${currencySymbol}${cx(currentPrice).toFixed(2)}` : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? `$${mktVal.toFixed(2)}` : `$${h.total_invested.toFixed(2)}`}
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? fmt(cx(mktVal)) : fmt(cx(h.total_invested))}
                       </TableCell>
                       <TableCell className={`text-right font-mono font-semibold ${uPnl === null ? "" : uPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}$${uPnl.toFixed(2)}` : "—"}
+                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}${fmt(cx(uPnl))}` : "—"}
                       </TableCell>
                     </TableRow>
                     );
@@ -338,11 +364,11 @@ const Index = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <XAxis type="number" tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
                   <ReferenceLine x={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.totalReturn")]}
+                    formatter={(value: number) => [fmt(cx(value)), t("board.totalReturn")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
@@ -375,10 +401,10 @@ const Index = () => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.cumulativePnl")]}
+                    formatter={(value: number) => [fmt(cx(value)), t("board.cumulativePnl")]}
                     contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
@@ -427,9 +453,9 @@ const Index = () => {
                       {t_.trade_type === "dividend" ? "—" : t_.quantity}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {t_.trade_type === "dividend" ? "—" : `$${Number(t_.price_per_unit).toFixed(2)}`}
+                      {t_.trade_type === "dividend" ? "—" : fmt(cx(Number(t_.price_per_unit)))}
                     </TableCell>
-                    <TableCell className="text-right font-mono">${Number(t_.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(cx(Number(t_.total_amount)))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
