@@ -124,15 +124,8 @@ const Auth = () => {
                       ? t("auth.signIn")
                       : t("auth.createAccount")}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleSignIn}
-                >
-                  <FcGoogle className="mr-2 size-4" />
-                  {isLogin ? t("auth.signInGoogle") : t("auth.signUpGoogle")}
-                </Button>
+
+
                 <Button
                   type="button"
                   variant="outline"
