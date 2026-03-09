@@ -299,6 +299,7 @@ const AddTrade = () => {
         asset_name: assetName,
         asset_type: assetType as any,
         trade_type: tradeType as any,
+        strategy_id: selectedStrategyId === "none" ? null : selectedStrategyId,
         quantity: finalQuantity,
         price_per_unit: finalPrice,
         
