@@ -38,11 +38,21 @@ interface SubmittedTrade {
 
 const AddTrade = () => {
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const { venta: mepRate, isLoading: mepLoading } = useDolarMEP();
   const { portfolio } = useActivePortfolio();
   const { data: trades } = useTrades();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
   const { t } = useLanguage();
+
+  // Currency for input
+  const [tradeCurrency, setTradeCurrency] = useState<"USD" | "ARS">("USD");
+  const [currencyInitialized, setCurrencyInitialized] = useState(false);
+  if (profile && !currencyInitialized) {
+    setTradeCurrency((profile.default_currency as "USD" | "ARS") || "USD");
+    setCurrencyInitialized(true);
+  }
 
   const [entryMode, setEntryMode] = useState<"" | "manual" | "screenshot">("");
   const [analyzingImage, setAnalyzingImage] = useState(false);
