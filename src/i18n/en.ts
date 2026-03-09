@@ -162,6 +162,7 @@ export const en = {
   "tradeLog.allTypes": "All Types",
   "tradeLog.allAssets": "All Assets",
   "tradeLog.allTags": "All Tags",
+  "tradeLog.allStrategies": "All Strategies",
   "tradeLog.exportCsv": "Export CSV",
   "tradeLog.date": "Date",
   "tradeLog.symbol": "Symbol",

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
 import { useLanguage } from "@/i18n";
 import { useTags, useTradeTagAssignments, useAssignTag } from "@/hooks/useTags";
+import { useStrategies } from "@/hooks/useStrategies";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
 import { TagBadges, TagPicker } from "@/components/TagPicker";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,6 +65,7 @@ const TradeLog = () => {
   const { t } = useLanguage();
   const { data: trades = [], isLoading } = useTrades();
   const { data: tags = [] } = useTags();
+  const { data: strategies = [] } = useStrategies();
   const queryClient = useQueryClient();
   const assignTag = useAssignTag();
   const tradeIds = useMemo(() => trades.map((t) => t.id), [trades]);
@@ -72,6 +74,7 @@ const TradeLog = () => {
   const [filterType, setFilterType] = useState("all");
   const [filterAsset, setFilterAsset] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
+  const [filterStrategy, setFilterStrategy] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -88,12 +91,21 @@ const TradeLog = () => {
     return map;
   }, [tagAssignments]);
 
+  const strategyMap = useMemo(() => new Map(strategies.map((s) => [s.id, s])), [strategies]);
+
   const filtered = trades.filter((t) => {
     if (filterType !== "all" && t.trade_type !== filterType) return false;
     if (filterAsset !== "all" && t.asset_type !== filterAsset) return false;
     if (filterTag !== "all") {
       const tTagIds = tagMap.get(t.id) || [];
       if (!tTagIds.includes(filterTag)) return false;
+    }
+    if (filterStrategy !== "all") {
+      if (filterStrategy === "none") {
+        if (t.strategy_id) return false;
+      } else {
+        if (t.strategy_id !== filterStrategy) return false;
+      }
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -219,6 +231,20 @@ const TradeLog = () => {
             </SelectContent>
           </Select>
         )}
+        {strategies.length > 0 && (
+          <Select value={filterStrategy} onValueChange={setFilterStrategy}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder={t("strategy.select")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("tradeLog.allStrategies")}</SelectItem>
+              <SelectItem value="none">{t("strategy.none")}</SelectItem>
+              {strategies.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Button variant="outline" size="sm" onClick={() => handleExport(filtered)} className="ml-auto">
           <Download className="h-4 w-4 mr-1" />
           {t("tradeLog.exportCsv")}
@@ -245,6 +271,7 @@ const TradeLog = () => {
                   <TableHead className="text-right">{t("tradeLog.qty")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.price")}</TableHead>
                   <TableHead className="text-right">{t("tradeLog.total")}</TableHead>
+                  <TableHead>{t("strategy.select")}</TableHead>
                   <TableHead>{t("tradeLog.tags")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -285,6 +312,13 @@ const TradeLog = () => {
                       {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
                     </TableCell>
                     <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
+                    <TableCell>
+                      {t.strategy_id && strategyMap.get(t.strategy_id) ? (
+                        <span className="text-xs text-muted-foreground">{strategyMap.get(t.strategy_id)!.name}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <TagBadges tagIds={tagMap.get(t.id) || []} tags={tags} />
                     </TableCell>
