@@ -129,7 +129,7 @@ const Index = () => {
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.marketValue")}</p>
                 <p className="text-2xl font-bold font-mono mt-1">
-                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : `$${marketValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : fmt(cx(marketValue))}
                 </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
