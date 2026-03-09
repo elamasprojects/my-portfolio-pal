@@ -488,6 +488,16 @@ export const es: Record<TranslationKey, string> = {
   "strategy.deleteDesc": "Esto eliminará permanentemente esta estrategia. Las operaciones que la usen conservarán sus datos.",
   "strategy.select": "Estrategia",
   "strategy.none": "Ninguna",
+  "strategy.dashboard": "Panel de Rendimiento",
+  "strategy.totalTrades": "Operaciones",
+  "strategy.winRate": "Tasa de Éxito",
+  "strategy.avgReturn": "Retorno Prom/Venta",
+  "strategy.realizedPnl": "P&L Realizado",
+  "strategy.totalReturn": "Retorno Total",
+  "strategy.dividends": "Dividendos",
+  "strategy.noTradesYet": "Sin operaciones asignadas a estrategias. Asigna una estrategia al agregar operaciones.",
+  "strategy.buys": "Compras",
+  "strategy.sells": "Ventas",
 
   // Install
   "install.back": "Volver",

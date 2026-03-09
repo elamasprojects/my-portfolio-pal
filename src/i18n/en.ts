@@ -487,6 +487,16 @@ export const en = {
   "strategy.deleteDesc": "This will permanently remove this strategy. Trades using it will keep their data.",
   "strategy.select": "Strategy",
   "strategy.none": "None",
+  "strategy.dashboard": "Performance Dashboard",
+  "strategy.totalTrades": "Trades",
+  "strategy.winRate": "Win Rate",
+  "strategy.avgReturn": "Avg Return/Sell",
+  "strategy.realizedPnl": "Realized P&L",
+  "strategy.totalReturn": "Total Return",
+  "strategy.dividends": "Dividends",
+  "strategy.noTradesYet": "No trades assigned to strategies yet. Assign a strategy when adding trades.",
+  "strategy.buys": "Buys",
+  "strategy.sells": "Sells",
 
   // Install
   "install.back": "Back",
