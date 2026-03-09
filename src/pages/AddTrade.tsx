@@ -135,6 +135,16 @@ const AddTrade = () => {
     if (file) handleImageUpload(file);
   }, [handleImageUpload]);
 
+  // Strategies
+  const { data: strategies } = useStrategies();
+  const defaultStrategy = useDefaultStrategy();
+
+  useEffect(() => {
+    if (defaultStrategy && selectedStrategyId === "none") {
+      setSelectedStrategyId(defaultStrategy.id);
+    }
+  }, [defaultStrategy, selectedStrategyId]);
+
   // URL params pre-fill (for duplicate trade)
   const [searchParams, setSearchParams] = useSearchParams();
   const prefillApplied = useRef(false);
