@@ -341,6 +341,8 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          original_currency: string
+          original_price: number | null
           portfolio_id: string
           price_per_unit: number
           quantity: number
@@ -357,6 +359,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          original_currency?: string
+          original_price?: number | null
           portfolio_id: string
           price_per_unit: number
           quantity: number
@@ -373,6 +377,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          original_currency?: string
+          original_price?: number | null
           portfolio_id?: string
           price_per_unit?: number
           quantity?: number
