@@ -401,7 +401,7 @@ const Index = () => {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <YAxis tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
                     formatter={(value: number) => [`$${value.toFixed(2)}`, t("board.cumulativePnl")]}
