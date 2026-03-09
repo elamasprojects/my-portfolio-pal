@@ -17,6 +17,7 @@ export interface Trade {
   trade_date: string;
   notes: string | null;
   created_at: string;
+  strategy_id: string | null;
 }
 
 export interface Portfolio {
