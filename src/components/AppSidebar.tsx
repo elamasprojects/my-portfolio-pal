@@ -35,6 +35,7 @@ const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
   { titleKey: "nav.progress", url: "/progress", icon: Trophy },
   { titleKey: "nav.notation", url: "/export", icon: PieChart },
+  { titleKey: "nav.strategy", url: "/strategy", icon: Crosshair },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
 ];

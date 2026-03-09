@@ -8,7 +8,7 @@ const items: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.moveHistory", url: "/trades", icon: List },
   { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
   { titleKey: "nav.progress", url: "/progress", icon: Trophy },
-  { titleKey: "nav.players", url: "/players", icon: Users },
+  { titleKey: "nav.strategy", url: "/strategy", icon: Crosshair },
 ];
 
 export function MobileNav() {

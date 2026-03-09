@@ -467,6 +467,27 @@ export const en = {
   "social.theirAllocation": "Their Allocation",
   "social.noTradesYet": "No trades yet",
 
+  // Strategy
+  "nav.strategy": "Strategy",
+  "strategy.title": "Strategies",
+  "strategy.subtitle": "Define your trading methodologies",
+  "strategy.addTitle": "Add Strategy",
+  "strategy.editTitle": "Edit Strategy",
+  "strategy.name": "Name",
+  "strategy.description": "Description",
+  "strategy.descPlaceholder": "Briefly describe this strategy...",
+  "strategy.default": "Default",
+  "strategy.setDefault": "Set as default",
+  "strategy.created": "Strategy created",
+  "strategy.updated": "Strategy updated",
+  "strategy.deleted": "Strategy deleted",
+  "strategy.empty": "No strategies yet. Add one or pick from the suggestions below.",
+  "strategy.suggestions": "Suggestions",
+  "strategy.deleteTitle": "Delete strategy?",
+  "strategy.deleteDesc": "This will permanently remove this strategy. Trades using it will keep their data.",
+  "strategy.select": "Strategy",
+  "strategy.none": "None",
+
   // Install
   "install.back": "Back",
   "install.title": "Install Chess",

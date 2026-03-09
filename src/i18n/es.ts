@@ -468,6 +468,27 @@ export const es: Record<TranslationKey, string> = {
   "social.theirAllocation": "Su Asignación",
   "social.noTradesYet": "Sin operaciones aún",
 
+  // Strategy
+  "nav.strategy": "Estrategia",
+  "strategy.title": "Estrategias",
+  "strategy.subtitle": "Define tus metodologías de trading",
+  "strategy.addTitle": "Agregar Estrategia",
+  "strategy.editTitle": "Editar Estrategia",
+  "strategy.name": "Nombre",
+  "strategy.description": "Descripción",
+  "strategy.descPlaceholder": "Describe brevemente esta estrategia...",
+  "strategy.default": "Predeterminada",
+  "strategy.setDefault": "Establecer como predeterminada",
+  "strategy.created": "Estrategia creada",
+  "strategy.updated": "Estrategia actualizada",
+  "strategy.deleted": "Estrategia eliminada",
+  "strategy.empty": "Sin estrategias aún. Agrega una o elige de las sugerencias.",
+  "strategy.suggestions": "Sugerencias",
+  "strategy.deleteTitle": "¿Eliminar estrategia?",
+  "strategy.deleteDesc": "Esto eliminará permanentemente esta estrategia. Las operaciones que la usen conservarán sus datos.",
+  "strategy.select": "Estrategia",
+  "strategy.none": "Ninguna",
+
   // Install
   "install.back": "Volver",
   "install.title": "Instalar Chess",
