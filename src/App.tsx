@@ -16,6 +16,7 @@ import ProgressHub from "./pages/ProgressHub";
 import ExportReport from "./pages/ExportReport";
 import Chess from "./pages/Chess";
 import Settings from "./pages/Settings";
+import Strategy from "./pages/Strategy";
 import Players from "./pages/Players";
 import PlayerProfile from "./pages/PlayerProfile";
 import SharedExport from "./pages/SharedExport";
