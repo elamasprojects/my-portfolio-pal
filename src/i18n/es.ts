@@ -414,6 +414,8 @@ export const es: Record<TranslationKey, string> = {
   "settings.displayNamePlaceholder": "Tu nombre para mostrar...",
   "settings.saved": "¡Perfil guardado!",
   "settings.avatarUpdated": "¡Avatar actualizado!",
+  "settings.defaultCurrency": "Moneda Predeterminada",
+  "settings.currencyHelper": "El tipo de cambio utiliza el Dólar MEP",
 
   // Social
   "social.playersTitle": "Jugadores",
