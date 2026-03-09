@@ -202,6 +202,39 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── CSV Import ── */}
+      <section className="py-24 px-6 bg-muted/30">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto text-center flex flex-col items-center gap-6"
+        >
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <FileSpreadsheet className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
+            {t("landing.csv.title" as any)}
+          </h2>
+          <p className="text-muted-foreground text-lg leading-relaxed">
+            {t("landing.csv.desc" as any)}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 text-sm text-muted-foreground">
+            {(["bullet1", "bullet2", "bullet3"] as const).map((b) => (
+              <div key={b} className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                <span>{t(`landing.csv.${b}` as any)}</span>
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="lg" className="gap-2 mt-2" onClick={() => navigate("/auth")}>
+            {t("landing.csv.cta" as any)}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </section>
+
       {/* ── More Features ── */}
       <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
