@@ -91,12 +91,21 @@ const TradeLog = () => {
     return map;
   }, [tagAssignments]);
 
+  const strategyMap = useMemo(() => new Map(strategies.map((s) => [s.id, s])), [strategies]);
+
   const filtered = trades.filter((t) => {
     if (filterType !== "all" && t.trade_type !== filterType) return false;
     if (filterAsset !== "all" && t.asset_type !== filterAsset) return false;
     if (filterTag !== "all") {
       const tTagIds = tagMap.get(t.id) || [];
       if (!tTagIds.includes(filterTag)) return false;
+    }
+    if (filterStrategy !== "all") {
+      if (filterStrategy === "none") {
+        if (t.strategy_id) return false;
+      } else {
+        if (t.strategy_id !== filterStrategy) return false;
+      }
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
