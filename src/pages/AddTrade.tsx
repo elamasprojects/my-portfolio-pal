@@ -69,6 +69,7 @@ const AddTrade = () => {
   const [submittedTrade, setSubmittedTrade] = useState<SubmittedTrade | null>(null);
   const [selectedHolding, setSelectedHolding] = useState<string>("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>("none");
 
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
