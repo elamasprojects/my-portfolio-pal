@@ -1003,20 +1003,25 @@ const AddTrade = () => {
                       {total > 0 && (
                         <>
                           <Separator className="my-5" />
-                          <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center">
+                          <div className="animate-in fade-in duration-200 rounded-lg bg-accent/50 p-3 text-center space-y-1">
                             {tradeType === "dividend" ? (
                               <span className="font-mono font-bold text-foreground">
-                                {t("addTrade.dividend")}: ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {t("addTrade.dividend")}: {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             ) : (
                               <>
                                 <span className="text-sm text-muted-foreground">
-                                  {computedQuantity.toFixed(4)} {t("common.shares")} × ${parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
+                                  {computedQuantity.toFixed(4)} {t("common.shares")} × {tradeCurrency === "ARS" ? "ARS$" : "$"}{parseFloat(price).toLocaleString("en-US", { minimumFractionDigits: 2 })} ={" "}
                                 </span>
                                 <span className="font-mono font-bold text-foreground">
-                                  ${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </>
+                            )}
+                            {tradeCurrency === "ARS" && mepRate > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, mepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
+                              </p>
                             )}
                           </div>
                         </>
