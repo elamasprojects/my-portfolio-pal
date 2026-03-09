@@ -364,7 +364,7 @@ const Index = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tickFormatter={(v) => `$${v}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                  <XAxis type="number" tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
                   <ReferenceLine x={0} stroke="hsl(var(--border))" />
                   <Tooltip
