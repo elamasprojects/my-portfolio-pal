@@ -157,6 +157,13 @@ export const en = {
   "addTrade.total": "Total",
   "addTrade.currency": "Currency",
   "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
+  "addTrade.analyzingMultiple": "Analyzing {current}/{total} images...",
+  "addTrade.tradeOf": "Add ({current} of {total})",
+  "addTrade.allTradesRecorded": "All Trades Recorded!",
+  "addTrade.batchSummary": "{count} trades submitted successfully",
+  "addTrade.grandTotal": "Grand Total",
+  "addTrade.skipTrade": "Skip",
+  "addTrade.analysisFailed": "Could not extract data",
 
   // Trade Log
   "tradeLog.title": "Move History",
