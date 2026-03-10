@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward } from "lucide-react";
 import confetti from "canvas-confetti";
 import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
@@ -36,6 +36,13 @@ interface SubmittedTrade {
   total: number;
   tradeDate: string;
   notes: string;
+}
+
+interface QueueItem {
+  file: File;
+  status: "pending" | "analyzing" | "done" | "error";
+  extractedData?: any;
+  error?: string;
 }
 
 const AddTrade = () => {
@@ -87,7 +94,116 @@ const AddTrade = () => {
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
 
-  // Image analysis handler
+  // Multi-image queue state
+  const [screenshotQueue, setScreenshotQueue] = useState<QueueItem[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [submittedTrades, setSubmittedTrades] = useState<SubmittedTrade[]>([]);
+  const [analyzingCount, setAnalyzingCount] = useState(0);
+  const [analyzingTotal, setAnalyzingTotal] = useState(0);
+
+  const isMultiMode = screenshotQueue.length > 1;
+  const queueTotal = screenshotQueue.length;
+
+  // Analyze a single image and return extracted data
+  const analyzeOneImage = useCallback(async (file: File): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        try {
+          const { data, error } = await supabase.functions.invoke("analyze-trade-image", {
+            body: { image: base64 },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+          resolve({ ...data, _preview: base64 });
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  // Process multiple images with concurrency limit
+  const processQueue = useCallback(async (files: File[]) => {
+    const queue: QueueItem[] = files.map(f => ({ file: f, status: "pending" as const }));
+    setScreenshotQueue(queue);
+    setCurrentQueueIndex(0);
+    setSubmittedTrades([]);
+    setAnalyzingTotal(files.length);
+    setAnalyzingCount(0);
+    setAnalyzingImage(true);
+
+    const CONCURRENCY = 3;
+    let completed = 0;
+    const results = [...queue];
+
+    const processItem = async (index: number) => {
+      results[index] = { ...results[index], status: "analyzing" };
+      try {
+        const data = await analyzeOneImage(files[index]);
+        results[index] = { ...results[index], status: "done", extractedData: data };
+      } catch (err: any) {
+        results[index] = { ...results[index], status: "error", error: err.message };
+      }
+      completed++;
+      setAnalyzingCount(completed);
+      setScreenshotQueue([...results]);
+    };
+
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      const batch = [];
+      for (let j = i; j < Math.min(i + CONCURRENCY, files.length); j++) {
+        batch.push(processItem(j));
+      }
+      await Promise.all(batch);
+    }
+
+    setAnalyzingImage(false);
+
+    // Find first successful item
+    const firstSuccess = results.findIndex(r => r.status === "done");
+    if (firstSuccess >= 0) {
+      setCurrentQueueIndex(firstSuccess);
+      populateFormFromData(results[firstSuccess].extractedData);
+      setEntryMode("manual");
+      const successCount = results.filter(r => r.status === "done").length;
+      const errorCount = results.filter(r => r.status === "error").length;
+      if (errorCount > 0) {
+        toast.warning(`${successCount} analyzed, ${errorCount} failed`);
+      } else {
+        toast.success(`${successCount} image${successCount > 1 ? "s" : ""} analyzed! Review each trade.`);
+      }
+    } else {
+      toast.error(t("addTrade.analyzeError"));
+      setScreenshotQueue([]);
+      setEntryMode("screenshot");
+    }
+  }, [analyzeOneImage, t]);
+
+  const populateFormFromData = useCallback((data: any) => {
+    if (data.trade_type) setTradeType(data.trade_type);
+    if (data.symbol) setSymbol(data.symbol.toUpperCase());
+    if (data.asset_name) setAssetName(data.asset_name);
+    if (data.asset_type) setAssetType(data.asset_type);
+    if (data.quantity) setQuantity(String(data.quantity));
+    if (data.price_per_unit) setPrice(String(data.price_per_unit));
+    if (data.trade_date) setTradeDate(data.trade_date);
+    if (data.currency === "ARS") setTradeCurrency("ARS");
+    else if (data.currency === "USD") setTradeCurrency("USD");
+    if (data.quantity && data.price_per_unit) {
+      setAmount(String((data.quantity * data.price_per_unit).toFixed(2)));
+    }
+    if (data._preview) setImagePreview(data._preview);
+    fromScreenshotRef.current = true;
+    userEditedPrice.current = false;
+    userEditedName.current = false;
+  }, []);
+
+  // Single image handler (legacy path)
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file");
@@ -146,14 +262,26 @@ const AddTrade = () => {
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleImageUpload(file);
-  }, [handleImageUpload]);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")).slice(0, 10);
+    if (files.length === 0) return;
+    if (files.length === 1) {
+      handleImageUpload(files[0]);
+    } else {
+      processQueue(files);
+    }
+  }, [handleImageUpload, processQueue]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleImageUpload(file);
-  }, [handleImageUpload]);
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/")).slice(0, 10);
+    if (files.length === 0) return;
+    if (files.length === 1) {
+      handleImageUpload(files[0]);
+    } else {
+      processQueue(files);
+    }
+    // Reset so same files can be re-selected
+    e.target.value = "";
+  }, [handleImageUpload, processQueue]);
 
   // Strategies
   const { data: strategies } = useStrategies();
@@ -280,6 +408,36 @@ const AddTrade = () => {
     });
   };
 
+  // Advance to the next queue item after submit
+  const advanceQueue = useCallback((newSubmittedTrade: SubmittedTrade) => {
+    const newSubmittedTrades = [...submittedTrades, newSubmittedTrade];
+    setSubmittedTrades(newSubmittedTrades);
+
+    // Find next successful item in queue
+    let nextIndex = -1;
+    for (let i = currentQueueIndex + 1; i < screenshotQueue.length; i++) {
+      if (screenshotQueue[i].status === "done") {
+        nextIndex = i;
+        break;
+      }
+    }
+
+    if (nextIndex >= 0) {
+      // More items to review
+      setCurrentQueueIndex(nextIndex);
+      resetFormFields();
+      populateFormFromData(screenshotQueue[nextIndex].extractedData);
+    } else {
+      // All done — show batch confirmation
+      setSubmittedTrade(null); // clear single trade
+      setTimeout(() => {
+        setFlipped(true);
+        fireConfetti();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
+    }
+  }, [submittedTrades, currentQueueIndex, screenshotQueue, populateFormFromData]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !portfolio) return;
@@ -360,7 +518,7 @@ const AddTrade = () => {
 
       queryClient.invalidateQueries({ queryKey: ["trades"] });
 
-      setSubmittedTrade({
+      const newTrade: SubmittedTrade = {
         symbol: symbol.toUpperCase(),
         assetName,
         tradeType,
@@ -369,13 +527,20 @@ const AddTrade = () => {
         total: finalTotal,
         tradeDate,
         notes,
-      });
+      };
 
-      setTimeout(() => {
-        setFlipped(true);
-        fireConfetti();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }, 100);
+      // Multi-image mode: advance queue
+      if (isMultiMode) {
+        advanceQueue(newTrade);
+      } else {
+        // Single mode: show confirmation
+        setSubmittedTrade(newTrade);
+        setTimeout(() => {
+          setFlipped(true);
+          fireConfetti();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 100);
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -383,27 +548,35 @@ const AddTrade = () => {
     }
   };
 
+  const resetFormFields = () => {
+    setSymbol("");
+    setAssetName("");
+    setAssetType("stock");
+    setQuantity("");
+    setPrice("");
+    setAmount("");
+    setNotes("");
+    setTradeType("");
+    setSelectedHolding("");
+    userEditedPrice.current = false;
+    userEditedName.current = false;
+    setInputMode("amount");
+    setSelectedTagIds([]);
+    setSelectedStrategyId(defaultStrategy?.id || "none");
+    setDividendAmount("");
+    setTradeDate(new Date().toISOString().split("T")[0]);
+    setImagePreview(null);
+  };
+
   const handleAddAnother = () => {
     setFlipped(false);
     setTimeout(() => {
       setEntryMode("");
-      setTradeType("");
-      setSymbol("");
-      setAssetName("");
-      setQuantity("");
-      setPrice("");
-      setAmount("");
-      setNotes("");
-      setTradeDate(new Date().toISOString().split("T")[0]);
-      setInputMode("amount");
-      setSelectedHolding("");
+      resetFormFields();
       setSubmittedTrade(null);
-      setSelectedTagIds([]);
-      setSelectedStrategyId(defaultStrategy?.id || "none");
-      setDividendAmount("");
-      setImagePreview(null);
-      userEditedPrice.current = false;
-      userEditedName.current = false;
+      setScreenshotQueue([]);
+      setCurrentQueueIndex(0);
+      setSubmittedTrades([]);
     }, 600);
   };
 
@@ -438,9 +611,49 @@ const AddTrade = () => {
     );
   };
 
+  // Skip current queue item
+  const handleSkipTrade = useCallback(() => {
+    let nextIndex = -1;
+    for (let i = currentQueueIndex + 1; i < screenshotQueue.length; i++) {
+      if (screenshotQueue[i].status === "done") {
+        nextIndex = i;
+        break;
+      }
+    }
+
+    if (nextIndex >= 0) {
+      setCurrentQueueIndex(nextIndex);
+      resetFormFields();
+      populateFormFromData(screenshotQueue[nextIndex].extractedData);
+    } else {
+      // No more items — show batch confirmation if any were submitted
+      if (submittedTrades.length > 0) {
+        setTimeout(() => {
+          setFlipped(true);
+          fireConfetti();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 100);
+      } else {
+        toast.info("No trades submitted");
+        handleAddAnother();
+      }
+    }
+  }, [currentQueueIndex, screenshotQueue, submittedTrades, populateFormFromData]);
+
   const tradeTypeSelected = tradeType === "buy" || tradeType === "sell" || tradeType === "dividend";
   const canSell = holdings.length > 0;
   const canDividend = holdings.length > 0;
+
+  // Compute queue position for display (1-based, counting only successful items)
+  const successfulIndices = screenshotQueue
+    .map((item, i) => item.status === "done" ? i : -1)
+    .filter(i => i >= 0);
+  const currentPositionInQueue = successfulIndices.indexOf(currentQueueIndex) + 1;
+  const totalSuccessful = successfulIndices.length;
+
+  // For batch confirmation
+  const allSubmitted = isMultiMode ? submittedTrades : (submittedTrade ? [submittedTrade] : []);
+  const batchGrandTotal = allSubmitted.reduce((sum, t) => sum + t.total, 0);
 
   return (
     <div className={`max-w-lg mx-auto transition-all duration-700 ${flipped ? "py-8" : ""}`}>
@@ -462,7 +675,14 @@ const AddTrade = () => {
           <div className="w-full" style={{ backfaceVisibility: "hidden" }}>
             <Card className="border-border/50 overflow-hidden">
               <CardHeader>
-                <CardTitle className="text-lg">{t("addTrade.newTrade")}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{t("addTrade.newTrade")}</CardTitle>
+                  {isMultiMode && entryMode === "manual" && (
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {currentPositionInQueue}/{totalSuccessful}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-0">
@@ -551,13 +771,18 @@ const AddTrade = () => {
                           ref={fileInputRef}
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
                           onChange={handleFileChange}
                         />
                         {analyzingImage ? (
                           <>
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <p className="text-sm font-medium text-primary">{t("addTrade.analyzing")}</p>
+                            <p className="text-sm font-medium text-primary">
+                              {analyzingTotal > 1
+                                ? t("addTrade.analyzingMultiple", { current: String(analyzingCount), total: String(analyzingTotal) })
+                                : t("addTrade.analyzing")}
+                            </p>
                           </>
                         ) : imagePreview ? (
                           <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
@@ -576,6 +801,7 @@ const AddTrade = () => {
                         onClick={() => {
                           setEntryMode("");
                           setImagePreview(null);
+                          setScreenshotQueue([]);
                         }}
                         className="text-xs text-muted-foreground"
                       >
@@ -586,6 +812,44 @@ const AddTrade = () => {
 
                   {/* Step 1: Trade Type */}
                   {entryMode === "manual" && (<>
+                  {/* Queue thumbnail strip */}
+                  {isMultiMode && (
+                    <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+                      {screenshotQueue.map((item, i) => {
+                        if (item.status !== "done") return null;
+                        const pos = successfulIndices.indexOf(i) + 1;
+                        const isCurrent = i === currentQueueIndex;
+                        const isSubmitted = submittedTrades.some((_, si) => {
+                          // Check if this queue index was already submitted
+                          const submittedIdx = successfulIndices[si];
+                          return submittedIdx === i;
+                        });
+                        // Simpler check: submitted items are those before current in successful indices
+                        const posInSuccessful = successfulIndices.indexOf(i);
+                        const alreadyDone = posInSuccessful < successfulIndices.indexOf(currentQueueIndex)
+                          || submittedTrades.length > posInSuccessful;
+                        return (
+                          <div
+                            key={i}
+                            className={`shrink-0 w-10 h-10 rounded-md border-2 flex items-center justify-center text-xs font-mono transition-all ${
+                              isCurrent
+                                ? "border-primary bg-primary/10 text-primary font-bold"
+                                : posInSuccessful < currentPositionInQueue - 1
+                                ? "border-gain/50 bg-gain/10 text-gain"
+                                : "border-border bg-card text-muted-foreground"
+                            }`}
+                          >
+                            {posInSuccessful < currentPositionInQueue - 1 ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : (
+                              pos
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("addTrade.opening")}</span>
                     <div className="flex gap-3">
@@ -1040,19 +1304,39 @@ const AddTrade = () => {
 
               {/* Footer */}
               <div className="border-t border-border bg-card rounded-b-lg p-4 flex items-center justify-between">
-                <span className="text-lg font-bold font-mono text-foreground">
-                  {total > 0
-                    ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : "$0.00"}
-                </span>
-                <Button onClick={handleSubmit} disabled={submitting || !symbolResolved || !tradeTypeSelected}>
-                  {submitting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold font-mono text-foreground">
+                    {total > 0
+                      ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : "$0.00"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isMultiMode && entryMode === "manual" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSkipTrade}
+                      className="text-muted-foreground"
+                    >
+                      <SkipForward className="h-4 w-4 mr-1" />
+                      {t("addTrade.skipTrade")}
+                    </Button>
                   )}
-                  {submitting ? t("addTrade.adding") : `${t("addTrade.addTrade")} ${tradeType ? tradeType.toUpperCase() : ""}`}
-                </Button>
+                  <Button onClick={handleSubmit} disabled={submitting || !symbolResolved || !tradeTypeSelected}>
+                    {submitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    {submitting
+                      ? t("addTrade.adding")
+                      : isMultiMode
+                      ? t("addTrade.tradeOf", { current: String(currentPositionInQueue), total: String(totalSuccessful) })
+                      : `${t("addTrade.addTrade")} ${tradeType ? tradeType.toUpperCase() : ""}`}
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
@@ -1065,7 +1349,66 @@ const AddTrade = () => {
               transform: "rotateY(180deg)",
             }}
           >
-            {submittedTrade && (
+            {/* Batch confirmation (multi-image) */}
+            {isMultiMode && submittedTrades.length > 0 && (
+              <Card className="border-primary/30 overflow-hidden bg-gradient-to-br from-primary/10 to-card">
+                <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                  <div className="h-16 w-16 rounded-full bg-gain/20 flex items-center justify-center">
+                    <CheckCircle2 className="h-10 w-10 text-gain" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold">{t("addTrade.allTradesRecorded")}</h2>
+                    <p className="text-muted-foreground text-sm">
+                      {t("addTrade.batchSummary", { count: String(submittedTrades.length) })}
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="w-full space-y-2 text-left max-h-60 overflow-y-auto">
+                    {submittedTrades.map((trade, i) => (
+                      <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-md bg-accent/30">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm">{trade.symbol}</span>
+                          <Badge
+                            className={`text-[10px] px-1.5 py-0 ${
+                              trade.tradeType === "buy"
+                                ? "bg-gain text-gain-foreground"
+                                : trade.tradeType === "sell"
+                                ? "bg-loss text-loss-foreground"
+                                : "bg-primary text-primary-foreground"
+                            }`}
+                          >
+                            {trade.tradeType.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <span className="font-mono text-sm">
+                          ${trade.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Separator />
+
+                  <div className="w-full flex items-center justify-between">
+                    <span className="font-semibold">{t("addTrade.grandTotal")}</span>
+                    <span className="font-mono font-bold text-xl">
+                      ${batchGrandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <Button onClick={handleAddAnother} variant="outline" className="w-full mt-4">
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    {t("addTrade.addAnother")}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Single trade confirmation */}
+            {!isMultiMode && submittedTrade && (
               <Card className="border-primary/30 overflow-hidden bg-gradient-to-br from-primary/10 to-card">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
                   <div className="h-16 w-16 rounded-full bg-gain/20 flex items-center justify-center">

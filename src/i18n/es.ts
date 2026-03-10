@@ -159,6 +159,13 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.total": "Total",
   "addTrade.currency": "Moneda",
   "addTrade.convertedToUsd": "≈ USD {amount} (Dólar MEP)",
+  "addTrade.analyzingMultiple": "Analizando {current}/{total} imágenes...",
+  "addTrade.tradeOf": "Agregar ({current} de {total})",
+  "addTrade.allTradesRecorded": "¡Todas las órdenes registradas!",
+  "addTrade.batchSummary": "{count} órdenes registradas con éxito",
+  "addTrade.grandTotal": "Total General",
+  "addTrade.skipTrade": "Saltar",
+  "addTrade.analysisFailed": "No se pudo extraer los datos",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
