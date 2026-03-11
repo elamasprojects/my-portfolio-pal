@@ -8,6 +8,7 @@ import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
 import { useAssignTag } from "@/hooks/useTags";
+import { useUserBrokers, useDefaultBroker } from "@/hooks/useBrokers";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/i18n";
 import { TagPicker } from "@/components/TagPicker";
@@ -23,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus } from "lucide-react";
 import confetti from "canvas-confetti";
 import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
