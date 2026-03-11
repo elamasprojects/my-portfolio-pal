@@ -602,6 +602,8 @@ const AddTrade = () => {
     setDividendAmount("");
     setTradeDate(new Date().toISOString().split("T")[0]);
     setImagePreview(null);
+    setFormExpanded(false);
+    setSelectedBrokerId(defaultBroker?.broker_id || "none");
   };
 
   const handleAddAnother = () => {
