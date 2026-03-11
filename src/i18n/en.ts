@@ -164,6 +164,11 @@ export const en = {
   "addTrade.grandTotal": "Grand Total",
   "addTrade.skipTrade": "Skip",
   "addTrade.analysisFailed": "Could not extract data",
+  "addTrade.addMoreImages": "Add more",
+  "addTrade.analyzeAll": "Analyze All",
+  "addTrade.broker": "Broker",
+  "addTrade.selectBroker": "Select broker",
+  "addTrade.commission": "Commission",
 
   // Trade Log
   "tradeLog.title": "Move History",
