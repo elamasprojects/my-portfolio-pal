@@ -199,6 +199,7 @@ const AddTrade = () => {
     }
     if (data._preview) setImagePreview(data._preview);
     fromScreenshotRef.current = true;
+    setFormExpanded(true);
     userEditedPrice.current = false;
     userEditedName.current = false;
   }, []);
