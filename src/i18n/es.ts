@@ -166,6 +166,11 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.grandTotal": "Total General",
   "addTrade.skipTrade": "Saltar",
   "addTrade.analysisFailed": "No se pudo extraer los datos",
+  "addTrade.addMoreImages": "Agregar más",
+  "addTrade.analyzeAll": "Analizar Todo",
+  "addTrade.broker": "Broker",
+  "addTrade.selectBroker": "Seleccionar broker",
+  "addTrade.commission": "Comisión",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
