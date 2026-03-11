@@ -35,6 +35,30 @@ export type Database = {
         }
         Relationships: []
       }
+      brokers: {
+        Row: {
+          category: string
+          country: string
+          display_order: number
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string
+          country?: string
+          display_order?: number
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string
+          country?: string
+          display_order?: number
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       discipline_rules: {
         Row: {
           created_at: string
@@ -199,6 +223,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          brokers_enabled: boolean
           created_at: string
           default_currency: string
           display_name: string | null
@@ -207,6 +232,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          brokers_enabled?: boolean
           created_at?: string
           default_currency?: string
           display_name?: string | null
@@ -215,6 +241,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          brokers_enabled?: boolean
           created_at?: string
           default_currency?: string
           display_name?: string | null
@@ -338,6 +365,9 @@ export type Database = {
         Row: {
           asset_name: string
           asset_type: Database["public"]["Enums"]["asset_type"]
+          broker_id: string | null
+          commission_amount: number
+          commission_pct: number
           created_at: string
           id: string
           notes: string | null
@@ -356,6 +386,9 @@ export type Database = {
         Insert: {
           asset_name: string
           asset_type?: Database["public"]["Enums"]["asset_type"]
+          broker_id?: string | null
+          commission_amount?: number
+          commission_pct?: number
           created_at?: string
           id?: string
           notes?: string | null
@@ -374,6 +407,9 @@ export type Database = {
         Update: {
           asset_name?: string
           asset_type?: Database["public"]["Enums"]["asset_type"]
+          broker_id?: string | null
+          commission_amount?: number
+          commission_pct?: number
           created_at?: string
           id?: string
           notes?: string | null
@@ -391,6 +427,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "trades_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trades_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
@@ -402,6 +445,41 @@ export type Database = {
             columns: ["strategy_id"]
             isOneToOne: false
             referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_brokers: {
+        Row: {
+          broker_id: string
+          commission_pct: number
+          created_at: string
+          id: string
+          is_default: boolean
+          user_id: string
+        }
+        Insert: {
+          broker_id: string
+          commission_pct?: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          user_id: string
+        }
+        Update: {
+          broker_id?: string
+          commission_pct?: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_brokers_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
             referencedColumns: ["id"]
           },
         ]
