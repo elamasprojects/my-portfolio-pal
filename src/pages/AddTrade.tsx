@@ -275,16 +275,8 @@ const AddTrade = () => {
     reader.readAsDataURL(file);
   }, [t]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")).slice(0, 10);
-    if (files.length === 0) return;
-    if (files.length === 1) {
-      handleImageUpload(files[0]);
-    } else {
-      processQueue(files);
-    }
-  }, [handleImageUpload, processQueue]);
+  // Drop is now handled to stage files
+  // (handleDrop moved below handleFileChange)
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/"));
