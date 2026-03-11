@@ -1351,6 +1351,27 @@ const AddTrade = () => {
                             </div>
                           </div>
                         </div>
+
+                        {/* Broker selector (only if enabled) */}
+                        {profile?.brokers_enabled && userBrokers && userBrokers.length > 0 && (tradeType === "buy" || tradeType === "sell") && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t("addTrade.broker")}</Label>
+                            <Select value={selectedBrokerId} onValueChange={setSelectedBrokerId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t("addTrade.selectBroker")} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {userBrokers.map((ub) => (
+                                  <SelectItem key={ub.broker_id} value={ub.broker_id}>
+                                    {ub.broker?.name || ub.broker_id}
+                                    {ub.commission_pct > 0 ? ` (${ub.commission_pct}%)` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
 
                       {/* Inline summary line */}
