@@ -8,6 +8,7 @@ export interface Profile {
   avatar_url: string | null;
   username: string | null;
   default_currency: string;
+  brokers_enabled: boolean;
 }
 
 export function useProfile() {
