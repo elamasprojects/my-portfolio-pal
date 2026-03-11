@@ -166,6 +166,11 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.grandTotal": "Total General",
   "addTrade.skipTrade": "Saltar",
   "addTrade.analysisFailed": "No se pudo extraer los datos",
+  "addTrade.addMoreImages": "Agregar más",
+  "addTrade.analyzeAll": "Analizar Todo",
+  "addTrade.broker": "Broker",
+  "addTrade.selectBroker": "Seleccionar broker",
+  "addTrade.commission": "Comisión",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",
@@ -426,6 +431,19 @@ export const es: Record<TranslationKey, string> = {
   "settings.avatarUpdated": "¡Avatar actualizado!",
   "settings.defaultCurrency": "Moneda Predeterminada",
   "settings.currencyHelper": "El tipo de cambio utiliza el Dólar MEP",
+  "settings.brokers": "Brokers",
+  "settings.brokersEnabled": "Habilitar Brokers",
+  "settings.brokersEnabledDesc": "Registrá a qué broker pertenece cada operación y aplicá comisiones.",
+  "settings.addBroker": "Agregar Broker",
+  "settings.commission": "Comisión",
+  "settings.defaultBroker": "Predeterminado",
+  "settings.noBrokers": "No hay brokers agregados.",
+  "settings.removeBroker": "Eliminar",
+  "settings.brokerAdded": "¡Broker agregado!",
+  "settings.brokerRemoved": "Broker eliminado",
+  "settings.brokerUpdated": "Broker actualizado",
+  "brokers.argentina": "Argentina",
+  "brokers.us": "Estados Unidos",
 
   // Social
   "social.playersTitle": "Jugadores",

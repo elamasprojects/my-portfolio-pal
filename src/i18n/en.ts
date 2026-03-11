@@ -164,6 +164,11 @@ export const en = {
   "addTrade.grandTotal": "Grand Total",
   "addTrade.skipTrade": "Skip",
   "addTrade.analysisFailed": "Could not extract data",
+  "addTrade.addMoreImages": "Add more",
+  "addTrade.analyzeAll": "Analyze All",
+  "addTrade.broker": "Broker",
+  "addTrade.selectBroker": "Select broker",
+  "addTrade.commission": "Commission",
 
   // Trade Log
   "tradeLog.title": "Move History",
@@ -425,6 +430,19 @@ export const en = {
   "settings.avatarUpdated": "Avatar updated!",
   "settings.defaultCurrency": "Default Currency",
   "settings.currencyHelper": "Exchange rate uses Dólar MEP",
+  "settings.brokers": "Brokers",
+  "settings.brokersEnabled": "Enable Brokers",
+  "settings.brokersEnabledDesc": "Track which broker each trade belongs to and apply commissions.",
+  "settings.addBroker": "Add Broker",
+  "settings.commission": "Commission",
+  "settings.defaultBroker": "Default",
+  "settings.noBrokers": "No brokers added yet.",
+  "settings.removeBroker": "Remove",
+  "settings.brokerAdded": "Broker added!",
+  "settings.brokerRemoved": "Broker removed",
+  "settings.brokerUpdated": "Broker updated",
+  "brokers.argentina": "Argentina",
+  "brokers.us": "United States",
 
   // Social
   "social.playersTitle": "Players",

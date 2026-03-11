@@ -8,6 +8,7 @@ import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
 import { useAssignTag } from "@/hooks/useTags";
+import { useUserBrokers, useDefaultBroker } from "@/hooks/useBrokers";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/i18n";
 import { TagPicker } from "@/components/TagPicker";
@@ -23,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus } from "lucide-react";
 import confetti from "canvas-confetti";
 import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
@@ -100,9 +101,22 @@ const AddTrade = () => {
   const [submittedTrades, setSubmittedTrades] = useState<SubmittedTrade[]>([]);
   const [analyzingCount, setAnalyzingCount] = useState(0);
   const [analyzingTotal, setAnalyzingTotal] = useState(0);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+
+  // Broker state
+  const { data: userBrokers } = useUserBrokers();
+  const defaultBroker = useDefaultBroker();
+  const [selectedBrokerId, setSelectedBrokerId] = useState<string>("none");
 
   const isMultiMode = screenshotQueue.length > 1;
   const queueTotal = screenshotQueue.length;
+
+  // Set default broker when loaded
+  useEffect(() => {
+    if (defaultBroker && selectedBrokerId === "none") {
+      setSelectedBrokerId(defaultBroker.broker_id);
+    }
+  }, [defaultBroker, selectedBrokerId]);
 
   // Analyze a single image and return extracted data
   const analyzeOneImage = useCallback(async (file: File): Promise<any> => {
@@ -199,6 +213,7 @@ const AddTrade = () => {
     }
     if (data._preview) setImagePreview(data._preview);
     fromScreenshotRef.current = true;
+    setFormExpanded(true);
     userEditedPrice.current = false;
     userEditedName.current = false;
   }, []);
@@ -260,28 +275,37 @@ const AddTrade = () => {
     reader.readAsDataURL(file);
   }, [t]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/")).slice(0, 10);
-    if (files.length === 0) return;
-    if (files.length === 1) {
-      handleImageUpload(files[0]);
-    } else {
-      processQueue(files);
-    }
-  }, [handleImageUpload, processQueue]);
+  // Drop is now handled to stage files
+  // (handleDrop moved below handleFileChange)
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/")).slice(0, 10);
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/"));
     if (files.length === 0) return;
-    if (files.length === 1) {
-      handleImageUpload(files[0]);
-    } else {
-      processQueue(files);
-    }
+    setStagedFiles(prev => [...prev, ...files].slice(0, 10));
     // Reset so same files can be re-selected
     e.target.value = "";
-  }, [handleImageUpload, processQueue]);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    if (files.length === 0) return;
+    setStagedFiles(prev => [...prev, ...files].slice(0, 10));
+  }, []);
+
+  const removeStagedFile = useCallback((index: number) => {
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleAnalyzeStaged = useCallback(() => {
+    if (stagedFiles.length === 0) return;
+    if (stagedFiles.length === 1) {
+      handleImageUpload(stagedFiles[0]);
+    } else {
+      processQueue(stagedFiles);
+    }
+    setStagedFiles([]);
+  }, [stagedFiles, handleImageUpload, processQueue]);
 
   // Strategies
   const { data: strategies } = useStrategies();
@@ -316,9 +340,11 @@ const AddTrade = () => {
     return computeHoldings(trades);
   }, [trades]);
 
+  const [formExpanded, setFormExpanded] = useState(false);
+
   const symbolResolved = tradeType === "dividend"
     ? selectedHolding !== ""
-    : assetName.trim() !== "" && price.trim() !== "";
+    : assetName.trim() !== "" && (price.trim() !== "" || formExpanded);
 
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
@@ -489,6 +515,13 @@ const AddTrade = () => {
         ? parseFloat(dividendAmount)
         : parseFloat(price);
 
+      // Broker commission calculation
+      const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
+        ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
+        : null;
+      const commissionPct = selectedUserBroker?.commission_pct || 0;
+      const commissionAmount = finalTotal * commissionPct / 100;
+
       const { data: insertedTrade, error } = await supabase.from("trades").insert({
         portfolio_id: portfolio.id,
         user_id: user.id,
@@ -503,7 +536,10 @@ const AddTrade = () => {
         notes: notes || null,
         original_currency: tradeCurrency,
         original_price: tradeCurrency === "ARS" ? originalPrice : null,
-      }).select("id").single();
+        broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
+        commission_pct: commissionPct,
+        commission_amount: commissionAmount,
+      } as any).select("id").single();
 
       if (error) throw error;
 
@@ -566,6 +602,8 @@ const AddTrade = () => {
     setDividendAmount("");
     setTradeDate(new Date().toISOString().split("T")[0]);
     setImagePreview(null);
+    setFormExpanded(false);
+    setSelectedBrokerId(defaultBroker?.broker_id || "none");
   };
 
   const handleAddAnother = () => {
@@ -757,6 +795,51 @@ const AddTrade = () => {
                           </HoverCardContent>
                         </HoverCard>
                       </div>
+
+                      {/* Staging area: thumbnails of selected files */}
+                      {stagedFiles.length > 0 && !analyzingImage && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {stagedFiles.map((file, i) => (
+                              <div key={i} className="relative group">
+                                <img
+                                  src={URL.createObjectURL(file)}
+                                  alt={`Staged ${i + 1}`}
+                                  className="h-16 w-16 object-cover rounded-md border border-border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeStagedFile(i); }}
+                                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="text-xs"
+                            >
+                              <ImagePlus className="h-3.5 w-3.5 mr-1" />
+                              {t("addTrade.addMoreImages")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAnalyzeStaged}
+                              className="text-xs"
+                            >
+                              {t("addTrade.analyzeAll")} ({stagedFiles.length})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <div
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={handleDrop}
@@ -764,6 +847,8 @@ const AddTrade = () => {
                         className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
                           analyzingImage
                             ? "border-primary/50 bg-primary/5"
+                            : stagedFiles.length > 0
+                            ? "border-primary/30 bg-primary/5"
                             : "border-border hover:border-primary/40 hover:bg-accent/30"
                         }`}
                       >
@@ -784,8 +869,6 @@ const AddTrade = () => {
                                 : t("addTrade.analyzing")}
                             </p>
                           </>
-                        ) : imagePreview ? (
-                          <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
                         ) : (
                           <>
                             <Upload className="h-8 w-8 text-muted-foreground" />
@@ -802,6 +885,7 @@ const AddTrade = () => {
                           setEntryMode("");
                           setImagePreview(null);
                           setScreenshotQueue([]);
+                          setStagedFiles([]);
                         }}
                         className="text-xs text-muted-foreground"
                       >
@@ -1267,6 +1351,27 @@ const AddTrade = () => {
                             </div>
                           </div>
                         </div>
+
+                        {/* Broker selector (only if enabled) */}
+                        {profile?.brokers_enabled && userBrokers && userBrokers.length > 0 && (tradeType === "buy" || tradeType === "sell") && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{t("addTrade.broker")}</Label>
+                            <Select value={selectedBrokerId} onValueChange={setSelectedBrokerId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t("addTrade.selectBroker")} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {userBrokers.map((ub) => (
+                                  <SelectItem key={ub.broker_id} value={ub.broker_id}>
+                                    {ub.broker?.name || ub.broker_id}
+                                    {ub.commission_pct > 0 ? ` (${ub.commission_pct}%)` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
 
                       {/* Inline summary line */}
