@@ -515,6 +515,13 @@ const AddTrade = () => {
         ? parseFloat(dividendAmount)
         : parseFloat(price);
 
+      // Broker commission calculation
+      const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
+        ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
+        : null;
+      const commissionPct = selectedUserBroker?.commission_pct || 0;
+      const commissionAmount = finalTotal * commissionPct / 100;
+
       const { data: insertedTrade, error } = await supabase.from("trades").insert({
         portfolio_id: portfolio.id,
         user_id: user.id,
@@ -529,7 +536,10 @@ const AddTrade = () => {
         notes: notes || null,
         original_currency: tradeCurrency,
         original_price: tradeCurrency === "ARS" ? originalPrice : null,
-      }).select("id").single();
+        broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
+        commission_pct: commissionPct,
+        commission_amount: commissionAmount,
+      } as any).select("id").single();
 
       if (error) throw error;
 
