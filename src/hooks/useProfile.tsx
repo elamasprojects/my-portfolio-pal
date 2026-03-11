@@ -21,7 +21,7 @@ export function useProfile() {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, username, default_currency")
+        .select("id, display_name, avatar_url, username, default_currency, brokers_enabled")
         .eq("id", user.id)
         .single();
       if (error) throw error;
