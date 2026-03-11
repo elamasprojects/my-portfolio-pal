@@ -783,6 +783,51 @@ const AddTrade = () => {
                           </HoverCardContent>
                         </HoverCard>
                       </div>
+
+                      {/* Staging area: thumbnails of selected files */}
+                      {stagedFiles.length > 0 && !analyzingImage && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            {stagedFiles.map((file, i) => (
+                              <div key={i} className="relative group">
+                                <img
+                                  src={URL.createObjectURL(file)}
+                                  alt={`Staged ${i + 1}`}
+                                  className="h-16 w-16 object-cover rounded-md border border-border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeStagedFile(i); }}
+                                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="text-xs"
+                            >
+                              <ImagePlus className="h-3.5 w-3.5 mr-1" />
+                              {t("addTrade.addMoreImages")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAnalyzeStaged}
+                              className="text-xs"
+                            >
+                              {t("addTrade.analyzeAll")} ({stagedFiles.length})
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       <div
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={handleDrop}
@@ -790,6 +835,8 @@ const AddTrade = () => {
                         className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all ${
                           analyzingImage
                             ? "border-primary/50 bg-primary/5"
+                            : stagedFiles.length > 0
+                            ? "border-primary/30 bg-primary/5"
                             : "border-border hover:border-primary/40 hover:bg-accent/30"
                         }`}
                       >
@@ -810,8 +857,6 @@ const AddTrade = () => {
                                 : t("addTrade.analyzing")}
                             </p>
                           </>
-                        ) : imagePreview ? (
-                          <img src={imagePreview} alt="Uploaded" className="max-h-40 rounded-md" />
                         ) : (
                           <>
                             <Upload className="h-8 w-8 text-muted-foreground" />
@@ -828,6 +873,7 @@ const AddTrade = () => {
                           setEntryMode("");
                           setImagePreview(null);
                           setScreenshotQueue([]);
+                          setStagedFiles([]);
                         }}
                         className="text-xs text-muted-foreground"
                       >
