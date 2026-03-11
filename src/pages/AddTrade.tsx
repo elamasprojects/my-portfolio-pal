@@ -101,9 +101,22 @@ const AddTrade = () => {
   const [submittedTrades, setSubmittedTrades] = useState<SubmittedTrade[]>([]);
   const [analyzingCount, setAnalyzingCount] = useState(0);
   const [analyzingTotal, setAnalyzingTotal] = useState(0);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+
+  // Broker state
+  const { data: userBrokers } = useUserBrokers();
+  const defaultBroker = useDefaultBroker();
+  const [selectedBrokerId, setSelectedBrokerId] = useState<string>("none");
 
   const isMultiMode = screenshotQueue.length > 1;
   const queueTotal = screenshotQueue.length;
+
+  // Set default broker when loaded
+  useEffect(() => {
+    if (defaultBroker && selectedBrokerId === "none") {
+      setSelectedBrokerId(defaultBroker.broker_id);
+    }
+  }, [defaultBroker, selectedBrokerId]);
 
   // Analyze a single image and return extracted data
   const analyzeOneImage = useCallback(async (file: File): Promise<any> => {
