@@ -316,9 +316,11 @@ const AddTrade = () => {
     return computeHoldings(trades);
   }, [trades]);
 
+  const [formExpanded, setFormExpanded] = useState(false);
+
   const symbolResolved = tradeType === "dividend"
     ? selectedHolding !== ""
-    : assetName.trim() !== "" && price.trim() !== "";
+    : assetName.trim() !== "" && (price.trim() !== "" || formExpanded);
 
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
