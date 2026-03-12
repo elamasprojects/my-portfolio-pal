@@ -37,7 +37,7 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, asset names, and currency. Detect currency from context clues: if you see pesos, ARS, $AR, or Argentine broker interfaces (IOL, Balanz, Bull Market, PPI, Cocos Capital), the currency is ARS. If you see USD, dollars, or US broker interfaces, the currency is USD. If you cannot determine a field, use null.",
+              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, asset names, and currency. Detect currency from context clues: if you see pesos, ARS, $AR, or Argentine broker interfaces (IOL, Balanz, Bull Market, PPI, Cocos Capital, ARQ), the currency is ARS. If you see USD, dollars, or US broker interfaces, the currency is USD. If you cannot determine a field, use null. IMPORTANT asset_type classification: Index ETFs like SPY, QQQ, IVV, VOO, FXI, EWZ, EEM, VTI, DIA, IWM, XLF, ARKK, VWO, MCHI should be classified as 'etf'. Argentine bonds like AL30, AL35, GD30, GD35, GD38, GD41, GD46, AE38, AL29, TX26, DICP, PARP, CUAP, Para and sovereign/corporate bonds should be classified as 'bond'. Mutual funds and FCI (Fondos Comunes de Inversión) should be classified as 'etf'. CEDEARs of ETFs are also 'etf'. Crypto assets like BTC, ETH, USDT are 'crypto'. Individual company stocks are 'stock'.",
           },
           {
             role: "user",

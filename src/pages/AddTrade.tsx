@@ -199,6 +199,33 @@ const AddTrade = () => {
     }
   }, [analyzeOneImage, t]);
 
+  const { data: positions = [] } = usePortfolioPositions();
+
+  // Positions-based holdings for sell/dividend (source of truth from DB)
+  const positionHoldings = useMemo(() => {
+    return positions.map((p) => ({
+      symbol: p.symbol,
+      asset_name: p.symbol,
+      asset_type: "stock" as string,
+      net_quantity: p.quantity,
+      avg_cost: p.avg_cost,
+      total_invested: p.cost_basis,
+    }));
+  }, [positions]);
+
+  // Enrich position holdings with asset names from trades
+  const enrichedPositionHoldings = useMemo(() => {
+    if (!trades) return positionHoldings;
+    return positionHoldings.map((ph) => {
+      const trade = trades.find((t) => t.symbol.toUpperCase() === ph.symbol.toUpperCase());
+      return {
+        ...ph,
+        asset_name: trade?.asset_name || ph.symbol,
+        asset_type: trade?.asset_type || "stock",
+      };
+    });
+  }, [positionHoldings, trades]);
+
   const populateFormFromData = useCallback((data: any) => {
     if (data.trade_type) setTradeType(data.trade_type);
     if (data.symbol) setSymbol(data.symbol.toUpperCase());
@@ -217,7 +244,35 @@ const AddTrade = () => {
     setFormExpanded(true);
     userEditedPrice.current = false;
     userEditedName.current = false;
-  }, []);
+
+    // OCR sell flow: auto-select holding from positions and default to shares mode
+    if (data.trade_type === "sell") {
+      setInputMode("shares");
+      const normalized = (data.symbol || "").toUpperCase().trim();
+      const match = enrichedPositionHoldings.find(
+        (h) => h.symbol.toUpperCase() === normalized
+      );
+      if (match) {
+        setSelectedHolding(match.symbol);
+        setFormExpanded(true);
+        setSymbol(match.symbol);
+        setAssetName(match.asset_name);
+        setAssetType(match.asset_type);
+        // Fetch current quote but preserve OCR price
+        const ocrPrice = data.price_per_unit;
+        setFetchingQuote(true);
+        supabase.functions.invoke("fetch-quote", { body: { symbol: match.symbol } })
+          .then(({ data: quoteData }) => {
+            if (quoteData?.name && !userEditedName.current) setAssetName(quoteData.name);
+            // Restore OCR price — don't let quote overwrite it
+            if (ocrPrice) setPrice(String(ocrPrice));
+          })
+          .finally(() => setFetchingQuote(false));
+      } else if (normalized) {
+        toast.warning(`No tenés ${normalized} en cartera`);
+      }
+    }
+  }, [enrichedPositionHoldings]);
 
   // Single image handler (legacy path)
   const handleImageUpload = useCallback(async (file: File) => {
@@ -336,38 +391,11 @@ const AddTrade = () => {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const { data: positions = [] } = usePortfolioPositions();
-
   // Legacy holdings for buy flow only (computeHoldings still used where needed)
   const holdings = useMemo(() => {
     if (!trades) return [];
     return computeHoldings(trades);
   }, [trades]);
-
-  // Positions-based holdings for sell/dividend (source of truth from DB)
-  const positionHoldings = useMemo(() => {
-    return positions.map((p) => ({
-      symbol: p.symbol,
-      asset_name: p.symbol, // Will be enriched from trades
-      asset_type: "stock" as string,
-      net_quantity: p.quantity,
-      avg_cost: p.avg_cost,
-      total_invested: p.cost_basis,
-    }));
-  }, [positions]);
-
-  // Enrich position holdings with asset names from trades
-  const enrichedPositionHoldings = useMemo(() => {
-    if (!trades) return positionHoldings;
-    return positionHoldings.map((ph) => {
-      const trade = trades.find((t) => t.symbol.toUpperCase() === ph.symbol.toUpperCase());
-      return {
-        ...ph,
-        asset_name: trade?.asset_name || ph.symbol,
-        asset_type: trade?.asset_type || "stock",
-      };
-    });
-  }, [positionHoldings, trades]);
 
   const [formExpanded, setFormExpanded] = useState(false);
 
