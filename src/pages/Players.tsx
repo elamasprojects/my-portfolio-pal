@@ -936,15 +936,15 @@ function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }
   };
 
   return (
-    <div className="w-full h-[250px]">
+    <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
-            outerRadius={90}
-            innerRadius={45}
+            outerRadius={110}
+            innerRadius={55}
             dataKey="value"
             nameKey="name"
             label={renderLabel}
