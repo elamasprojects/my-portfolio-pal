@@ -1009,10 +1009,11 @@ const AddTrade = () => {
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              onClick={() => {
+                            onClick={() => {
                                 if (!canSell) return;
                                 setTradeType("sell");
                                 resetFields();
+                                setInputMode("shares");
                               }}
                               className={`flex-1 h-14 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 border-2 ${
                                 !canSell
