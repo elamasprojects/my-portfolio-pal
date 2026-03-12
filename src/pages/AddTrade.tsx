@@ -611,8 +611,8 @@ const AddTrade = () => {
       finalQuantity = 1;
       finalPrice = parseFloat(dividendAmount);
       // Convert ARS dividend to USD
-      if (tradeCurrency === "ARS" && mepRate > 0) {
-        finalPrice = convertArsToUsd(finalPrice, mepRate);
+      if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, effectiveMepRate);
       }
       finalTotal = finalPrice;
       if (isNaN(finalPrice) || finalPrice <= 0) {
