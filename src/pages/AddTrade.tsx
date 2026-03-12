@@ -1584,9 +1584,9 @@ const AddTrade = () => {
                                 )}
                               </>
                             )}
-                            {tradeCurrency === "ARS" && mepRate > 0 && (
+                            {tradeCurrency === "ARS" && effectiveMepRate > 0 && (
                               <p className="text-xs text-muted-foreground">
-                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, mepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
+                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, effectiveMepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
                               </p>
                             )}
                           </div>
