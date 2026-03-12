@@ -237,7 +237,7 @@ export default function ExportReport() {
           <div className="flex-1 flex gap-6 min-h-0">
             {pieData.length > 0 && (
               <div className="flex-1 min-h-0">
-                <p className="text-[10px] font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
+                <p className="text-xs font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
