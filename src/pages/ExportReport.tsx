@@ -218,9 +218,9 @@ export default function ExportReport() {
                 className="rounded-lg p-4 text-center"
                 style={{ background: previewDark ? "#252530" : "#ffffff" }}
               >
-                <p className="text-[10px] opacity-60 mb-1">{stat.label}</p>
+                <p className="text-xs opacity-60 mb-1">{stat.label}</p>
                 <p
-                  className="text-lg font-bold font-mono"
+                  className="text-2xl font-bold font-mono"
                   style={
                     stat.positive !== undefined
                       ? { color: stat.positive ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }
