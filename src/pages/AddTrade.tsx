@@ -96,6 +96,16 @@ const AddTrade = () => {
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
 
+  // Symbol search state
+  const [searchResults, setSearchResults] = useState<{ symbol: string; description: string }[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchingSymbol, setSearchingSymbol] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+
+  // MEP rate for ARS trades
+  const [customMepRate, setCustomMepRate] = useState("");
+
   // Multi-image queue state
   const [screenshotQueue, setScreenshotQueue] = useState<QueueItem[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
