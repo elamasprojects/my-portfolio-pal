@@ -7,6 +7,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
+import { usePortfolioPositions } from "@/hooks/usePortfolioPositions";
 import { useAssignTag } from "@/hooks/useTags";
 import { useUserBrokers, useDefaultBroker } from "@/hooks/useBrokers";
 import { useQueryClient } from "@tanstack/react-query";
