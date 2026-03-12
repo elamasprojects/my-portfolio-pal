@@ -226,6 +226,7 @@ const AddTrade = () => {
     });
   }, [positionHoldings, trades]);
 
+  const populateFormFromData = useCallback((data: any) => {
     if (data.trade_type) setTradeType(data.trade_type);
     if (data.symbol) setSymbol(data.symbol.toUpperCase());
     if (data.asset_name) setAssetName(data.asset_name);
