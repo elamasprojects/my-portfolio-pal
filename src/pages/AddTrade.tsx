@@ -1180,13 +1180,31 @@ const AddTrade = () => {
                               <span className="text-sm font-bold">{t("addTrade.symbolLookup")}</span>
                               {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                             </div>
-                            <Input
-                              placeholder="AAPL, BTC, MSFT..."
-                              value={symbol}
-                              onChange={(e) => setSymbol(e.target.value)}
-                              className="font-mono uppercase"
-                              required
-                            />
+                            <div className="relative" ref={searchDropdownRef}>
+                              <Input
+                                placeholder="AAPL, Microsoft, BTC..."
+                                value={symbol}
+                                onChange={(e) => setSymbol(e.target.value)}
+                                onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
+                                className="font-mono uppercase"
+                                required
+                              />
+                              {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-y-auto">
+                                  {searchResults.map((r) => (
+                                    <button
+                                      key={r.symbol}
+                                      type="button"
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                                      onClick={() => handleSearchSelect(r)}
+                                    >
+                                      <span className="font-mono font-bold text-foreground">{r.symbol}</span>
+                                      <span className="text-muted-foreground truncate">— {r.description}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             {symbolResolved && (
                               <p className="text-xs text-muted-foreground">
                                 {t("addTrade.found")}: <span className="font-medium text-foreground">{assetName}</span> — $
