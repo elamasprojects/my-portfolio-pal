@@ -263,7 +263,7 @@ export default function ExportReport() {
               </div>
             )}
             <div className="w-44 flex-shrink-0 min-w-0">
-              <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
+              <p className="text-xs font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {holdings.slice(0, 12).map((h, i) => (
                   <Badge
