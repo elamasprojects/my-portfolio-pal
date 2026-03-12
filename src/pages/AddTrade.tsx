@@ -217,7 +217,35 @@ const AddTrade = () => {
     setFormExpanded(true);
     userEditedPrice.current = false;
     userEditedName.current = false;
-  }, []);
+
+    // OCR sell flow: auto-select holding from positions and default to shares mode
+    if (data.trade_type === "sell") {
+      setInputMode("shares");
+      const normalized = (data.symbol || "").toUpperCase().trim();
+      const match = enrichedPositionHoldings.find(
+        (h) => h.symbol.toUpperCase() === normalized
+      );
+      if (match) {
+        setSelectedHolding(match.symbol);
+        setFormExpanded(true);
+        setSymbol(match.symbol);
+        setAssetName(match.asset_name);
+        setAssetType(match.asset_type);
+        // Fetch current quote but preserve OCR price
+        const ocrPrice = data.price_per_unit;
+        setFetchingQuote(true);
+        supabase.functions.invoke("fetch-quote", { body: { symbol: match.symbol } })
+          .then(({ data: quoteData }) => {
+            if (quoteData?.name && !userEditedName.current) setAssetName(quoteData.name);
+            // Restore OCR price — don't let quote overwrite it
+            if (ocrPrice) setPrice(String(ocrPrice));
+          })
+          .finally(() => setFetchingQuote(false));
+      } else if (normalized) {
+        toast.warning(`No tenés ${normalized} en cartera`);
+      }
+    }
+  }, [enrichedPositionHoldings]);
 
   // Single image handler (legacy path)
   const handleImageUpload = useCallback(async (file: File) => {
