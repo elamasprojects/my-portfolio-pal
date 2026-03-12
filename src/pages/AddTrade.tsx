@@ -1431,6 +1431,14 @@ const AddTrade = () => {
                                 <span className="font-mono font-bold text-foreground">
                                   {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
+                                {displayCommissionPct > 0 && (
+                                  <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+                                    <p>{t("addTrade.commission")}: {displayCommissionPct}% = {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayCommissionAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="font-semibold text-foreground">
+                                      {tradeType === "sell" ? t("addTrade.netProceeds") : t("addTrade.totalCost")}: {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                )}
                               </>
                             )}
                             {tradeCurrency === "ARS" && mepRate > 0 && (
