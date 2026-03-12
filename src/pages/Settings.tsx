@@ -30,6 +30,7 @@ export default function Settings() {
   const updateUserBroker = useUpdateUserBroker();
   const removeUserBroker = useRemoveUserBroker();
   const [addBrokerId, setAddBrokerId] = useState("");
+  const [commissionOverrides, setCommissionOverrides] = useState<Record<string, number>>({});
 
   if (profile && !initialized) {
     setUsername(profile.username || "");
@@ -81,8 +82,20 @@ export default function Settings() {
     });
   };
 
-  const handleCommissionChange = (id: string, value: number) => {
-    updateUserBroker.mutate({ id, commissionPct: value });
+  const handleCommissionDrag = (id: string, value: number) => {
+    setCommissionOverrides(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleCommissionCommit = (id: string, value: number) => {
+    updateUserBroker.mutate({ id, commissionPct: value }, {
+      onSettled: () => {
+        setCommissionOverrides(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      },
+    });
   };
 
   const handleRemoveBroker = (id: string) => {
@@ -223,14 +236,15 @@ export default function Settings() {
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground">{t("settings.commission")}</Label>
-                        <span className="text-xs font-mono font-bold">{ub.commission_pct.toFixed(1)}%</span>
+                        <span className="text-xs font-mono font-bold">{(commissionOverrides[ub.id] ?? ub.commission_pct).toFixed(1)}%</span>
                       </div>
                       <Slider
-                        value={[ub.commission_pct]}
+                        value={[commissionOverrides[ub.id] ?? ub.commission_pct]}
                         min={0}
                         max={1.5}
                         step={0.1}
-                        onValueCommit={(val) => handleCommissionChange(ub.id, val[0])}
+                        onValueChange={(val) => handleCommissionDrag(ub.id, val[0])}
+                        onValueCommit={(val) => handleCommissionCommit(ub.id, val[0])}
                         className="w-full"
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground">

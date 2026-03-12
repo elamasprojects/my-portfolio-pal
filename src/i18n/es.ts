@@ -588,4 +588,5 @@ export const es: Record<TranslationKey, string> = {
   "landing.cta.button": "Crear Cuenta Gratis",
   "landing.footer.rights": "Todos los derechos reservados.",
   "landing.footer.install": "Instalar App",
+  "nav.more": "Ver más",
 };

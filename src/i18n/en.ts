@@ -587,6 +587,7 @@ export const en = {
   "landing.cta.button": "Create Free Account",
   "landing.footer.rights": "All rights reserved.",
   "landing.footer.install": "Install App",
+  "nav.more": "More",
 } as const;
 
 export type TranslationKey = keyof typeof en;
