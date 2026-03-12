@@ -847,7 +847,7 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
   const medalOrder = top3.length >= 3 ? [1, 0, 2] : top3.length === 2 ? [1, 0] : [0];
 
   return (
-    <div className="flex items-end justify-center gap-3 pt-6">
+    <div className="flex items-end justify-center gap-4 pt-6">
       {displayOrder.map((r, displayIdx) => {
         const rank = medalOrder[displayIdx];
         const medal = medals[rank];
@@ -855,16 +855,16 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
         const pnl = period === "weekly" ? Number(r.weekly_pnl) : Number(r.monthly_pnl);
         return (
           <div key={r.user_id} className="flex flex-col items-center gap-2">
-            <MedalIcon className={`h-5 w-5 ${medal.color}`} />
-            <Avatar className="h-10 w-10 border-2 border-primary/30">
+            <MedalIcon className={`h-6 w-6 ${medal.color}`} />
+            <Avatar className="h-12 w-12 border-2 border-primary/30">
               {r.avatar_url && <AvatarImage src={r.avatar_url} />}
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-sm">
                 {(r.username || "?").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-xs font-medium truncate max-w-[80px]">{r.username}</p>
-            <div className={`${medal.bg} ${medal.height} w-20 rounded-t-lg flex items-center justify-center`}>
-              <span className={`text-xs font-mono font-bold ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+            <p className="text-xs font-medium truncate max-w-[90px]">{r.username}</p>
+            <div className={`${medal.bg} ${medal.height} w-24 rounded-t-lg flex items-center justify-center`}>
+              <span className={`text-sm font-mono font-bold ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
                 ${pnl.toFixed(0)}
               </span>
             </div>
