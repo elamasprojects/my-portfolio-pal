@@ -408,20 +408,20 @@ export default function Players() {
       </div>
 
       {/* Connection switcher row */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2.5 overflow-x-auto pb-1">
         {connections.map((c) => (
           <button
             key={c.id}
             onClick={() => setSelectedPlayer(c)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all ${
               activePlayer?.id === c.id
-                ? "border-primary bg-primary/10 text-primary"
+                ? "border-primary bg-primary/10 text-primary shadow-sm"
                 : "border-border hover:border-primary/30"
             }`}
           >
-            <Avatar className="h-5 w-5">
+            <Avatar className="h-6 w-6">
               {c.avatar_url && <AvatarImage src={c.avatar_url} />}
-              <AvatarFallback className="text-[8px]">
+              <AvatarFallback className="text-[9px]">
                 {(c.username || "?").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
