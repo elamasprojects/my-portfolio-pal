@@ -408,6 +408,7 @@ export type Database = {
           commission_pct: number
           created_at: string
           id: string
+          mep_rate: number | null
           notes: string | null
           original_currency: string
           original_price: number | null
@@ -429,6 +430,7 @@ export type Database = {
           commission_pct?: number
           created_at?: string
           id?: string
+          mep_rate?: number | null
           notes?: string | null
           original_currency?: string
           original_price?: number | null
@@ -450,6 +452,7 @@ export type Database = {
           commission_pct?: number
           created_at?: string
           id?: string
+          mep_rate?: number | null
           notes?: string | null
           original_currency?: string
           original_price?: number | null
