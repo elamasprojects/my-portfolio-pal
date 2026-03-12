@@ -295,30 +295,8 @@ const AddTrade = () => {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        // Auto-populate fields
-        if (data.trade_type) setTradeType(data.trade_type);
-        if (data.symbol) setSymbol(data.symbol.toUpperCase());
-        if (data.asset_name) setAssetName(data.asset_name);
-        if (data.asset_type) setAssetType(data.asset_type);
-        if (data.quantity) setQuantity(String(data.quantity));
-        if (data.price_per_unit) setPrice(String(data.price_per_unit));
-        if (data.trade_date) setTradeDate(data.trade_date);
-
-        // Auto-detect currency from OCR
-        if (data.currency === "ARS") {
-          setTradeCurrency("ARS");
-        } else if (data.currency === "USD") {
-          setTradeCurrency("USD");
-        }
-
-        // Auto-populate amount from quantity * price
-        if (data.quantity && data.price_per_unit) {
-          setAmount(String((data.quantity * data.price_per_unit).toFixed(2)));
-        }
-
-        // Mark as from screenshot so quote fetch only updates asset name
-        fromScreenshotRef.current = true;
-        // Switch to manual mode for review
+        // Use unified populateFormFromData (handles sell matching, input mode, etc.)
+        populateFormFromData({ ...data, _preview: base64 });
         setEntryMode("manual");
         toast.success("Trade data extracted! Review and submit.");
       } catch (err: any) {
@@ -329,7 +307,7 @@ const AddTrade = () => {
       }
     };
     reader.readAsDataURL(file);
-  }, [t]);
+  }, [t, populateFormFromData]);
 
   // Drop is now handled to stage files
   // (handleDrop moved below handleFileChange)
