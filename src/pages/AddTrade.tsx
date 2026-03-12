@@ -7,6 +7,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertArsToUsd } from "@/hooks/useDolarMEP";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { useActivePortfolio, useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
+import { usePortfolioPositions } from "@/hooks/usePortfolioPositions";
 import { useAssignTag } from "@/hooks/useTags";
 import { useUserBrokers, useDefaultBroker } from "@/hooks/useBrokers";
 import { useQueryClient } from "@tanstack/react-query";
@@ -335,10 +336,38 @@ const AddTrade = () => {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const { data: positions = [] } = usePortfolioPositions();
+
+  // Legacy holdings for buy flow only (computeHoldings still used where needed)
   const holdings = useMemo(() => {
     if (!trades) return [];
     return computeHoldings(trades);
   }, [trades]);
+
+  // Positions-based holdings for sell/dividend (source of truth from DB)
+  const positionHoldings = useMemo(() => {
+    return positions.map((p) => ({
+      symbol: p.symbol,
+      asset_name: p.symbol, // Will be enriched from trades
+      asset_type: "stock" as string,
+      net_quantity: p.quantity,
+      avg_cost: p.avg_cost,
+      total_invested: p.cost_basis,
+    }));
+  }, [positions]);
+
+  // Enrich position holdings with asset names from trades
+  const enrichedPositionHoldings = useMemo(() => {
+    if (!trades) return positionHoldings;
+    return positionHoldings.map((ph) => {
+      const trade = trades.find((t) => t.symbol.toUpperCase() === ph.symbol.toUpperCase());
+      return {
+        ...ph,
+        asset_name: trade?.asset_name || ph.symbol,
+        asset_type: trade?.asset_type || "stock",
+      };
+    });
+  }, [positionHoldings, trades]);
 
   const [formExpanded, setFormExpanded] = useState(false);
 
@@ -348,9 +377,9 @@ const AddTrade = () => {
 
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
-    const h = holdings.find((h) => h.symbol === selectedHolding);
-    return h ? h.net_quantity : 0;
-  }, [tradeType, selectedHolding, holdings]);
+    const pos = positions.find((p) => p.symbol.toUpperCase() === selectedHolding.toUpperCase());
+    return pos ? pos.quantity : 0;
+  }, [tradeType, selectedHolding, positions]);
 
   const computedQuantity =
     tradeType === "dividend"
@@ -400,7 +429,7 @@ const AddTrade = () => {
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
     setFormExpanded(true);
-    const h = holdings.find((h) => h.symbol === sym);
+    const h = enrichedPositionHoldings.find((h) => h.symbol.toUpperCase() === sym.toUpperCase());
     if (!h) return;
 
     setSymbol(h.symbol);
@@ -554,6 +583,7 @@ const AddTrade = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
 
       const newTrade: SubmittedTrade = {
         symbol: symbol.toUpperCase(),
@@ -579,7 +609,12 @@ const AddTrade = () => {
         }, 100);
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = error?.message || "";
+      if (msg.includes("Insufficient shares")) {
+        toast.error(t("addTrade.insufficientShares"));
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -680,8 +715,18 @@ const AddTrade = () => {
   }, [currentQueueIndex, screenshotQueue, submittedTrades, populateFormFromData]);
 
   const tradeTypeSelected = tradeType === "buy" || tradeType === "sell" || tradeType === "dividend";
-  const canSell = holdings.length > 0;
-  const canDividend = holdings.length > 0;
+  const canSell = enrichedPositionHoldings.length > 0;
+  const canDividend = enrichedPositionHoldings.length > 0;
+
+  // Commission calculation for display
+  const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
+    ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
+    : null;
+  const displayCommissionPct = selectedUserBroker?.commission_pct || 0;
+  const displayCommissionAmount = total * displayCommissionPct / 100;
+  const displayNetTotal = tradeType === "sell"
+    ? total - displayCommissionAmount
+    : total + displayCommissionAmount;
 
   // Compute queue position for display (1-based, counting only successful items)
   const successfulIndices = screenshotQueue
@@ -1055,9 +1100,9 @@ const AddTrade = () => {
                                 <SelectValue placeholder={t("addTrade.chooseAsset")} />
                               </SelectTrigger>
                               <SelectContent>
-                                {holdings.map((h) => (
+                                {enrichedPositionHoldings.map((h) => (
                                   <SelectItem key={h.symbol} value={h.symbol}>
-                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} {t("common.shares")})
+                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(4)} {t("common.shares")})
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1392,6 +1437,14 @@ const AddTrade = () => {
                                 <span className="font-mono font-bold text-foreground">
                                   {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
+                                {displayCommissionPct > 0 && (
+                                  <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+                                    <p>{t("addTrade.commission")}: {displayCommissionPct}% = {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayCommissionAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="font-semibold text-foreground">
+                                      {tradeType === "sell" ? t("addTrade.netProceeds") : t("addTrade.totalCost")}: {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                  </div>
+                                )}
                               </>
                             )}
                             {tradeCurrency === "ARS" && mepRate > 0 && (
@@ -1413,7 +1466,9 @@ const AddTrade = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold font-mono text-foreground">
                     {total > 0
-                      ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ? displayCommissionPct > 0
+                        ? `$${displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : "$0.00"}
                   </span>
                 </div>

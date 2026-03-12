@@ -169,6 +169,9 @@ export const en = {
   "addTrade.broker": "Broker",
   "addTrade.selectBroker": "Select broker",
   "addTrade.commission": "Commission",
+  "addTrade.netProceeds": "Net proceeds",
+  "addTrade.totalCost": "Total cost",
+  "addTrade.insufficientShares": "Insufficient shares available to sell",
 
   // Trade Log
   "tradeLog.title": "Move History",

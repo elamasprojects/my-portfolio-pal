@@ -171,6 +171,9 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.broker": "Broker",
   "addTrade.selectBroker": "Seleccionar broker",
   "addTrade.commission": "Comisión",
+  "addTrade.netProceeds": "Neto a recibir",
+  "addTrade.totalCost": "Costo total",
+  "addTrade.insufficientShares": "No tenés suficientes acciones para vender",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",

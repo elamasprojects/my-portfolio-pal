@@ -196,6 +196,44 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_positions: {
+        Row: {
+          avg_cost: number
+          cost_basis: number
+          portfolio_id: string
+          quantity: number
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_cost?: number
+          cost_basis?: number
+          portfolio_id: string
+          quantity?: number
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_cost?: number
+          cost_basis?: number
+          portfolio_id?: string
+          quantity?: number
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_positions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolios: {
         Row: {
           created_at: string
@@ -516,6 +554,10 @@ export type Database = {
       owns_trade: {
         Args: { _trade_id: string; _user_id: string }
         Returns: boolean
+      }
+      rebuild_position: {
+        Args: { _portfolio_id: string; _symbol: string; _user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
