@@ -429,7 +429,7 @@ const AddTrade = () => {
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
     setFormExpanded(true);
-    const h = holdings.find((h) => h.symbol === sym);
+    const h = enrichedPositionHoldings.find((h) => h.symbol.toUpperCase() === sym.toUpperCase());
     if (!h) return;
 
     setSymbol(h.symbol);
