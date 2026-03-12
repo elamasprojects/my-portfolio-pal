@@ -744,6 +744,9 @@ const AddTrade = () => {
     setImagePreview(null);
     setFormExpanded(false);
     setSelectedBrokerId(defaultBroker?.broker_id || "none");
+    setCustomMepRate("");
+    setSearchResults([]);
+    setShowSearchDropdown(false);
   };
 
   const handleAddAnother = () => {
