@@ -30,6 +30,7 @@ export default function Settings() {
   const updateUserBroker = useUpdateUserBroker();
   const removeUserBroker = useRemoveUserBroker();
   const [addBrokerId, setAddBrokerId] = useState("");
+  const [commissionOverrides, setCommissionOverrides] = useState<Record<string, number>>({});
 
   if (profile && !initialized) {
     setUsername(profile.username || "");
