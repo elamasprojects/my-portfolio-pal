@@ -1094,9 +1094,9 @@ const AddTrade = () => {
                                 <SelectValue placeholder={t("addTrade.chooseAsset")} />
                               </SelectTrigger>
                               <SelectContent>
-                                {holdings.map((h) => (
+                                {enrichedPositionHoldings.map((h) => (
                                   <SelectItem key={h.symbol} value={h.symbol}>
-                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(2)} {t("common.shares")})
+                                    {h.symbol} — {h.asset_name} ({h.net_quantity.toFixed(4)} {t("common.shares")})
                                   </SelectItem>
                                 ))}
                               </SelectContent>
