@@ -375,6 +375,29 @@ const AddTrade = () => {
     return computeHoldings(trades);
   }, [trades]);
 
+  // Deferred sell matching: retry when positions load after OCR
+  useEffect(() => {
+    if (
+      tradeType === "sell" &&
+      symbol &&
+      !selectedHolding &&
+      enrichedPositionHoldings.length > 0 &&
+      fromScreenshotRef.current
+    ) {
+      const normalized = symbol.toUpperCase().trim();
+      const match = enrichedPositionHoldings.find(
+        (h) => h.symbol.toUpperCase() === normalized
+      );
+      if (match) {
+        setSelectedHolding(match.symbol);
+        setFormExpanded(true);
+        setAssetName(match.asset_name);
+        setAssetType(match.asset_type);
+        setInputMode("shares");
+      }
+    }
+  }, [tradeType, symbol, selectedHolding, enrichedPositionHoldings]);
+
   const [formExpanded, setFormExpanded] = useState(false);
 
   const symbolResolved = tradeType === "dividend"
