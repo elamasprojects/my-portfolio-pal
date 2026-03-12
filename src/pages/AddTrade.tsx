@@ -1302,10 +1302,21 @@ const AddTrade = () => {
                           </div>
                           <CurrencyToggle value={tradeCurrency} onChange={setTradeCurrency} />
                         </div>
-                        {tradeCurrency === "ARS" && mepRate > 0 && (
-                          <p className="text-[10px] text-muted-foreground text-right">
-                            Dólar MEP: ${mepRate.toFixed(2)}
-                          </p>
+                        {tradeCurrency === "ARS" && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Dólar MEP:</Label>
+                            <Input
+                              type="number"
+                              step="any"
+                              value={customMepRate}
+                              onChange={(e) => setCustomMepRate(e.target.value)}
+                              className="font-mono h-7 text-xs w-24"
+                              placeholder={mepLoading ? "..." : String(mepRate)}
+                            />
+                            {!isToday && (
+                              <span className="text-[10px] text-amber-500">⚠ Verificá el MEP de esa fecha</span>
+                            )}
+                          </div>
                         )}
 
                         {tradeType === "dividend" ? (
