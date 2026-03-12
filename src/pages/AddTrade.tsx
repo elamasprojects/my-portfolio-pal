@@ -709,8 +709,18 @@ const AddTrade = () => {
   }, [currentQueueIndex, screenshotQueue, submittedTrades, populateFormFromData]);
 
   const tradeTypeSelected = tradeType === "buy" || tradeType === "sell" || tradeType === "dividend";
-  const canSell = holdings.length > 0;
-  const canDividend = holdings.length > 0;
+  const canSell = enrichedPositionHoldings.length > 0;
+  const canDividend = enrichedPositionHoldings.length > 0;
+
+  // Commission calculation for display
+  const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
+    ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
+    : null;
+  const displayCommissionPct = selectedUserBroker?.commission_pct || 0;
+  const displayCommissionAmount = total * displayCommissionPct / 100;
+  const displayNetTotal = tradeType === "sell"
+    ? total - displayCommissionAmount
+    : total + displayCommissionAmount;
 
   // Compute queue position for display (1-based, counting only successful items)
   const successfulIndices = screenshotQueue
