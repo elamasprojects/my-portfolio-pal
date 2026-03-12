@@ -377,9 +377,9 @@ const AddTrade = () => {
 
   const availableShares = useMemo(() => {
     if (tradeType !== "sell" || !selectedHolding) return 0;
-    const h = holdings.find((h) => h.symbol === selectedHolding);
-    return h ? h.net_quantity : 0;
-  }, [tradeType, selectedHolding, holdings]);
+    const pos = positions.find((p) => p.symbol.toUpperCase() === selectedHolding.toUpperCase());
+    return pos ? pos.quantity : 0;
+  }, [tradeType, selectedHolding, positions]);
 
   const computedQuantity =
     tradeType === "dividend"
