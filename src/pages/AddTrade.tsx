@@ -608,7 +608,12 @@ const AddTrade = () => {
         }, 100);
       }
     } catch (error: any) {
-      toast.error(error.message);
+      const msg = error?.message || "";
+      if (msg.includes("Insufficient shares")) {
+        toast.error(t("addTrade.insufficientShares"));
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
