@@ -82,8 +82,20 @@ export default function Settings() {
     });
   };
 
-  const handleCommissionChange = (id: string, value: number) => {
-    updateUserBroker.mutate({ id, commissionPct: value });
+  const handleCommissionDrag = (id: string, value: number) => {
+    setCommissionOverrides(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleCommissionCommit = (id: string, value: number) => {
+    updateUserBroker.mutate({ id, commissionPct: value }, {
+      onSettled: () => {
+        setCommissionOverrides(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      },
+    });
   };
 
   const handleRemoveBroker = (id: string) => {
