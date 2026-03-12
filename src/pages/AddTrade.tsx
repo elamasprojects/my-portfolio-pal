@@ -671,8 +671,8 @@ const AddTrade = () => {
         original_currency: tradeCurrency,
         original_price: tradeCurrency === "ARS" ? originalPrice : null,
         broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
-        commission_pct: commissionPct,
         commission_amount: commissionAmount,
+        mep_rate: tradeCurrency === "ARS" && effectiveMepRate > 0 ? effectiveMepRate : null,
       } as any).select("id").single();
 
       if (error) throw error;
