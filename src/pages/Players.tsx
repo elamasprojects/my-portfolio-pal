@@ -356,7 +356,7 @@ export default function Players() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon"><Search className="h-4 w-4" /></Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-96">
               <Input
                 placeholder={t("social.searchPlaceholder")}
                 value={search}
