@@ -96,6 +96,16 @@ const AddTrade = () => {
   // Dividend-specific
   const [dividendAmount, setDividendAmount] = useState("");
 
+  // Symbol search state
+  const [searchResults, setSearchResults] = useState<{ symbol: string; description: string }[]>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchingSymbol, setSearchingSymbol] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+
+  // MEP rate for ARS trades
+  const [customMepRate, setCustomMepRate] = useState("");
+
   // Multi-image queue state
   const [screenshotQueue, setScreenshotQueue] = useState<QueueItem[]>([]);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
@@ -435,7 +445,6 @@ const AddTrade = () => {
           body: { symbol: symbol.trim() },
         });
         if (!error && data) {
-          // If data came from screenshot, only update asset name — preserve AI-extracted price/date
           if (fromScreenshotRef.current) {
             if (data.name && !userEditedName.current) setAssetName(data.name);
             fromScreenshotRef.current = false;
@@ -454,6 +463,73 @@ const AddTrade = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [symbol, tradeType]);
+
+  // Symbol search: debounced search via edge function
+  useEffect(() => {
+    if (tradeType !== "buy") return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!symbol.trim() || symbol.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      setSearchingSymbol(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("search-symbol", {
+          body: { query: symbol.trim() },
+        });
+        if (!error && data?.results?.length > 0) {
+          setSearchResults(data.results);
+          setShowSearchDropdown(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchDropdown(false);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchingSymbol(false);
+      }
+    }, 400);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [symbol, tradeType]);
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSearchSelect = (result: { symbol: string; description: string }) => {
+    setSymbol(result.symbol);
+    setAssetName(result.description);
+    userEditedName.current = true;
+    setShowSearchDropdown(false);
+    setSearchResults([]);
+  };
+
+  // Auto-fill MEP rate when currency is ARS
+  useEffect(() => {
+    if (tradeCurrency === "ARS" && mepRate > 0 && !customMepRate) {
+      setCustomMepRate(String(mepRate));
+    }
+  }, [tradeCurrency, mepRate]);
+
+  // Warn when date changes to past for ARS
+  const isToday = tradeDate === new Date().toISOString().split("T")[0];
+  const effectiveMepRate = tradeCurrency === "ARS" && customMepRate
+    ? parseFloat(customMepRate)
+    : mepRate;
 
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
@@ -535,8 +611,8 @@ const AddTrade = () => {
       finalQuantity = 1;
       finalPrice = parseFloat(dividendAmount);
       // Convert ARS dividend to USD
-      if (tradeCurrency === "ARS" && mepRate > 0) {
-        finalPrice = convertArsToUsd(finalPrice, mepRate);
+      if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, effectiveMepRate);
       }
       finalTotal = finalPrice;
       if (isNaN(finalPrice) || finalPrice <= 0) {
@@ -551,11 +627,10 @@ const AddTrade = () => {
       finalPrice = parseFloat(price);
 
       // Convert ARS price to USD before storing
-      if (tradeCurrency === "ARS" && mepRate > 0) {
-        finalPrice = convertArsToUsd(finalPrice, mepRate);
-        // Recalculate quantity for amount mode with converted price
+      if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, effectiveMepRate);
         if (inputMode === "amount" && finalPrice > 0) {
-          finalQuantity = convertArsToUsd(parseFloat(amount), mepRate) / finalPrice;
+          finalQuantity = convertArsToUsd(parseFloat(amount), effectiveMepRate) / finalPrice;
         }
       }
 
@@ -596,8 +671,8 @@ const AddTrade = () => {
         original_currency: tradeCurrency,
         original_price: tradeCurrency === "ARS" ? originalPrice : null,
         broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
-        commission_pct: commissionPct,
         commission_amount: commissionAmount,
+        mep_rate: tradeCurrency === "ARS" && effectiveMepRate > 0 ? effectiveMepRate : null,
       } as any).select("id").single();
 
       if (error) throw error;
@@ -669,6 +744,9 @@ const AddTrade = () => {
     setImagePreview(null);
     setFormExpanded(false);
     setSelectedBrokerId(defaultBroker?.broker_id || "none");
+    setCustomMepRate("");
+    setSearchResults([]);
+    setShowSearchDropdown(false);
   };
 
   const handleAddAnother = () => {
@@ -1102,13 +1180,31 @@ const AddTrade = () => {
                               <span className="text-sm font-bold">{t("addTrade.symbolLookup")}</span>
                               {fetchingQuote && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                             </div>
-                            <Input
-                              placeholder="AAPL, BTC, MSFT..."
-                              value={symbol}
-                              onChange={(e) => setSymbol(e.target.value)}
-                              className="font-mono uppercase"
-                              required
-                            />
+                            <div className="relative" ref={searchDropdownRef}>
+                              <Input
+                                placeholder="AAPL, Microsoft, BTC..."
+                                value={symbol}
+                                onChange={(e) => setSymbol(e.target.value)}
+                                onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
+                                className="font-mono uppercase"
+                                required
+                              />
+                              {showSearchDropdown && searchResults.length > 0 && (
+                                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-60 overflow-y-auto">
+                                  {searchResults.map((r) => (
+                                    <button
+                                      key={r.symbol}
+                                      type="button"
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                                      onClick={() => handleSearchSelect(r)}
+                                    >
+                                      <span className="font-mono font-bold text-foreground">{r.symbol}</span>
+                                      <span className="text-muted-foreground truncate">— {r.description}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             {symbolResolved && (
                               <p className="text-xs text-muted-foreground">
                                 {t("addTrade.found")}: <span className="font-medium text-foreground">{assetName}</span> — $
@@ -1206,10 +1302,21 @@ const AddTrade = () => {
                           </div>
                           <CurrencyToggle value={tradeCurrency} onChange={setTradeCurrency} />
                         </div>
-                        {tradeCurrency === "ARS" && mepRate > 0 && (
-                          <p className="text-[10px] text-muted-foreground text-right">
-                            Dólar MEP: ${mepRate.toFixed(2)}
-                          </p>
+                        {tradeCurrency === "ARS" && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Dólar MEP:</Label>
+                            <Input
+                              type="number"
+                              step="any"
+                              value={customMepRate}
+                              onChange={(e) => setCustomMepRate(e.target.value)}
+                              className="font-mono h-7 text-xs w-24"
+                              placeholder={mepLoading ? "..." : String(mepRate)}
+                            />
+                            {!isToday && (
+                              <span className="text-[10px] text-amber-500">⚠ Verificá el MEP de esa fecha</span>
+                            )}
+                          </div>
                         )}
 
                         {tradeType === "dividend" ? (
@@ -1477,9 +1584,9 @@ const AddTrade = () => {
                                 )}
                               </>
                             )}
-                            {tradeCurrency === "ARS" && mepRate > 0 && (
+                            {tradeCurrency === "ARS" && effectiveMepRate > 0 && (
                               <p className="text-xs text-muted-foreground">
-                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, mepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
+                                {t("addTrade.convertedToUsd", { amount: convertArsToUsd(total, effectiveMepRate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}
                               </p>
                             )}
                           </div>

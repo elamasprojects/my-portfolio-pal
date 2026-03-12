@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Trade } from "@/hooks/usePortfolio";
 import { useTags, useTradeTagAssignments, useAssignTag, useRemoveTag } from "@/hooks/useTags";
+import { useStrategies } from "@/hooks/useStrategies";
+import { useUserBrokers } from "@/hooks/useBrokers";
+import { useProfile } from "@/hooks/useProfile";
 import { TagPicker } from "@/components/TagPicker";
 import {
   Dialog,
@@ -46,6 +49,9 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
   const { data: assignments = [] } = useTradeTagAssignments(trade ? [trade.id] : []);
   const assignTag = useAssignTag();
   const removeTag = useRemoveTag();
+  const { data: strategies } = useStrategies();
+  const { data: userBrokers } = useUserBrokers();
+  const { profile } = useProfile();
 
   const [symbol, setSymbol] = useState("");
   const [assetName, setAssetName] = useState("");
@@ -56,6 +62,10 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [strategyId, setStrategyId] = useState<string>("none");
+  const [brokerId, setBrokerId] = useState<string>("none");
+  const [tradeCurrency, setTradeCurrency] = useState<string>("USD");
+  const [mepRate, setMepRate] = useState("");
 
   useEffect(() => {
     if (trade) {
@@ -66,6 +76,10 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
       setPrice(String(trade.price_per_unit));
       setTradeDate(new Date(trade.trade_date).toISOString().split("T")[0]);
       setNotes(trade.notes || "");
+      setStrategyId(trade.strategy_id || "none");
+      setBrokerId(trade.broker_id || "none");
+      setTradeCurrency(trade.original_currency || "USD");
+      setMepRate(trade.mep_rate != null ? String(trade.mep_rate) : "");
     }
   }, [trade]);
 
@@ -80,6 +94,14 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
     if (!trade) return;
     setSaving(true);
     try {
+      // Recalculate commission based on selected broker
+      const selectedUserBroker = profile?.brokers_enabled && brokerId !== "none"
+        ? userBrokers?.find(ub => ub.broker_id === brokerId)
+        : null;
+      const commissionPct = selectedUserBroker?.commission_pct || 0;
+      const finalTotal = parseFloat(quantity) * parseFloat(price);
+      const commissionAmount = finalTotal * commissionPct / 100;
+
       const { error } = await supabase
         .from("trades")
         .update({
@@ -88,10 +110,15 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
           asset_type: assetType as any,
           quantity: parseFloat(quantity),
           price_per_unit: parseFloat(price),
-          total_amount: parseFloat(quantity) * parseFloat(price),
           trade_date: new Date(tradeDate).toISOString(),
           notes: notes || null,
-        })
+          strategy_id: strategyId === "none" ? null : strategyId,
+          broker_id: brokerId === "none" ? null : brokerId,
+          original_currency: tradeCurrency,
+          commission_pct: commissionPct,
+          commission_amount: commissionAmount,
+          mep_rate: mepRate ? parseFloat(mepRate) : null,
+        } as any)
         .eq("id", trade.id);
 
       if (error) throw error;
@@ -107,6 +134,7 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
       ]);
 
       queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
       toast.success("Trade updated");
       onOpenChange(false);
     } catch (err: any) {
@@ -124,6 +152,7 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
     } else {
       toast.success("Trade deleted");
       queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
       onOpenChange(false);
     }
   };
@@ -140,7 +169,7 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Edit Trade
@@ -155,8 +184,8 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             >
               {trade.trade_type.toUpperCase()}
             </Badge>
-            <span className="text-base ml-1" title={trade.original_currency || "USD"}>
-              {(trade.original_currency || "USD") === "ARS" ? "🇦🇷" : "🇺🇸"}
+            <span className="text-base ml-1" title={tradeCurrency}>
+              {tradeCurrency === "ARS" ? "🇦🇷" : "🇺🇸"}
             </span>
           </DialogTitle>
           <DialogDescription>
@@ -176,20 +205,34 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Asset Type</Label>
-            <Select value={assetType} onValueChange={setAssetType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stock">Stock</SelectItem>
-                <SelectItem value="etf">ETF</SelectItem>
-                <SelectItem value="crypto">Crypto</SelectItem>
-                <SelectItem value="bond">Bond</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Asset Type</Label>
+              <Select value={assetType} onValueChange={setAssetType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="stock">Stock</SelectItem>
+                  <SelectItem value="etf">ETF</SelectItem>
+                  <SelectItem value="crypto">Crypto</SelectItem>
+                  <SelectItem value="bond">Bond</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Currency</Label>
+              <Select value={tradeCurrency} onValueChange={setTradeCurrency}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                  <SelectItem value="ARS">🇦🇷 ARS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {!isDividend && (
@@ -226,6 +269,25 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             <Input type="date" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} />
           </div>
 
+          {tradeCurrency === "ARS" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Dólar MEP Rate</Label>
+              <Input
+                type="number"
+                step="any"
+                placeholder="MEP rate at trade date"
+                value={mepRate}
+                onChange={(e) => setMepRate(e.target.value)}
+                className="font-mono"
+              />
+              {!mepRate && (
+                <p className="text-[10px] text-muted-foreground">
+                  Ingresá el MEP de la fecha del trade para conversión correcta
+                </p>
+              )}
+            </div>
+          )}
+
           {trade.original_currency === "ARS" && trade.original_price != null && (
             <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
               Original price: 🇦🇷 ARS ${Number(trade.original_price).toFixed(2)}
@@ -237,10 +299,48 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Tags</Label>
-            <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Strategy</Label>
+              <Select value={strategyId} onValueChange={setStrategyId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {strategies?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Tags</Label>
+              <TagPicker selectedTagIds={selectedTagIds} onToggle={handleTagToggle} />
+            </div>
           </div>
+
+          {profile?.brokers_enabled && userBrokers && userBrokers.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Broker</Label>
+              <Select value={brokerId} onValueChange={setBrokerId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {userBrokers.map((ub) => (
+                    <SelectItem key={ub.broker_id} value={ub.broker_id}>
+                      {ub.broker?.name || ub.broker_id}
+                      {ub.commission_pct > 0 ? ` (${ub.commission_pct}%)` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex !justify-between">

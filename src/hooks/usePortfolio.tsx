@@ -20,6 +20,10 @@ export interface Trade {
   strategy_id: string | null;
   original_currency: string;
   original_price: number | null;
+  broker_id: string | null;
+  commission_pct: number;
+  commission_amount: number;
+  mep_rate: number | null;
 }
 
 export interface Portfolio {
