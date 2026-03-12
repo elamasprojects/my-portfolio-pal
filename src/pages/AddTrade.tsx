@@ -1466,7 +1466,9 @@ const AddTrade = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold font-mono text-foreground">
                     {total > 0
-                      ? `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ? displayCommissionPct > 0
+                        ? `$${displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : "$0.00"}
                   </span>
                 </div>
