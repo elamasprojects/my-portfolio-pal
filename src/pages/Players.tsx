@@ -307,23 +307,33 @@ export default function Players() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{t("social.playersSubtitle")}</p>
         </div>
+
+        {/* Empty state illustration */}
+        <div className="flex flex-col items-center py-12 space-y-4">
+          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <UserPlus className="h-10 w-10 text-primary" />
+          </div>
+          <p className="text-muted-foreground text-sm text-center max-w-sm">{t("social.typeToSearch")}</p>
+        </div>
+
         <Input
           placeholder={t("social.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="text-base h-12"
         />
-        {search.length < 2 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("social.typeToSearch")}</p>
-        ) : isLoading ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("common.loading")}</p>
-        ) : results.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("social.noPlayersFound")}</p>
-        ) : (
-          <div className="space-y-2">
-            {results.map((p) => (
-              <SearchResultCard key={p.id} profile={p} status={getRequestStatus(p.id)} onRequest={handleRequest} t={t} />
-            ))}
-          </div>
+        {search.length >= 2 && (
+          isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("common.loading")}</p>
+          ) : results.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("social.noPlayersFound")}</p>
+          ) : (
+            <div className="space-y-2">
+              {results.map((p) => (
+                <SearchResultCard key={p.id} profile={p} status={getRequestStatus(p.id)} onRequest={handleRequest} t={t} />
+              ))}
+            </div>
+          )
         )}
       </div>
     );
@@ -346,7 +356,7 @@ export default function Players() {
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon"><Search className="h-4 w-4" /></Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-96">
               <Input
                 placeholder={t("social.searchPlaceholder")}
                 value={search}
@@ -398,20 +408,20 @@ export default function Players() {
       </div>
 
       {/* Connection switcher row */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2.5 overflow-x-auto pb-1">
         {connections.map((c) => (
           <button
             key={c.id}
             onClick={() => setSelectedPlayer(c)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all ${
               activePlayer?.id === c.id
-                ? "border-primary bg-primary/10 text-primary"
+                ? "border-primary bg-primary/10 text-primary shadow-sm"
                 : "border-border hover:border-primary/30"
             }`}
           >
-            <Avatar className="h-5 w-5">
+            <Avatar className="h-6 w-6">
               {c.avatar_url && <AvatarImage src={c.avatar_url} />}
-              <AvatarFallback className="text-[8px]">
+              <AvatarFallback className="text-[9px]">
                 {(c.username || "?").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -837,7 +847,7 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
   const medalOrder = top3.length >= 3 ? [1, 0, 2] : top3.length === 2 ? [1, 0] : [0];
 
   return (
-    <div className="flex items-end justify-center gap-3 pt-6">
+    <div className="flex items-end justify-center gap-4 pt-6">
       {displayOrder.map((r, displayIdx) => {
         const rank = medalOrder[displayIdx];
         const medal = medals[rank];
@@ -845,16 +855,16 @@ function Podium({ rankings, period, t }: { rankings: any[]; period: string; t: (
         const pnl = period === "weekly" ? Number(r.weekly_pnl) : Number(r.monthly_pnl);
         return (
           <div key={r.user_id} className="flex flex-col items-center gap-2">
-            <MedalIcon className={`h-5 w-5 ${medal.color}`} />
-            <Avatar className="h-10 w-10 border-2 border-primary/30">
+            <MedalIcon className={`h-6 w-6 ${medal.color}`} />
+            <Avatar className="h-12 w-12 border-2 border-primary/30">
               {r.avatar_url && <AvatarImage src={r.avatar_url} />}
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-sm">
                 {(r.username || "?").slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <p className="text-xs font-medium truncate max-w-[80px]">{r.username}</p>
-            <div className={`${medal.bg} ${medal.height} w-20 rounded-t-lg flex items-center justify-center`}>
-              <span className={`text-xs font-mono font-bold ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+            <p className="text-xs font-medium truncate max-w-[90px]">{r.username}</p>
+            <div className={`${medal.bg} ${medal.height} w-24 rounded-t-lg flex items-center justify-center`}>
+              <span className={`text-sm font-mono font-bold ${pnl >= 0 ? "text-green-500" : "text-red-500"}`}>
                 ${pnl.toFixed(0)}
               </span>
             </div>
@@ -926,15 +936,15 @@ function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }
   };
 
   return (
-    <div className="w-full h-[250px]">
+    <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
-            outerRadius={90}
-            innerRadius={45}
+            outerRadius={110}
+            innerRadius={55}
             dataKey="value"
             nameKey="name"
             label={renderLabel}

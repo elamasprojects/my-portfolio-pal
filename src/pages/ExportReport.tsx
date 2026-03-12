@@ -149,7 +149,7 @@ export default function ExportReport() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl chess-title flex items-center gap-2">
@@ -185,19 +185,19 @@ export default function ExportReport() {
           color: previewDark ? "#fafafa" : "#1a1a20",
         }}
       >
-        <div className="h-full flex flex-col p-8">
+        <div className="h-full flex flex-col p-10">
           {/* Card Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-12 w-12">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
-                <AvatarFallback className="text-xs" style={{ background: previewDark ? "#333" : "#ddd" }}>
+                <AvatarFallback className="text-sm" style={{ background: previewDark ? "#333" : "#ddd" }}>
                   {(profile?.username || profile?.display_name || "U").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-bold text-sm">{profile?.username || profile?.display_name || "Trader"}</p>
-                <p className="text-xs opacity-60">{portfolio?.name || "Portfolio"} • {format(new Date(), "MMM d, yyyy")}</p>
+                <p className="font-bold text-base">{profile?.username || profile?.display_name || "Trader"}</p>
+                <p className="text-sm opacity-60">{portfolio?.name || "Portfolio"} • {format(new Date(), "MMM d, yyyy")}</p>
               </div>
             </div>
             <p className="text-xs opacity-40 font-mono">♟ Chess</p>
@@ -218,9 +218,9 @@ export default function ExportReport() {
                 className="rounded-lg p-4 text-center"
                 style={{ background: previewDark ? "#252530" : "#ffffff" }}
               >
-                <p className="text-[10px] opacity-60 mb-1">{stat.label}</p>
+                <p className="text-xs opacity-60 mb-1">{stat.label}</p>
                 <p
-                  className="text-lg font-bold font-mono"
+                  className="text-2xl font-bold font-mono"
                   style={
                     stat.positive !== undefined
                       ? { color: stat.positive ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }
@@ -237,7 +237,7 @@ export default function ExportReport() {
           <div className="flex-1 flex gap-6 min-h-0">
             {pieData.length > 0 && (
               <div className="flex-1 min-h-0">
-                <p className="text-[10px] font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
+                <p className="text-xs font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -263,7 +263,7 @@ export default function ExportReport() {
               </div>
             )}
             <div className="w-44 flex-shrink-0 min-w-0">
-              <p className="text-[10px] font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
+              <p className="text-xs font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {holdings.slice(0, 12).map((h, i) => (
                   <Badge
