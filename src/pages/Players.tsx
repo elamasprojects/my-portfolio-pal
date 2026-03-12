@@ -307,23 +307,33 @@ export default function Players() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{t("social.playersSubtitle")}</p>
         </div>
+
+        {/* Empty state illustration */}
+        <div className="flex flex-col items-center py-12 space-y-4">
+          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <UserPlus className="h-10 w-10 text-primary" />
+          </div>
+          <p className="text-muted-foreground text-sm text-center max-w-sm">{t("social.typeToSearch")}</p>
+        </div>
+
         <Input
           placeholder={t("social.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="text-base h-12"
         />
-        {search.length < 2 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("social.typeToSearch")}</p>
-        ) : isLoading ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("common.loading")}</p>
-        ) : results.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{t("social.noPlayersFound")}</p>
-        ) : (
-          <div className="space-y-2">
-            {results.map((p) => (
-              <SearchResultCard key={p.id} profile={p} status={getRequestStatus(p.id)} onRequest={handleRequest} t={t} />
-            ))}
-          </div>
+        {search.length >= 2 && (
+          isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("common.loading")}</p>
+          ) : results.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t("social.noPlayersFound")}</p>
+          ) : (
+            <div className="space-y-2">
+              {results.map((p) => (
+                <SearchResultCard key={p.id} profile={p} status={getRequestStatus(p.id)} onRequest={handleRequest} t={t} />
+              ))}
+            </div>
+          )
         )}
       </div>
     );
