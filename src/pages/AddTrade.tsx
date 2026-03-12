@@ -583,6 +583,7 @@ const AddTrade = () => {
       }
 
       queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
 
       const newTrade: SubmittedTrade = {
         symbol: symbol.toUpperCase(),
