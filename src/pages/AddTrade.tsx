@@ -627,11 +627,10 @@ const AddTrade = () => {
       finalPrice = parseFloat(price);
 
       // Convert ARS price to USD before storing
-      if (tradeCurrency === "ARS" && mepRate > 0) {
-        finalPrice = convertArsToUsd(finalPrice, mepRate);
-        // Recalculate quantity for amount mode with converted price
+      if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
+        finalPrice = convertArsToUsd(finalPrice, effectiveMepRate);
         if (inputMode === "amount" && finalPrice > 0) {
-          finalQuantity = convertArsToUsd(parseFloat(amount), mepRate) / finalPrice;
+          finalQuantity = convertArsToUsd(parseFloat(amount), effectiveMepRate) / finalPrice;
         }
       }
 
