@@ -391,38 +391,11 @@ const AddTrade = () => {
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const { data: positions = [] } = usePortfolioPositions();
-
   // Legacy holdings for buy flow only (computeHoldings still used where needed)
   const holdings = useMemo(() => {
     if (!trades) return [];
     return computeHoldings(trades);
   }, [trades]);
-
-  // Positions-based holdings for sell/dividend (source of truth from DB)
-  const positionHoldings = useMemo(() => {
-    return positions.map((p) => ({
-      symbol: p.symbol,
-      asset_name: p.symbol, // Will be enriched from trades
-      asset_type: "stock" as string,
-      net_quantity: p.quantity,
-      avg_cost: p.avg_cost,
-      total_invested: p.cost_basis,
-    }));
-  }, [positions]);
-
-  // Enrich position holdings with asset names from trades
-  const enrichedPositionHoldings = useMemo(() => {
-    if (!trades) return positionHoldings;
-    return positionHoldings.map((ph) => {
-      const trade = trades.find((t) => t.symbol.toUpperCase() === ph.symbol.toUpperCase());
-      return {
-        ...ph,
-        asset_name: trade?.asset_name || ph.symbol,
-        asset_type: trade?.asset_type || "stock",
-      };
-    });
-  }, [positionHoldings, trades]);
 
   const [formExpanded, setFormExpanded] = useState(false);
 
