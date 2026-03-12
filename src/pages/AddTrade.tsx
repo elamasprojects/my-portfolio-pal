@@ -399,6 +399,7 @@ const AddTrade = () => {
 
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
+    setFormExpanded(true);
     const h = holdings.find((h) => h.symbol === sym);
     if (!h) return;
 

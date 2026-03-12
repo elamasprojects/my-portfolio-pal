@@ -236,14 +236,15 @@ export default function Settings() {
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground">{t("settings.commission")}</Label>
-                        <span className="text-xs font-mono font-bold">{ub.commission_pct.toFixed(1)}%</span>
+                        <span className="text-xs font-mono font-bold">{(commissionOverrides[ub.id] ?? ub.commission_pct).toFixed(1)}%</span>
                       </div>
                       <Slider
-                        value={[ub.commission_pct]}
+                        value={[commissionOverrides[ub.id] ?? ub.commission_pct]}
                         min={0}
                         max={1.5}
                         step={0.1}
-                        onValueCommit={(val) => handleCommissionChange(ub.id, val[0])}
+                        onValueChange={(val) => handleCommissionDrag(ub.id, val[0])}
+                        onValueCommit={(val) => handleCommissionCommit(ub.id, val[0])}
                         className="w-full"
                       />
                       <div className="flex justify-between text-[10px] text-muted-foreground">
