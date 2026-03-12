@@ -185,7 +185,7 @@ export default function ExportReport() {
           color: previewDark ? "#fafafa" : "#1a1a20",
         }}
       >
-        <div className="h-full flex flex-col p-8">
+        <div className="h-full flex flex-col p-10">
           {/* Card Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
