@@ -189,15 +189,15 @@ export default function ExportReport() {
           {/* Card Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-12 w-12">
                 {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
-                <AvatarFallback className="text-xs" style={{ background: previewDark ? "#333" : "#ddd" }}>
+                <AvatarFallback className="text-sm" style={{ background: previewDark ? "#333" : "#ddd" }}>
                   {(profile?.username || profile?.display_name || "U").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-bold text-sm">{profile?.username || profile?.display_name || "Trader"}</p>
-                <p className="text-xs opacity-60">{portfolio?.name || "Portfolio"} • {format(new Date(), "MMM d, yyyy")}</p>
+                <p className="font-bold text-base">{profile?.username || profile?.display_name || "Trader"}</p>
+                <p className="text-sm opacity-60">{portfolio?.name || "Portfolio"} • {format(new Date(), "MMM d, yyyy")}</p>
               </div>
             </div>
             <p className="text-xs opacity-40 font-mono">♟ Chess</p>
