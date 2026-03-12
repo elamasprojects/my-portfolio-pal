@@ -445,7 +445,6 @@ const AddTrade = () => {
           body: { symbol: symbol.trim() },
         });
         if (!error && data) {
-          // If data came from screenshot, only update asset name — preserve AI-extracted price/date
           if (fromScreenshotRef.current) {
             if (data.name && !userEditedName.current) setAssetName(data.name);
             fromScreenshotRef.current = false;
@@ -464,6 +463,73 @@ const AddTrade = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [symbol, tradeType]);
+
+  // Symbol search: debounced search via edge function
+  useEffect(() => {
+    if (tradeType !== "buy") return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!symbol.trim() || symbol.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      setSearchingSymbol(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("search-symbol", {
+          body: { query: symbol.trim() },
+        });
+        if (!error && data?.results?.length > 0) {
+          setSearchResults(data.results);
+          setShowSearchDropdown(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchDropdown(false);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchingSymbol(false);
+      }
+    }, 400);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [symbol, tradeType]);
+
+  // Close search dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSearchSelect = (result: { symbol: string; description: string }) => {
+    setSymbol(result.symbol);
+    setAssetName(result.description);
+    userEditedName.current = true;
+    setShowSearchDropdown(false);
+    setSearchResults([]);
+  };
+
+  // Auto-fill MEP rate when currency is ARS
+  useEffect(() => {
+    if (tradeCurrency === "ARS" && mepRate > 0 && !customMepRate) {
+      setCustomMepRate(String(mepRate));
+    }
+  }, [tradeCurrency, mepRate]);
+
+  // Warn when date changes to past for ARS
+  const isToday = tradeDate === new Date().toISOString().split("T")[0];
+  const effectiveMepRate = tradeCurrency === "ARS" && customMepRate
+    ? parseFloat(customMepRate)
+    : mepRate;
 
   const handleHoldingSelect = async (sym: string) => {
     setSelectedHolding(sym);
