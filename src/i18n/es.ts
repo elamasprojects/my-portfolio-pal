@@ -94,6 +94,7 @@ export const es: Record<TranslationKey, string> = {
   "board.unrealizedPnl": "P&L No Realizado",
   "board.currentPrice": "Precio",
   "board.exchangeRate": "Tipo de cambio: Dólar MEP",
+  "board.totalPnl": "P&L Total",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",
