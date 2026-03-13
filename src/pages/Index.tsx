@@ -220,6 +220,36 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalPnl")}</p>
+                {pricesLoading ? (
+                  <Skeleton className="h-8 w-24 mt-1" />
+                ) : (
+                  <>
+                    <p className={`text-2xl font-bold font-mono mt-1 ${(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "text-gain" : "text-loss"}`}>
+                      {(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "+" : ""}
+                      {fmt(cx(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends))}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {t("board.realizedPnl")}: {fmt(cx(performance.total_realized_pnl))} · {t("board.unrealizedPnl")}: {fmt(cx(unrealizedPnl))}
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-gain" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-loss" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

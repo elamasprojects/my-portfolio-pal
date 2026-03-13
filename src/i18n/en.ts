@@ -92,6 +92,7 @@ export const en = {
   "board.unrealizedPnl": "Unrealized P&L",
   "board.currentPrice": "Price",
   "board.exchangeRate": "Exchange rate: Dólar MEP",
+  "board.totalPnl": "Total P&L",
 
   // Add Trade
   "addTrade.title": "New Move",
