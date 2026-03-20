@@ -23,6 +23,11 @@ import SharedExport from "./pages/SharedExport";
 import Landing from "./pages/Landing";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import ToolsLayout from "./components/ToolsLayout";
+import Tools from "./pages/Tools";
+import RiskProfile from "./pages/RiskProfile";
+import CompoundCalculator from "./pages/CompoundCalculator";
+import DCASimulator from "./pages/DCASimulator";
 
 const queryClient = new QueryClient();
 
