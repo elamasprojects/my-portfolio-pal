@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { Shield, ArrowLeft, ArrowRight, RotateCcw, Scale, Rocket, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { SEOHead } from "@/components/SEOHead";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Question {

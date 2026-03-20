@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChessKnight } from "@/components/ChessKnight";
 import { Shield, TrendingUp, DollarSign, ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
+import { SEOHead } from "@/components/SEOHead";
 
 const TOOLS = [
   { key: "riskProfile", icon: Shield, to: "/tools/risk-profile", color: "text-chart-1" },

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AffiliateButton } from "@/components/AffiliateButton";
 import { TrendingUp } from "lucide-react";
+import { SEOHead } from "@/components/SEOHead";
 import {
   LineChart,
   Line,
