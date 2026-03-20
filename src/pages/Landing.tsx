@@ -269,6 +269,31 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Free Tools CTA ── */}
+      <section className="py-24 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto text-center flex flex-col items-center gap-6"
+        >
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Calculator className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
+            {t("landing.tools.title" as any)}
+          </h2>
+          <p className="text-muted-foreground text-lg leading-relaxed">
+            {t("landing.tools.desc" as any)}
+          </p>
+          <Button variant="outline" size="lg" className="gap-2 mt-2" onClick={() => navigate("/tools")}>
+            {t("landing.tools.cta" as any)}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </section>
+
       {/* ── Final CTA ── */}
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
