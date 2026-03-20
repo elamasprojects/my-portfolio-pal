@@ -206,5 +206,6 @@ export default function CompoundCalculator() {
         />
       </div>
     </div>
+    </>
   );
 }
