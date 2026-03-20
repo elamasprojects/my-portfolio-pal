@@ -111,7 +111,13 @@ export default function DCASimulator() {
     n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   return (
-    <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
+    <>
+      <SEOHead
+        title="DCA Simulator — Dollar Cost Averaging"
+        description="Simulate a Dollar Cost Averaging strategy on Bitcoin with real historical prices. See how much you'd have earned."
+        path="/tools/dca"
+      />
+      <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">

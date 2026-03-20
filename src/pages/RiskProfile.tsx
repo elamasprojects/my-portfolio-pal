@@ -121,7 +121,13 @@ export default function RiskProfile() {
   };
 
   return (
-    <div className="py-8 px-4 max-w-2xl mx-auto">
+    <>
+      <SEOHead
+        title="Investor Risk Profile Test"
+        description="Take our free risk profile quiz to discover your investor type and get a personalized portfolio allocation suggestion."
+        path="/tools/risk-profile"
+      />
+      <div className="py-8 px-4 max-w-2xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Shield className="h-6 w-6 text-primary" />

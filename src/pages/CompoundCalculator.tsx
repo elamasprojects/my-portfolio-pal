@@ -58,7 +58,13 @@ export default function CompoundCalculator() {
     n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   return (
-    <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
+    <>
+      <SEOHead
+        title="Compound Interest Calculator"
+        description="Calculate how your investments grow over time with compound interest. Compare S&P 500, Bitcoin, and conservative scenarios."
+        path="/tools/compound"
+      />
+      <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3 mb-2">
         <TrendingUp className="h-6 w-6 text-primary" />
         <h1 className="font-serif text-2xl md:text-3xl font-bold">

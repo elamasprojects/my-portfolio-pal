@@ -16,7 +16,13 @@ export default function Tools() {
   const { t } = useLanguage();
 
   return (
-    <div className="py-16 px-4">
+    <>
+      <SEOHead
+        title="Free Investment Tools"
+        description="Discover your investor profile, calculate compound interest, and simulate DCA strategies — all free, no signup required."
+        path="/tools"
+      />
+      <div className="py-16 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Hero */}
         <motion.div
