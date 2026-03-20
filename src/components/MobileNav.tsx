@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Plus, List, BarChart3, Menu, Trophy, Crosshair, PieChart, Sparkles, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Plus, List, BarChart3, Menu, Trophy, Crosshair, PieChart, Sparkles, Users, Settings, ShieldCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage, TranslationKey } from "@/i18n";
