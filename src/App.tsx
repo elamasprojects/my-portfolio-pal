@@ -28,6 +28,7 @@ import Tools from "./pages/Tools";
 import RiskProfile from "./pages/RiskProfile";
 import CompoundCalculator from "./pages/CompoundCalculator";
 import DCASimulator from "./pages/DCASimulator";
+import Security from "./pages/Security";
 
 const queryClient = new QueryClient();
 
