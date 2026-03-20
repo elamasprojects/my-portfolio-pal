@@ -3,9 +3,8 @@ import { useLanguage } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { AffiliateButton } from "@/components/AffiliateButton";
 import { Link } from "react-router-dom";
-import { Shield, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
+import { Shield, ArrowLeft, ArrowRight, RotateCcw, Scale, Rocket, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -68,6 +67,20 @@ const PROFILES: Record<string, ProfileResult> = {
       { name: "Cash", value: 5, color: "hsl(var(--chart-5))" },
     ],
   },
+};
+
+const PROFILE_ICONS: Record<ProfileType, React.ReactNode> = {
+  conservative: <Shield className="h-6 w-6" />,
+  moderate: <Scale className="h-6 w-6" />,
+  aggressive: <Rocket className="h-6 w-6" />,
+  veryAggressive: <Flame className="h-6 w-6" />,
+};
+
+const PROFILE_GRADIENTS: Record<ProfileType, string> = {
+  conservative: "from-blue-500/20 to-cyan-500/10",
+  moderate: "from-emerald-500/20 to-teal-500/10",
+  aggressive: "from-orange-500/20 to-amber-500/10",
+  veryAggressive: "from-red-500/20 to-rose-500/10",
 };
 
 function getProfile(score: number): ProfileResult {
@@ -172,66 +185,94 @@ export default function RiskProfile() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
+            className="space-y-6"
           >
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  {t(`tools.riskProfile.result.${profile.type}.title` as any)}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-muted-foreground">
+            {/* Profile header card */}
+            <Card className="overflow-hidden">
+              <div className={`bg-gradient-to-br ${PROFILE_GRADIENTS[profile.type]} p-6`}>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-full bg-background/80 text-primary">
+                    {PROFILE_ICONS[profile.type]}
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                      {t("tools.riskProfile.yourProfile" as any) || "Tu perfil"}
+                    </p>
+                    <h2 className="text-xl font-bold">
+                      {t(`tools.riskProfile.result.${profile.type}.title` as any)}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="pt-4">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   {t(`tools.riskProfile.result.${profile.type}.desc` as any)}
                 </p>
+              </CardContent>
+            </Card>
 
-                {/* Pie Chart */}
-                <div>
-                  <h4 className="font-medium mb-3">
-                    {t("tools.riskProfile.suggestedPortfolio" as any)}
-                  </h4>
-                  <div className="h-48">
+            {/* Portfolio allocation card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {t("tools.riskProfile.suggestedPortfolio" as any)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <div className="h-48 w-48 flex-shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={profile.allocation}
                           cx="50%"
                           cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
+                          innerRadius={45}
+                          outerRadius={75}
                           dataKey="value"
-                          label={({ name, value }) => `${name} ${value}%`}
+                          strokeWidth={2}
+                          stroke="hsl(var(--background))"
                         >
                           {profile.allocation.map((entry, i) => (
                             <Cell key={i} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip formatter={(v: number) => `${v}%`} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
-
-                {/* CTAs */}
-                <div className="flex flex-col gap-3 pt-4 border-t border-border">
-                  <AffiliateButton
-                    platform="bingx"
-                    campaign="risk-profile"
-                    label={t("tools.riskProfile.cta" as any)}
-                  />
-                  <Button variant="outline" asChild>
-                    <Link to="/auth">
-                      {t("tools.riskProfile.ctaSecondary" as any)}
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={restart} className="gap-2">
-                    <RotateCcw className="h-4 w-4" />
-                    {t("tools.riskProfile.restart" as any)}
-                  </Button>
+                  {/* Legend */}
+                  <div className="flex flex-col gap-3 flex-1 w-full">
+                    {profile.allocation.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-sm font-medium">{item.name}</span>
+                        </div>
+                        <span className="text-sm font-mono text-muted-foreground">{item.value}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* CTAs */}
+            <div className="flex flex-col gap-3">
+              <Button asChild>
+                <Link to="/auth">
+                  {t("tools.riskProfile.ctaSecondary" as any)}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={restart} className="gap-2">
+                <RotateCcw className="h-4 w-4" />
+                {t("tools.riskProfile.restart" as any)}
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

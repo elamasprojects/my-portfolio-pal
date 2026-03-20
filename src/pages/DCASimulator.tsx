@@ -1,11 +1,10 @@
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/i18n";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { AffiliateButton } from "@/components/AffiliateButton";
-import { DollarSign, Loader2 } from "lucide-react";
+import { Bitcoin, TrendingUp, DollarSign, Percent, Loader2, Calendar, Repeat } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -16,8 +15,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
-import { format, subYears, differenceInDays, addDays, addWeeks, addMonths } from "date-fns";
+import { format, subYears, addDays, addWeeks, addMonths } from "date-fns";
 
 type Frequency = "daily" | "weekly" | "monthly";
 
@@ -94,7 +94,6 @@ export default function DCASimulator() {
       current = getNextDate(current, frequency);
     }
 
-    // Update final value with last known price
     const lastPrice = prices[prices.length - 1]?.[1] ?? 0;
     const finalValue = Math.round(totalUnits * lastPrice);
 
@@ -112,21 +111,43 @@ export default function DCASimulator() {
 
   return (
     <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-2">
-        <DollarSign className="h-6 w-6 text-primary" />
-        <h1 className="font-serif text-2xl md:text-3xl font-bold">
-          {t("tools.dca.title" as any)}
-        </h1>
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2 rounded-lg bg-orange-500/10">
+            <Bitcoin className="h-6 w-6 text-orange-500" />
+          </div>
+          <h1 className="font-serif text-2xl md:text-3xl font-bold">
+            {t("tools.dca.title" as any)}
+          </h1>
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {t("tools.dca.subtitle" as any)}
+        </p>
       </div>
-      <p className="text-muted-foreground text-sm">
-        {t("tools.dca.subtitle" as any)}
-      </p>
+
+      {/* Intro card */}
+      <Card className="border-dashed bg-muted/30">
+        <CardContent className="p-4 flex items-start gap-3">
+          <Repeat className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {t("tools.dca.introText" as any) ||
+              "Dollar Cost Averaging (DCA) es una estrategia donde invertís un monto fijo de forma periódica, sin importar el precio del activo. Esto reduce el impacto de la volatilidad y simplifica tus decisiones de inversión."}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Inputs */}
       <Card>
-        <CardContent className="p-6 grid grid-cols-2 gap-4">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">{t("tools.dca.configTitle" as any) || "Configuración"}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>{t("tools.dca.amount" as any)}</Label>
+            <Label className="flex items-center gap-1.5">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("tools.dca.amount" as any)}
+            </Label>
             <Input
               type="number"
               min={1}
@@ -135,7 +156,10 @@ export default function DCASimulator() {
             />
           </div>
           <div className="space-y-2">
-            <Label>{t("tools.dca.frequency" as any)}</Label>
+            <Label className="flex items-center gap-1.5">
+              <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("tools.dca.frequency" as any)}
+            </Label>
             <div className="flex gap-1">
               {(["daily", "weekly", "monthly"] as Frequency[]).map((f) => (
                 <Button
@@ -151,7 +175,10 @@ export default function DCASimulator() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>{t("tools.dca.startDate" as any)}</Label>
+            <Label className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("tools.dca.startDate" as any)}
+            </Label>
             <Input
               type="date"
               value={startDate}
@@ -159,7 +186,10 @@ export default function DCASimulator() {
             />
           </div>
           <div className="space-y-2">
-            <Label>{t("tools.dca.endDate" as any)}</Label>
+            <Label className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              {t("tools.dca.endDate" as any)}
+            </Label>
             <Input
               type="date"
               value={endDate}
@@ -169,15 +199,16 @@ export default function DCASimulator() {
         </CardContent>
       </Card>
 
-      {/* Chart */}
+      {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
 
+      {/* Error */}
       {error && (
-        <Card>
+        <Card className="border-destructive/50">
           <CardContent className="p-6 text-center text-destructive">
             {t("tools.dca.error" as any)}
           </CardContent>
@@ -186,6 +217,43 @@ export default function DCASimulator() {
 
       {simulation && (
         <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="border-t-2 border-t-muted-foreground/30">
+              <CardContent className="p-4 text-center">
+                <DollarSign className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground">{t("tools.dca.invested" as any)}</p>
+                <p className="text-lg font-bold font-mono">{fmt(simulation.totalInvested)}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-t-2 border-t-primary/50">
+              <CardContent className="p-4 text-center">
+                <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
+                <p className="text-[11px] text-muted-foreground">{t("tools.dca.currentValue" as any)}</p>
+                <p className="text-lg font-bold font-mono text-primary">{fmt(simulation.finalValue)}</p>
+              </CardContent>
+            </Card>
+            <Card className={`border-t-2 ${simulation.gain >= 0 ? "border-t-green-500/50" : "border-t-red-500/50"}`}>
+              <CardContent className="p-4 text-center">
+                <DollarSign className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground">{t("tools.dca.gain" as any)}</p>
+                <p className={`text-lg font-bold font-mono ${simulation.gain >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {fmt(simulation.gain)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className={`border-t-2 ${simulation.gain >= 0 ? "border-t-green-500/50" : "border-t-red-500/50"}`}>
+              <CardContent className="p-4 text-center">
+                <Percent className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground">{t("tools.dca.returnPct" as any)}</p>
+                <p className={`text-lg font-bold font-mono ${simulation.gain >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {simulation.gainPct}%
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Chart */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -211,6 +279,7 @@ export default function DCASimulator() {
                       className="text-xs"
                     />
                     <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Legend />
                     <Area
                       type="monotone"
                       dataKey="invested"
@@ -230,47 +299,6 @@ export default function DCASimulator() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">{t("tools.dca.invested" as any)}</p>
-                <p className="text-lg font-bold font-mono">{fmt(simulation.totalInvested)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">{t("tools.dca.currentValue" as any)}</p>
-                <p className="text-lg font-bold font-mono text-gain">{fmt(simulation.finalValue)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">{t("tools.dca.gain" as any)}</p>
-                <p className={`text-lg font-bold font-mono ${simulation.gain >= 0 ? "text-gain" : "text-loss"}`}>
-                  {fmt(simulation.gain)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">{t("tools.dca.returnPct" as any)}</p>
-                <p className={`text-lg font-bold font-mono ${simulation.gain >= 0 ? "text-gain" : "text-loss"}`}>
-                  {simulation.gainPct}%
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* CTA */}
-          <div className="text-center space-y-3 pt-4">
-            <AffiliateButton
-              platform="bingx"
-              campaign="dca"
-              label={t("tools.dca.cta" as any)}
-            />
-          </div>
         </>
       )}
     </div>
