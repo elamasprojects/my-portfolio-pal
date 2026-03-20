@@ -708,6 +708,34 @@ export const en = {
   "landing.tools.title": "Free Tools",
   "landing.tools.desc": "Try our free investment calculators — no account needed.",
   "landing.tools.cta": "Explore Tools",
+
+  // Nav - Security
+  "nav.security": "Security",
+
+  // Security page
+  "security.title": "Security & Privacy",
+  "security.subtitle": "Your financial data is protected with enterprise-grade security. Here's how we keep it safe.",
+  "security.anonymous.title": "Anonymous Storage",
+  "security.anonymous.desc": "Your financial records are linked to a random identifier (UUID), not to your real name or identity. Your email is isolated in a separate authentication layer and is never exposed alongside your portfolio data.",
+  "security.rls.title": "Row-Level Security (RLS)",
+  "security.rls.desc": "Every database query is filtered at the server level so you can only access your own data. No user can ever read, modify, or delete another user's records — this is enforced by the database engine itself, not application code.",
+  "security.encryption.title": "Encryption at Rest & in Transit",
+  "security.encryption.desc": "All data is encrypted with AES-256 when stored and protected with TLS 1.2+ during transmission. Your information is secure both when it's saved and when it travels between your device and our servers.",
+  "security.soc2.title": "SOC 2 Type II Certified Infrastructure",
+  "security.soc2.desc": "Our infrastructure runs on Supabase (AWS), which holds SOC 2 Type II certification — an independent audit that verifies strict controls for security, availability, and confidentiality of customer data.",
+  "security.ocr.title": "OCR Images Are Never Stored",
+  "security.ocr.desc": "When you upload a screenshot to auto-fill a trade, the image is converted to base64 in your browser's memory, sent to our analysis function for data extraction, and immediately discarded. Images are never saved to any database or storage bucket.",
+  "security.jwt.title": "JWT Authentication",
+  "security.jwt.desc": "Your session is managed with secure JSON Web Tokens (JWT) issued by Supabase Auth. Tokens are short-lived and verified on every request, ensuring only authenticated users can access protected resources.",
+
+  // Landing - Security
+  "landing.security.title": "Your Data Is Safe",
+  "landing.security.subtitle": "Enterprise-grade security protects your financial information at every layer.",
+  "landing.security.bullet1": "Anonymous UUID-based storage",
+  "landing.security.bullet2": "AES-256 encryption & SOC 2 Type II",
+  "landing.security.bullet3": "OCR images instantly discarded",
+  "landing.security.bullet4": "Row-Level Security on every query",
+  "landing.security.cta": "Learn More",
 } as const;
 
 export type TranslationKey = keyof typeof en;

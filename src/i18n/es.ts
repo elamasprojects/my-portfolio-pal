@@ -709,4 +709,32 @@ export const es: Record<TranslationKey, string> = {
   "landing.tools.title": "Herramientas Gratuitas",
   "landing.tools.desc": "Probá nuestras calculadoras de inversión gratuitas — sin cuenta necesaria.",
   "landing.tools.cta": "Explorar Herramientas",
+
+  // Nav - Security
+  "nav.security": "Seguridad",
+
+  // Security page
+  "security.title": "Seguridad y Privacidad",
+  "security.subtitle": "Tu información financiera está protegida con seguridad de nivel empresarial. Así es como la mantenemos segura.",
+  "security.anonymous.title": "Almacenamiento Anónimo",
+  "security.anonymous.desc": "Tus registros financieros están vinculados a un identificador aleatorio (UUID), no a tu nombre real ni identidad. Tu email está aislado en una capa de autenticación separada y nunca se expone junto a los datos de tu portfolio.",
+  "security.rls.title": "Seguridad a Nivel de Fila (RLS)",
+  "security.rls.desc": "Cada consulta a la base de datos se filtra a nivel de servidor para que solo puedas acceder a tus propios datos. Ningún usuario puede leer, modificar o eliminar registros de otro — esto lo garantiza el motor de base de datos, no el código de la aplicación.",
+  "security.encryption.title": "Cifrado en Reposo y en Tránsito",
+  "security.encryption.desc": "Todos los datos se cifran con AES-256 cuando se almacenan y se protegen con TLS 1.2+ durante la transmisión. Tu información está segura tanto guardada como cuando viaja entre tu dispositivo y nuestros servidores.",
+  "security.soc2.title": "Infraestructura Certificada SOC 2 Type II",
+  "security.soc2.desc": "Nuestra infraestructura corre sobre Supabase (AWS), que cuenta con certificación SOC 2 Type II — una auditoría independiente que verifica controles estrictos de seguridad, disponibilidad y confidencialidad de los datos.",
+  "security.ocr.title": "Las Imágenes OCR No Se Almacenan",
+  "security.ocr.desc": "Cuando subís una captura para autocompletar una operación, la imagen se convierte a base64 en la memoria de tu navegador, se envía a nuestra función de análisis para extraer los datos y se descarta inmediatamente. Las imágenes nunca se guardan en ninguna base de datos ni bucket de almacenamiento.",
+  "security.jwt.title": "Autenticación JWT",
+  "security.jwt.desc": "Tu sesión se gestiona con tokens JSON Web Token (JWT) seguros emitidos por Supabase Auth. Los tokens son de corta duración y se verifican en cada solicitud, asegurando que solo usuarios autenticados accedan a los recursos protegidos.",
+
+  // Landing - Security
+  "landing.security.title": "Tu Data Está Segura",
+  "landing.security.subtitle": "Seguridad de nivel empresarial protege tu información financiera en cada capa.",
+  "landing.security.bullet1": "Almacenamiento anónimo con UUID",
+  "landing.security.bullet2": "Cifrado AES-256 y SOC 2 Type II",
+  "landing.security.bullet3": "Imágenes OCR descartadas al instante",
+  "landing.security.bullet4": "Row-Level Security en cada consulta",
+  "landing.security.cta": "Saber Más",
 };

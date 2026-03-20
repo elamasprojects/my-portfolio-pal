@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Share2,
   Calculator,
+  Lock,
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -289,6 +290,39 @@ export default function Landing() {
           </p>
           <Button variant="outline" size="lg" className="gap-2 mt-2" onClick={() => navigate("/tools")}>
             {t("landing.tools.cta" as any)}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </section>
+
+      {/* ── Security ── */}
+      <section className="py-24 px-6 bg-muted/30">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto text-center flex flex-col items-center gap-6"
+        >
+          <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
+            {t("landing.security.title" as any)}
+          </h2>
+          <p className="text-muted-foreground text-lg leading-relaxed">
+            {t("landing.security.subtitle" as any)}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground w-full max-w-md">
+            {(["bullet1", "bullet2", "bullet3", "bullet4"] as const).map((b) => (
+              <div key={b} className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                <span>{t(`landing.security.${b}` as any)}</span>
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="lg" className="gap-2 mt-2" onClick={() => navigate("/security")}>
+            {t("landing.security.cta" as any)}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </motion.div>

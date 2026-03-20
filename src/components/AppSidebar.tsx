@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Moon, Sun, BarChart3, Trophy, PieChart, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft, Crosshair } from "lucide-react";
+import { LayoutDashboard, Plus, List, LogOut, Moon, Sun, BarChart3, Trophy, PieChart, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft, Crosshair, ShieldCheck } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +38,7 @@ const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.strategy", url: "/strategy", icon: Crosshair },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
+  { titleKey: "nav.security", url: "/security", icon: ShieldCheck },
 ];
 
 export function AppSidebar() {
