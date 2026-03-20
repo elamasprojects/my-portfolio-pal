@@ -23,6 +23,7 @@ const moreItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.notation", url: "/export", icon: PieChart },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
+  { titleKey: "nav.security", url: "/security", icon: ShieldCheck },
   { titleKey: "nav.settings", url: "/settings", icon: Settings },
 ];
 

@@ -78,6 +78,7 @@ const App = () => (
               <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
               <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
               <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
               {/* Legacy redirects */}
