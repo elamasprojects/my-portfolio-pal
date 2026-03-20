@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.search-symbol]
 verify_jwt = false
+
+[functions.dca-history]
+verify_jwt = false

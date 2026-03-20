@@ -23,6 +23,11 @@ import SharedExport from "./pages/SharedExport";
 import Landing from "./pages/Landing";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import ToolsLayout from "./components/ToolsLayout";
+import Tools from "./pages/Tools";
+import RiskProfile from "./pages/RiskProfile";
+import CompoundCalculator from "./pages/CompoundCalculator";
+import DCASimulator from "./pages/DCASimulator";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +57,12 @@ const App = () => (
               <Route path="/landing" element={<Landing />} />
               <Route path="/install" element={<Install />} />
               <Route path="/share/:id" element={<SharedExport />} />
+              <Route path="/tools" element={<ToolsLayout />}>
+                <Route index element={<Tools />} />
+                <Route path="risk-profile" element={<RiskProfile />} />
+                <Route path="compound" element={<CompoundCalculator />} />
+                <Route path="dca" element={<DCASimulator />} />
+              </Route>
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/add" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
               <Route path="/add/import" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
