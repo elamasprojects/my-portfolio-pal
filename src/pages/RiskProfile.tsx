@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { Shield, ArrowLeft, ArrowRight, RotateCcw, Scale, Rocket, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { SEOHead } from "@/components/SEOHead";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Question {
@@ -120,7 +121,13 @@ export default function RiskProfile() {
   };
 
   return (
-    <div className="py-8 px-4 max-w-2xl mx-auto">
+    <>
+      <SEOHead
+        title="Investor Risk Profile Test"
+        description="Take our free risk profile quiz to discover your investor type and get a personalized portfolio allocation suggestion."
+        path="/tools/risk-profile"
+      />
+      <div className="py-8 px-4 max-w-2xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Shield className="h-6 w-6 text-primary" />
@@ -277,5 +284,6 @@ export default function RiskProfile() {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }

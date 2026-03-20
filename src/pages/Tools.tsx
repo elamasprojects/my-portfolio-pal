@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChessKnight } from "@/components/ChessKnight";
 import { Shield, TrendingUp, DollarSign, ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
+import { SEOHead } from "@/components/SEOHead";
 
 const TOOLS = [
   { key: "riskProfile", icon: Shield, to: "/tools/risk-profile", color: "text-chart-1" },
@@ -15,7 +16,13 @@ export default function Tools() {
   const { t } = useLanguage();
 
   return (
-    <div className="py-16 px-4">
+    <>
+      <SEOHead
+        title="Free Investment Tools"
+        description="Discover your investor profile, calculate compound interest, and simulate DCA strategies — all free, no signup required."
+        path="/tools"
+      />
+      <div className="py-16 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Hero */}
         <motion.div
@@ -68,5 +75,6 @@ export default function Tools() {
         </div>
       </div>
     </div>
+    </>
   );
 }

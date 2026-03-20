@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Bitcoin, TrendingUp, DollarSign, Percent, Loader2, Calendar, Repeat } from "lucide-react";
+import { SEOHead } from "@/components/SEOHead";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -110,7 +111,13 @@ export default function DCASimulator() {
     n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   return (
-    <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
+    <>
+      <SEOHead
+        title="DCA Simulator — Dollar Cost Averaging"
+        description="Simulate a Dollar Cost Averaging strategy on Bitcoin with real historical prices. See how much you'd have earned."
+        path="/tools/dca"
+      />
+      <div className="py-8 px-4 max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
@@ -302,5 +309,6 @@ export default function DCASimulator() {
         </>
       )}
     </div>
+    </>
   );
 }
