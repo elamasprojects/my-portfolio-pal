@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Share2,
   Calculator,
+  Lock,
 } from "lucide-react";
 import { motion } from "motion/react";
 
