@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance, computeCumulativePnL, computeCash } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
