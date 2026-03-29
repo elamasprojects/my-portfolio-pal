@@ -11,6 +11,7 @@ import {
   useActivePortfolio,
   computeHoldings,
   computePerformance,
+  computeCash,
 } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useAuth } from "@/hooks/useAuth";
