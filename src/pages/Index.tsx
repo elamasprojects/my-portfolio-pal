@@ -222,6 +222,27 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {cash > 0 && (
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.cash")}</p>
+                  <p className="text-2xl font-bold font-mono mt-1">
+                    {fmt(cx(cash))}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {t("board.cashTooltip")}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
