@@ -351,6 +351,7 @@ export function computeCash(trades: Trade[]): number {
 export interface CumulativePnLPoint {
   date: string;
   cumulative_pnl: number;
+  net_pnl?: number;
 }
 
 export function computeCumulativePnL(trades: Trade[]): CumulativePnLPoint[] {
