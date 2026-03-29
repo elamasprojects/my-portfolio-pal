@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
-import { useTrades, computeHoldings, computePerformance, computeCumulativePnL, computeCash } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance, computeCash, computeCumulativePnLWithUnrealized, inferMarket } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote, LineChart as LineChartIcon, Wallet } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
+import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
 
@@ -19,6 +22,9 @@ const CHART_COLORS = [
   "hsl(220, 8%, 60%)",
   "hsl(30, 60%, 50%)",
   "hsl(220, 10%, 35%)",
+  "hsl(280, 50%, 55%)",
+  "hsl(190, 60%, 45%)",
+  "hsl(350, 60%, 50%)",
 ];
 
 const Index = () => {
@@ -28,8 +34,8 @@ const Index = () => {
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
 
-  // Initialize display currency from profile preference
   const [currencyInitialized, setCurrencyInitialized] = useState(false);
   if (profile && !currencyInitialized) {
     setDisplayCurrency((profile.default_currency as "USD" | "ARS") || "USD");
@@ -38,18 +44,22 @@ const Index = () => {
 
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
-  const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
   const cash = useMemo(() => computeCash(trades), [trades]);
 
   const isARS = displayCurrency === "ARS";
   const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
   const currencySymbol = isARS ? "ARS$" : "$";
   const fmt = (v: number) => `${currencySymbol}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtCompact = (v: number) => {
+    const abs = Math.abs(v);
+    if (abs >= 1_000_000) return `${currencySymbol}${(v / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000) return `${currencySymbol}${(v / 1_000).toFixed(1)}K`;
+    return fmt(v);
+  };
 
-  // Live market prices
   const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
 
-  const marketValue = useMemo(() => 
+  const marketValue = useMemo(() =>
     holdings.reduce((s, h) => {
       const price = marketPrices.get(h.symbol.toUpperCase());
       return s + (price ? price * h.net_quantity : h.total_invested);
@@ -57,7 +67,7 @@ const Index = () => {
     [holdings, marketPrices]
   );
 
-  const unrealizedPnl = useMemo(() => 
+  const unrealizedPnl = useMemo(() =>
     holdings.reduce((s, h) => {
       const price = marketPrices.get(h.symbol.toUpperCase());
       if (!price) return s;
@@ -66,24 +76,51 @@ const Index = () => {
     [holdings, marketPrices]
   );
 
+  const cumulativePnL = useMemo(() => computeCumulativePnLWithUnrealized(trades, marketPrices), [trades, marketPrices]);
+
+  const totalPortfolioValue = marketValue + cash;
+  const totalPnl = performance.total_realized_pnl + unrealizedPnl + performance.total_dividends;
+  const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
+
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
 
-  const allocationData = useMemo(() => {
+  // Allocation by type
+  const allocationByType = useMemo(() => {
     const data = holdings.reduce((acc, h) => {
+      const mktPrice = marketPrices.get(h.symbol.toUpperCase());
+      const val = mktPrice ? mktPrice * h.net_quantity : h.total_invested;
       const existing = acc.find((a) => a.name === h.asset_type);
-      if (existing) {
-        existing.value += h.total_invested;
-      } else {
-        acc.push({ name: h.asset_type, value: h.total_invested });
-      }
+      if (existing) existing.value += val;
+      else acc.push({ name: h.asset_type, value: val });
       return acc;
     }, [] as { name: string; value: number }[]);
-    if (cash > 0) {
-      data.push({ name: "cash", value: cash });
-    }
+    if (cash > 0) data.push({ name: "cash", value: cash });
     return data;
-  }, [holdings, cash]);
+  }, [holdings, cash, marketPrices]);
+
+  // Allocation by individual asset
+  const allocationByAsset = useMemo(() => {
+    const data = holdings.map(h => {
+      const mktPrice = marketPrices.get(h.symbol.toUpperCase());
+      const val = mktPrice ? mktPrice * h.net_quantity : h.total_invested;
+      return { name: h.symbol, value: val };
+    }).sort((a, b) => b.value - a.value);
+    if (cash > 0) data.push({ name: "Cash", value: cash });
+    return data;
+  }, [holdings, cash, marketPrices]);
+
+  // Allocation by market
+  const allocationByMarket = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const h of holdings) {
+      const market = inferMarket(h.symbol);
+      const mktPrice = marketPrices.get(h.symbol.toUpperCase());
+      const val = mktPrice ? mktPrice * h.net_quantity : h.total_invested;
+      map.set(market, (map.get(market) || 0) + val);
+    }
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [holdings, marketPrices]);
 
   const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
@@ -98,8 +135,25 @@ const Index = () => {
     );
   }
 
+  // Holdings with computed P&L
+  const holdingsWithPnl = holdings.map(h => {
+    const currentPrice = marketPrices.get(h.symbol.toUpperCase());
+    const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
+    const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
+    const uPnlPct = currentPrice && h.avg_cost > 0 ? ((currentPrice - h.avg_cost) / h.avg_cost) * 100 : null;
+    return { ...h, currentPrice, mktVal, uPnl, uPnlPct };
+  });
+
+  const chartTooltipStyle = {
+    background: "hsl(var(--popover))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    color: "hsl(var(--popover-foreground))",
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl chess-title">{t("board.title")}</h1>
@@ -113,235 +167,204 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.costBasis")}</p>
-                <p className="text-2xl font-bold font-mono mt-1">
-                  {fmt(cx(performance.total_cost_basis))}
+      {/* ═══════ HERO CARD ═══════ */}
+      <Card className="border-primary/30 bg-gradient-to-br from-card to-accent/20">
+        <CardContent className="p-5 md:p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.portfolioValue")}</p>
+              {pricesLoading ? (
+                <Skeleton className="h-10 w-40 mt-1" />
+              ) : (
+                <p className="text-3xl md:text-4xl font-bold font-mono mt-1">
+                  {fmt(cx(totalPortfolioValue))}
                 </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.marketValue")}</p>
-                <p className="text-2xl font-bold font-mono mt-1">
-                  {pricesLoading ? <Skeleton className="h-8 w-24" /> : fmt(cx(marketValue))}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <LineChartIcon className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.realizedPnl")}</p>
-                <p className={`text-2xl font-bold font-mono mt-1 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
-                  {performance.total_realized_pnl >= 0 ? "+" : ""}
-                  {fmt(cx(performance.total_realized_pnl))}
-                </p>
-              </div>
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
-                {performance.total_realized_pnl >= 0 ? (
-                  <TrendingUp className="h-5 w-5 text-gain" />
-                ) : (
-                  <TrendingDown className="h-5 w-5 text-loss" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.unrealizedPnl")}</p>
+              )}
+              <div className="flex items-center gap-1.5 mt-1">
                 {pricesLoading ? (
-                  <Skeleton className="h-8 w-24 mt-1" />
-                ) : (
-                  <p className={`text-2xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                    {unrealizedPnl >= 0 ? "+" : ""}{fmt(cx(unrealizedPnl))}
-                  </p>
-                )}
-              </div>
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${unrealizedPnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
-                {unrealizedPnl >= 0 ? (
-                  <TrendingUp className="h-5 w-5 text-gain" />
-                ) : (
-                  <TrendingDown className="h-5 w-5 text-loss" />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.winRate")}</p>
-                <p className="text-2xl font-bold font-mono mt-1">
-                  {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
-                </p>
-                {performance.total_sells > 0 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {performance.winning_sells}/{performance.total_sells} {t("common.sells")}
-                  </p>
-                )}
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Target className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.dividends")}</p>
-                <p className="text-2xl font-bold font-mono mt-1 text-gain">
-                  {fmt(cx(performance.total_dividends))}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-gain/10 flex items-center justify-center">
-                <Banknote className="h-5 w-5 text-gain" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {cash > 0 && (
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.cash")}</p>
-                  <p className="text-2xl font-bold font-mono mt-1">
-                    {fmt(cx(cash))}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {t("board.cashTooltip")}
-                  </p>
-                </div>
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalPnl")}</p>
-                {pricesLoading ? (
-                  <Skeleton className="h-8 w-24 mt-1" />
+                  <Skeleton className="h-4 w-20" />
                 ) : (
                   <>
-                    <p className={`text-2xl font-bold font-mono mt-1 ${(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "text-gain" : "text-loss"}`}>
-                      {(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "+" : ""}
-                      {fmt(cx(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends))}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {t("board.realizedPnl")}: {fmt(cx(performance.total_realized_pnl))} · {t("board.unrealizedPnl")}: {fmt(cx(unrealizedPnl))}
-                    </p>
+                    {totalPnl >= 0 ? (
+                      <ArrowUpRight className="h-4 w-4 text-gain" />
+                    ) : (
+                      <ArrowDownRight className="h-4 w-4 text-loss" />
+                    )}
+                    <span className={`text-sm font-semibold font-mono ${totalPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                      {totalPnl >= 0 ? "+" : ""}{fmt(cx(totalPnl))} ({totalPnlPct >= 0 ? "+" : ""}{totalPnlPct.toFixed(1)}%)
+                    </span>
                   </>
                 )}
               </div>
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
-                {(performance.total_realized_pnl + unrealizedPnl + performance.total_dividends) >= 0 ? (
-                  <TrendingUp className="h-5 w-5 text-gain" />
+            </div>
+            <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+              <div>
+                <p className="text-xs uppercase tracking-wider">{t("board.costBasis")}</p>
+                <p className="font-mono font-semibold text-foreground">{fmt(cx(performance.total_cost_basis))}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider">{t("board.dividends")}</p>
+                <p className="font-mono font-semibold text-gain">{fmt(cx(performance.total_dividends))}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider">{t("board.totalTrades")}</p>
+                <p className="font-mono font-semibold text-foreground">{totalTrades}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ═══════ METRICS GRID (2x2 mobile, 4-col desktop) ═══════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate">{t("board.realizedPnl")}</p>
+                <p className={`text-lg md:text-xl font-bold font-mono mt-0.5 ${performance.total_realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
+                  {performance.total_realized_pnl >= 0 ? "+" : ""}{fmtCompact(cx(performance.total_realized_pnl))}
+                </p>
+              </div>
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${performance.total_realized_pnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {performance.total_realized_pnl >= 0 ? <TrendingUp className="h-4 w-4 text-gain" /> : <TrendingDown className="h-4 w-4 text-loss" />}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate">{t("board.unrealizedPnl")}</p>
+                {pricesLoading ? (
+                  <Skeleton className="h-6 w-16 mt-1" />
                 ) : (
-                  <TrendingDown className="h-5 w-5 text-loss" />
+                  <p className={`text-lg md:text-xl font-bold font-mono mt-0.5 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                    {unrealizedPnl >= 0 ? "+" : ""}{fmtCompact(cx(unrealizedPnl))}
+                  </p>
                 )}
+              </div>
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${unrealizedPnl >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {unrealizedPnl >= 0 ? <TrendingUp className="h-4 w-4 text-gain" /> : <TrendingDown className="h-4 w-4 text-loss" />}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate">{t("board.winRate")}</p>
+                <p className="text-lg md:text-xl font-bold font-mono mt-0.5">
+                  {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
+                </p>
+                {performance.total_sells > 0 && (
+                  <p className="text-[10px] text-muted-foreground">{performance.winning_sells}/{performance.total_sells}</p>
+                )}
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Target className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate">{t("board.cash")}</p>
+                <p className="text-lg md:text-xl font-bold font-mono mt-0.5">
+                  {fmtCompact(cx(cash))}
+                </p>
+              </div>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Wallet className="h-4 w-4 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.holdings")}</p>
-            <p className="text-xl font-bold font-mono mt-1">{holdings.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalTrades")}</p>
-            <p className="text-xl font-bold font-mono mt-1">{totalTrades}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.buysSells")}</p>
-            <p className="text-xl font-bold font-mono mt-1">
-              {trades.filter((t) => t.trade_type === "buy").length} / {trades.filter((t) => t.trade_type === "sell").length}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.totalReturn")}</p>
-            <p className={`text-xl font-bold font-mono mt-1 ${performance.total_return >= 0 ? "text-gain" : "text-loss"}`}>
-              {performance.total_return >= 0 ? "+" : ""}{fmt(cx(performance.total_return))}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-base">{t("board.allocationByType")}</CardTitle>
+      {/* ═══════ HOLDINGS + ALLOCATION (side by side on desktop) ═══════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+        {/* Holdings */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t("board.holdings")}</CardTitle>
           </CardHeader>
           <CardContent>
-            {allocationData.length > 0 ? (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={allocationData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2} dataKey="value">
-                      {allocationData.map((_, index) => (
-                        <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => fmt(cx(value))}
-                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
-                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap gap-3 justify-center mt-2">
-                  {allocationData.map((entry, i) => (
-                    <div key={entry.name} className="flex items-center gap-1.5 text-xs">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                      <span className="text-muted-foreground capitalize">{entry.name}</span>
+            {holdingsWithPnl.length > 0 ? (
+              isMobile ? (
+                /* ── Mobile: Cards ── */
+                <div className="space-y-2">
+                  {holdingsWithPnl.map((h) => (
+                    <div
+                      key={h.symbol}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/30 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/asset/${h.symbol}`)}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-mono font-semibold text-primary text-sm">{h.symbol}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {h.net_quantity.toFixed(2)} @ {currencySymbol}{cx(h.avg_cost).toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {pricesLoading ? (
+                          <Skeleton className="h-5 w-16 ml-auto" />
+                        ) : (
+                          <>
+                            <p className="font-mono text-sm font-semibold">
+                              {h.mktVal !== null ? fmtCompact(cx(h.mktVal)) : fmtCompact(cx(h.total_invested))}
+                            </p>
+                            {h.uPnlPct !== null && (
+                              <p className={`text-[11px] font-mono font-semibold ${h.uPnl! >= 0 ? "text-gain" : "text-loss"}`}>
+                                {h.uPnl! >= 0 ? "+" : ""}{h.uPnlPct.toFixed(1)}%
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              ) : (
+                /* ── Desktop: Table ── */
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("board.symbol")}</TableHead>
+                      <TableHead className="text-right">{t("board.qty")}</TableHead>
+                      <TableHead className="text-right">{t("board.avgCost")}</TableHead>
+                      <TableHead className="text-right">{t("board.price")}</TableHead>
+                      <TableHead className="text-right">{t("board.mktVal")}</TableHead>
+                      <TableHead className="text-right">{t("board.pnl")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {holdingsWithPnl.map((h) => (
+                      <TableRow key={h.symbol} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/asset/${h.symbol}`)}>
+                        <TableCell className="font-mono font-semibold text-primary">{h.symbol}</TableCell>
+                        <TableCell className="text-right font-mono">{h.net_quantity.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">{currencySymbol}{cx(h.avg_cost).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : h.currentPrice ? `${currencySymbol}${cx(h.currentPrice).toFixed(2)}` : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : h.mktVal !== null ? fmt(cx(h.mktVal)) : fmt(cx(h.total_invested))}
+                        </TableCell>
+                        <TableCell className={`text-right font-mono font-semibold ${h.uPnl === null ? "" : h.uPnl >= 0 ? "text-gain" : "text-loss"}`}>
+                          {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : h.uPnlPct !== null ? `${h.uPnlPct >= 0 ? "+" : ""}${h.uPnlPct.toFixed(1)}%` : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
                 <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
@@ -354,97 +377,68 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {/* Allocation Tabs */}
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">{t("board.holdings")}</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t("board.allocationByType")}</CardTitle>
           </CardHeader>
           <CardContent>
-            {holdings.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("board.symbol")}</TableHead>
-                    <TableHead>{t("board.name")}</TableHead>
-                    <TableHead>{t("board.type")}</TableHead>
-                    <TableHead className="text-right">{t("board.qty")}</TableHead>
-                <TableHead className="text-right">{t("board.avgCost")}</TableHead>
-                    <TableHead className="text-right">{t("board.currentPrice")}</TableHead>
-                    <TableHead className="text-right">{t("board.total")}</TableHead>
-                    <TableHead className="text-right">{t("board.unrealizedPnl")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {holdings.map((h) => {
-                    const currentPrice = marketPrices.get(h.symbol.toUpperCase());
-                    const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
-                    const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
-                    return (
-                    <TableRow key={h.symbol} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/asset/${h.symbol}`)}>
-                      <TableCell className="font-mono font-semibold text-primary">{h.symbol}</TableCell>
-                      <TableCell className="text-muted-foreground">{h.asset_name}</TableCell>
-                      <TableCell className="capitalize text-muted-foreground">{h.asset_type}</TableCell>
-                      <TableCell className="text-right font-mono">{h.net_quantity.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">{currencySymbol}{cx(h.avg_cost).toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {pricesLoading ? <Skeleton className="h-4 w-14 ml-auto" /> : currentPrice ? `${currencySymbol}${cx(currentPrice).toFixed(2)}` : "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : mktVal !== null ? fmt(cx(mktVal)) : fmt(cx(h.total_invested))}
-                      </TableCell>
-                      <TableCell className={`text-right font-mono font-semibold ${uPnl === null ? "" : uPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                        {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : uPnl !== null ? `${uPnl >= 0 ? "+" : ""}${fmt(cx(uPnl))}` : "—"}
-                      </TableCell>
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-8">
-                <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
-                <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  {t("board.addTrade")}
-                </Button>
-              </div>
-            )}
+            <Tabs defaultValue="type">
+              <TabsList className="w-full h-8">
+                <TabsTrigger value="type" className="text-xs flex-1">{t("board.byType")}</TabsTrigger>
+                <TabsTrigger value="asset" className="text-xs flex-1">{t("board.byAsset")}</TabsTrigger>
+                <TabsTrigger value="market" className="text-xs flex-1">{t("board.byMarket")}</TabsTrigger>
+              </TabsList>
+              {["type", "asset", "market"].map((tab) => {
+                const data = tab === "type" ? allocationByType : tab === "asset" ? allocationByAsset : allocationByMarket;
+                const total = data.reduce((s, d) => s + d.value, 0);
+                return (
+                  <TabsContent key={tab} value={tab}>
+                    {data.length > 0 ? (
+                      <>
+                        <div className="h-44">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value">
+                                {data.map((_, i) => (
+                                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: number) => `${fmt(cx(value))} (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`}
+                                contentStyle={chartTooltipStyle}
+                                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {data.map((entry, i) => (
+                            <div key={entry.name} className="flex items-center gap-1 text-[11px]">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                              <span className="text-muted-foreground capitalize truncate max-w-[80px]">{entry.name}</span>
+                              <span className="text-foreground font-mono">{total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 py-8">
+                        <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </CardContent>
         </Card>
       </div>
 
-      {pnlByAsset.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("board.pnlByAsset")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
-                  <ReferenceLine x={0} stroke="hsl(var(--border))" />
-                  <Tooltip
-                    formatter={(value: number) => [fmt(cx(value)), t("board.totalReturn")]}
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
-                    itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                  />
-                  <Bar dataKey="total_return" radius={[0, 4, 4, 0]}>
-                    {pnlByAsset.map((entry, i) => (
-                      <Cell key={i} fill={entry.total_return >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* ═══════ P&L OVER TIME (dual line) ═══════ */}
       {cumulativePnL.length > 1 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">{t("board.pnlOverTime")}</CardTitle>
           </CardHeader>
           <CardContent>
@@ -452,9 +446,13 @@ const Index = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={cumulativePnL} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
                   <defs>
-                    <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--gain))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--gain))" stopOpacity={0} />
+                    <linearGradient id="pnlGradientRealized" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(42, 80%, 55%)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="hsl(42, 80%, 55%)" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="pnlGradientNet" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(152, 55%, 45%)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="hsl(152, 55%, 45%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -462,11 +460,19 @@ const Index = () => {
                   <YAxis tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <ReferenceLine y={0} stroke="hsl(var(--border))" />
                   <Tooltip
-                    formatter={(value: number) => [fmt(cx(value)), t("board.cumulativePnl")]}
-                    contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--popover-foreground))" }}
+                    formatter={(value: number, name: string) => [
+                      fmt(cx(value)),
+                      name === "cumulative_pnl" ? t("board.realizedLine") : t("board.netLine"),
+                    ]}
+                    contentStyle={chartTooltipStyle}
                     itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                   />
-                  <Area type="monotone" dataKey="cumulative_pnl" stroke="hsl(var(--gain))" fill="url(#pnlGradient)" strokeWidth={2} />
+                  <Legend
+                    formatter={(value) => value === "cumulative_pnl" ? t("board.realizedLine") : t("board.netLine")}
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
+                  <Area type="monotone" dataKey="cumulative_pnl" stroke="hsl(42, 80%, 55%)" fill="url(#pnlGradientRealized)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="net_pnl" stroke="hsl(152, 55%, 45%)" fill="url(#pnlGradientNet)" strokeWidth={2} dot={false} strokeDasharray="5 3" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -474,61 +480,108 @@ const Index = () => {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("board.recentTrades")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentTrades.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("board.date")}</TableHead>
-                  <TableHead>{t("board.symbol")}</TableHead>
-                  <TableHead>{t("board.type")}</TableHead>
-                  <TableHead className="text-right">{t("board.qty")}</TableHead>
-                  <TableHead className="text-right">{t("board.price")}</TableHead>
-                  <TableHead className="text-right">{t("board.total")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentTrades.map((t_) => (
-                  <TableRow key={t_.id}>
-                    <TableCell className="text-muted-foreground">{new Date(t_.trade_date).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-mono font-semibold">{t_.symbol}</TableCell>
-                    <TableCell>
-                      <span className={
-                        t_.trade_type === "buy"
-                          ? "text-gain"
-                          : t_.trade_type === "sell"
-                          ? "text-loss"
-                          : "text-primary"
-                      }>
-                        {t_.trade_type.toUpperCase()}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {t_.trade_type === "dividend" ? "—" : t_.quantity}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {t_.trade_type === "dividend" ? "—" : fmt(cx(Number(t_.price_per_unit)))}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{fmt(cx(Number(t_.total_amount)))}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <p className="text-muted-foreground text-sm">{t("board.noTrades")}</p>
-              <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
-                <Plus className="h-4 w-4 mr-1" />
-                {t("board.getStarted")}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* ═══════ P&L BY ASSET + RECENT TRADES (side by side on desktop) ═══════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {pnlByAsset.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{t("board.pnlByAsset")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={pnlByAsset} layout="vertical" margin={{ left: 60, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" tickFormatter={(v) => `${currencySymbol}${cx(v).toFixed(0)}`} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis type="category" dataKey="symbol" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontFamily: "JetBrains Mono" }} width={55} />
+                    <ReferenceLine x={0} stroke="hsl(var(--border))" />
+                    <Tooltip
+                      formatter={(value: number) => [fmt(cx(value)), t("board.totalReturn")]}
+                      contentStyle={chartTooltipStyle}
+                      itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                    />
+                    <Bar dataKey="total_return" radius={[0, 4, 4, 0]}>
+                      {pnlByAsset.map((entry, i) => (
+                        <Cell key={i} fill={entry.total_return >= 0 ? "hsl(var(--gain))" : "hsl(var(--loss))"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{t("board.recentTrades")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentTrades.length > 0 ? (
+              isMobile ? (
+                /* ── Mobile: Cards ── */
+                <div className="space-y-2">
+                  {recentTrades.map((t_) => (
+                    <div key={t_.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          variant={t_.trade_type === "buy" ? "default" : t_.trade_type === "sell" ? "destructive" : "secondary"}
+                          className="text-[10px] px-1.5 py-0 shrink-0"
+                        >
+                          {t_.trade_type.toUpperCase()}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="font-mono font-semibold text-sm truncate">{t_.symbol}</p>
+                          <p className="text-[10px] text-muted-foreground">{new Date(t_.trade_date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <p className="font-mono text-sm font-semibold shrink-0">{fmt(cx(Number(t_.total_amount)))}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* ── Desktop: Table ── */
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("board.date")}</TableHead>
+                      <TableHead>{t("board.symbol")}</TableHead>
+                      <TableHead>{t("board.type")}</TableHead>
+                      <TableHead className="text-right">{t("board.qty")}</TableHead>
+                      <TableHead className="text-right">{t("board.total")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentTrades.map((t_) => (
+                      <TableRow key={t_.id}>
+                        <TableCell className="text-muted-foreground text-xs">{new Date(t_.trade_date).toLocaleDateString()}</TableCell>
+                        <TableCell className="font-mono font-semibold">{t_.symbol}</TableCell>
+                        <TableCell>
+                          <span className={t_.trade_type === "buy" ? "text-gain" : t_.trade_type === "sell" ? "text-loss" : "text-primary"}>
+                            {t_.trade_type.toUpperCase()}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {t_.trade_type === "dividend" ? "—" : t_.quantity}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{fmt(cx(Number(t_.total_amount)))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            ) : (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <p className="text-muted-foreground text-sm">{t("board.noTrades")}</p>
+                <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  {t("board.getStarted")}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

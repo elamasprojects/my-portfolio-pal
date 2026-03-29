@@ -95,6 +95,16 @@ export const en = {
   "board.totalPnl": "Total P&L",
   "board.cash": "Available Cash",
   "board.cashTooltip": "Proceeds from sales not yet reinvested",
+  "board.portfolioValue": "Portfolio Value",
+  "board.netPnl": "Net P&L",
+  "board.realizedLine": "Realized",
+  "board.netLine": "Net (Realized + Unrealized)",
+  "board.byType": "By Type",
+  "board.byAsset": "By Asset",
+  "board.byMarket": "By Market",
+  "board.change": "Change",
+  "board.mktVal": "Mkt Val",
+  "board.pnl": "P&L",
 
   // Add Trade
   "addTrade.title": "New Move",
