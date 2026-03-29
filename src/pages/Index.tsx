@@ -39,6 +39,7 @@ const Index = () => {
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
+  const cash = useMemo(() => computeCash(trades), [trades]);
 
   const isARS = displayCurrency === "ARS";
   const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
