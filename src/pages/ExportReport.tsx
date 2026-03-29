@@ -50,6 +50,7 @@ export default function ExportReport() {
 
   const holdings = useMemo(() => computeHoldings(trades), [trades]);
   const performance = useMemo(() => computePerformance(trades), [trades]);
+  const cash = useMemo(() => computeCash(trades), [trades]);
 
   const { prices: marketPrices } = useMarketPrices(holdings.map(h => h.symbol));
 
