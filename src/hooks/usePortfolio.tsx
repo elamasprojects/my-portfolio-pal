@@ -327,6 +327,26 @@ export function computePerformance(trades: Trade[]): PortfolioPerformance {
   };
 }
 
+// --- Cash calculation (non-reinvested proceeds) ---
+export function computeCash(trades: Trade[]): number {
+  const sorted = [...trades].sort(
+    (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+  );
+
+  let cash = 0;
+  for (const t of sorted) {
+    if (t.trade_type === "sell") {
+      cash += t.quantity * t.price_per_unit;
+    } else if (t.trade_type === "dividend") {
+      cash += Number(t.total_amount) || t.price_per_unit * t.quantity;
+    } else if (t.trade_type === "buy") {
+      cash -= t.quantity * t.price_per_unit;
+    }
+    if (cash < 0) cash = 0;
+  }
+  return Math.round(cash * 100) / 100;
+}
+
 // --- Cumulative P&L over time ---
 export interface CumulativePnLPoint {
   date: string;

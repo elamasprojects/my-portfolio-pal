@@ -93,6 +93,8 @@ export const en = {
   "board.currentPrice": "Price",
   "board.exchangeRate": "Exchange rate: Dólar MEP",
   "board.totalPnl": "Total P&L",
+  "board.cash": "Available Cash",
+  "board.cashTooltip": "Proceeds from sales not yet reinvested",
 
   // Add Trade
   "addTrade.title": "New Move",

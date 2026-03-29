@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTrades, computeHoldings, computePerformance, computeCumulativePnL } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance, computeCumulativePnL, computeCash } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote, LineChart as LineChartIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Plus, Target, Percent, Banknote, LineChart as LineChartIcon, Wallet } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
@@ -39,6 +39,7 @@ const Index = () => {
   const holdings = computeHoldings(trades);
   const performance = computePerformance(trades);
   const cumulativePnL = useMemo(() => computeCumulativePnL(trades), [trades]);
+  const cash = useMemo(() => computeCash(trades), [trades]);
 
   const isARS = displayCurrency === "ARS";
   const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
@@ -68,15 +69,21 @@ const Index = () => {
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
 
-  const allocationData = holdings.reduce((acc, h) => {
-    const existing = acc.find((a) => a.name === h.asset_type);
-    if (existing) {
-      existing.value += h.total_invested;
-    } else {
-      acc.push({ name: h.asset_type, value: h.total_invested });
+  const allocationData = useMemo(() => {
+    const data = holdings.reduce((acc, h) => {
+      const existing = acc.find((a) => a.name === h.asset_type);
+      if (existing) {
+        existing.value += h.total_invested;
+      } else {
+        acc.push({ name: h.asset_type, value: h.total_invested });
+      }
+      return acc;
+    }, [] as { name: string; value: number }[]);
+    if (cash > 0) {
+      data.push({ name: "cash", value: cash });
     }
-    return acc;
-  }, [] as { name: string; value: number }[]);
+    return data;
+  }, [holdings, cash]);
 
   const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
@@ -220,6 +227,27 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
+
+        {cash > 0 && (
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.cash")}</p>
+                  <p className="text-2xl font-bold font-mono mt-1">
+                    {fmt(cx(cash))}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {t("board.cashTooltip")}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-5">
