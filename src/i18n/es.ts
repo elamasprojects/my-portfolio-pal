@@ -97,6 +97,16 @@ export const es: Record<TranslationKey, string> = {
   "board.totalPnl": "P&L Total",
   "board.cash": "Cash Disponible",
   "board.cashTooltip": "Ganancias de ventas no reinvertidas",
+  "board.portfolioValue": "Valor del Portfolio",
+  "board.netPnl": "P&L Neto",
+  "board.realizedLine": "Realizado",
+  "board.netLine": "Neto (Realizado + No Realizado)",
+  "board.byType": "Por Tipo",
+  "board.byAsset": "Por Activo",
+  "board.byMarket": "Por Mercado",
+  "board.change": "Cambio",
+  "board.mktVal": "Val. Mercado",
+  "board.pnl": "P&L",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",

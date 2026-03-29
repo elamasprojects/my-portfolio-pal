@@ -386,3 +386,87 @@ export function computeCumulativePnL(trades: Trade[]): CumulativePnLPoint[] {
 
   return points;
 }
+
+// --- Cumulative P&L with unrealized (net) line ---
+export function computeCumulativePnLWithUnrealized(
+  trades: Trade[],
+  marketPrices: Map<string, number>
+): CumulativePnLPoint[] {
+  const sorted = [...trades].sort(
+    (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+  );
+
+  const positions = new Map<string, { qty: number; avgCost: number }>();
+  const points: CumulativePnLPoint[] = [];
+  let cumulative = 0;
+
+  for (const t of sorted) {
+    const pos = positions.get(t.symbol) || { qty: 0, avgCost: 0 };
+
+    if (t.trade_type === "buy") {
+      const totalCost = pos.avgCost * pos.qty + t.price_per_unit * t.quantity;
+      pos.qty += t.quantity;
+      pos.avgCost = pos.qty > 0 ? totalCost / pos.qty : 0;
+      positions.set(t.symbol, pos);
+    } else if (t.trade_type === "sell") {
+      const pnl = (t.price_per_unit - pos.avgCost) * t.quantity;
+      cumulative += pnl;
+      pos.qty -= t.quantity;
+      if (pos.qty <= 0) { pos.qty = 0; pos.avgCost = 0; }
+      positions.set(t.symbol, pos);
+    } else if (t.trade_type === "dividend") {
+      cumulative += Number(t.total_amount) || t.price_per_unit * t.quantity;
+    }
+
+    // Calculate unrealized P&L for all open positions using current market prices
+    let unrealized = 0;
+    for (const [sym, p] of positions.entries()) {
+      if (p.qty <= 0) continue;
+      const mktPrice = marketPrices.get(sym.toUpperCase());
+      if (mktPrice) {
+        unrealized += (mktPrice - p.avgCost) * p.qty;
+      }
+    }
+
+    // Only add points on sell/dividend events (realized events) + last buy to show trajectory
+    if (t.trade_type === "sell" || t.trade_type === "dividend") {
+      points.push({
+        date: t.trade_date.split("T")[0],
+        cumulative_pnl: Math.round(cumulative * 100) / 100,
+        net_pnl: Math.round((cumulative + unrealized) * 100) / 100,
+      });
+    }
+  }
+
+  // If no sell/dividend events but we have positions, add a single "today" point
+  if (points.length === 0 && positions.size > 0) {
+    let unrealized = 0;
+    for (const [sym, p] of positions.entries()) {
+      if (p.qty <= 0) continue;
+      const mktPrice = marketPrices.get(sym.toUpperCase());
+      if (mktPrice) {
+        unrealized += (mktPrice - p.avgCost) * p.qty;
+      }
+    }
+    if (unrealized !== 0) {
+      const today = new Date().toISOString().split("T")[0];
+      points.push({
+        date: today,
+        cumulative_pnl: 0,
+        net_pnl: Math.round(unrealized * 100) / 100,
+      });
+    }
+  }
+
+  return points;
+}
+
+// --- Infer market from symbol suffix ---
+export function inferMarket(symbol: string): string {
+  if (symbol.endsWith(".BA")) return "BYMA (AR)";
+  if (symbol.endsWith(".L")) return "LSE (UK)";
+  if (symbol.endsWith(".DE")) return "XETRA (DE)";
+  if (symbol.endsWith(".TO")) return "TSX (CA)";
+  if (symbol.endsWith(".SA")) return "B3 (BR)";
+  return "NYSE/NASDAQ (US)";
+}
