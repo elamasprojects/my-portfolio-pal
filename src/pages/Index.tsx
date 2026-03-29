@@ -69,15 +69,21 @@ const Index = () => {
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
 
-  const allocationData = holdings.reduce((acc, h) => {
-    const existing = acc.find((a) => a.name === h.asset_type);
-    if (existing) {
-      existing.value += h.total_invested;
-    } else {
-      acc.push({ name: h.asset_type, value: h.total_invested });
+  const allocationData = useMemo(() => {
+    const data = holdings.reduce((acc, h) => {
+      const existing = acc.find((a) => a.name === h.asset_type);
+      if (existing) {
+        existing.value += h.total_invested;
+      } else {
+        acc.push({ name: h.asset_type, value: h.total_invested });
+      }
+      return acc;
+    }, [] as { name: string; value: number }[]);
+    if (cash > 0) {
+      data.push({ name: "cash", value: cash });
     }
-    return acc;
-  }, [] as { name: string; value: number }[]);
+    return data;
+  }, [holdings, cash]);
 
   const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
