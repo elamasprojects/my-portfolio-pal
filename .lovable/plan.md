@@ -1,57 +1,54 @@
 
 
-# Plan: Sección de Seguridad y Privacidad de Datos
+# Plan: Cash — Ventas No Reinvertidas
 
-## Resumen
+## Concepto
 
-Crear una página `/security` con toda la información sobre seguridad y privacidad de datos del usuario, y hacerla accesible desde 3 puntos: sidebar (desktop), menú de perfil (mobile), y landing page.
+Cash = proceeds de todas las ventas + dividendos cobrados - costo de todas las compras realizadas **después** de la primera venta. Esto representa el capital liberado que no se reinvirtió.
 
-## Implementación
+Enfoque más simple y correcto: calcular cash **cronológicamente**. Una vez que ocurre la primera venta, el cash empieza a acumularse. Las compras posteriores lo reducen.
 
-### 1. Nueva página `src/pages/Security.tsx`
+```text
+cash = 0
+for each trade (cronológico):
+  if sell  → cash += proceeds (qty × price)
+  if dividend → cash += amount
+  if buy   → cash -= cost (qty × price)
+  if cash < 0 → cash = 0  (compras iniciales no generan cash negativo)
+```
 
-Página con secciones claras usando Cards:
+## Cambios
 
-- **Almacenamiento anónimo**: datos vinculados a UUID, no a identidad real. Emails aislados en `auth.users`.
-- **Row-Level Security (RLS)**: cada usuario solo accede a sus propios datos.
-- **Cifrado**: AES-256 en reposo, TLS 1.2+ en tránsito.
-- **Certificación SOC 2 Type II**: infraestructura Supabase/AWS.
-- **OCR e imágenes**: las imágenes se procesan en memoria (base64), se envían a la Edge Function para extracción y se descartan inmediatamente. Nunca se almacenan.
-- **Autenticación JWT**: tokens seguros gestionados por Supabase Auth.
+### 1. Nueva función `computeCash` en `src/hooks/usePortfolio.tsx`
 
-Diseño: íconos por sección (Shield, Lock, Eye, Image, Key), estilo consistente con el resto de la app.
+Recorre trades ordenados cronológicamente, acumula cash de sells/dividends y resta buys. Floor en 0 (no puede ser negativo — si compraste más de lo que vendiste, simplemente no tenés cash).
 
-### 2. Sidebar desktop — `src/components/AppSidebar.tsx`
+### 2. Dashboard `src/pages/Index.tsx`
 
-- Agregar `{ titleKey: "nav.security", url: "/security", icon: ShieldCheck }` al array `navItems`.
-- Agregar traducción `nav.security` en ambos idiomas.
+- Llamar `computeCash(trades)` para obtener el saldo de liquidez.
+- Agregar una nueva **Card** de "Cash Disponible" en el grid de métricas (al lado de Cost Basis, Market Value, etc.).
+- Agregar "Cash" al **pie chart de allocation** como un segmento adicional con un color diferenciado (ej. azul claro).
+- Incluir cash en el cálculo de **portfolio total** (market value + cash) para que los porcentajes de allocation reflejen la realidad.
 
-### 3. Mobile — `src/components/MobileNav.tsx`
+### 3. Exportación `src/pages/ExportReport.tsx`
 
-- Agregar `{ titleKey: "nav.security", url: "/security", icon: ShieldCheck }` al array `moreItems` (dentro del drawer "Ver Más").
+- Incluir cash en el reporte exportado como métrica adicional.
 
-### 4. Routing — `src/App.tsx`
+### 4. Traducciones `src/i18n/en.ts` y `es.ts`
 
-- Agregar ruta protegida: `/security` → `<Security />`.
+- `board.cash`: "Cash Disponible" / "Available Cash"
+- `board.cashTooltip`: texto explicativo
 
-### 5. Landing page — `src/pages/Landing.tsx`
+## Sin cambios en DB
 
-- Nueva sección antes del Final CTA, con 3-4 bullets resumiendo las garantías de seguridad (anonimato, cifrado, SOC 2, OCR sin almacenamiento).
-- Ícono ShieldCheck, título "Tu data está segura", botón "Saber más" que lleva a `/security`.
+Todo es cálculo client-side sobre los trades existentes. No se necesitan migraciones, nuevos tipos ni columnas.
 
-### 6. Traducciones — `src/i18n/en.ts` y `es.ts`
-
-~20 keys nuevas: `nav.security`, `security.title`, `security.anonymous.*`, `security.rls.*`, `security.encryption.*`, `security.ocr.*`, `security.soc2.*`, `landing.security.*`.
-
-## Archivos
+## Archivos modificados
 
 | Archivo | Cambio |
 |---|---|
-| `src/pages/Security.tsx` | Nuevo |
-| `src/App.tsx` | Ruta `/security` |
-| `src/components/AppSidebar.tsx` | Nav item |
-| `src/components/MobileNav.tsx` | More item |
-| `src/pages/Landing.tsx` | Sección seguridad |
-| `src/i18n/en.ts` | ~20 keys |
-| `src/i18n/es.ts` | ~20 keys |
+| `src/hooks/usePortfolio.tsx` | Nueva función `computeCash()` |
+| `src/pages/Index.tsx` | Card de cash + allocation pie |
+| `src/pages/ExportReport.tsx` | Incluir cash en reporte |
+| `src/i18n/en.ts`, `es.ts` | 2-3 keys nuevas |
 
