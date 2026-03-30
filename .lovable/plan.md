@@ -1,100 +1,68 @@
 
 
-# Plan: P&L Neto + Rediseño Completo del Dashboard
+# Plan: Rediseño de Export Report (Mobile + Desktop)
 
-## 3 Grandes Cambios
+## Problema
 
-### 1. Gráfico P&L con línea de P&L Neto (realizado + no realizado)
+La página `/export` tiene un card con aspect-ratio fijo de 1200x630 (optimizado para Twitter). En mobile (407px), esto resulta en un card de apenas ~213px de alto donde todo el contenido se comprime: textos ilegibles, pie chart minúsculo, stats cortados. Los botones de acción también se desbordan horizontalmente.
 
-**`src/hooks/usePortfolio.tsx`**: Nueva función `computeCumulativePnLWithUnrealized(trades, marketPrices)`.
-- En cada evento (sell/dividend), además del `cumulative_pnl` actual, calcula `net_pnl` = realizado acumulado + no realizado de posiciones abiertas (usando precios de mercado actuales como proxy del valor final).
-- Actualizar `CumulativePnLPoint` para incluir `net_pnl`.
+## Solución
 
-**`src/pages/Index.tsx`**: El AreaChart muestra 2 líneas: realizado (dorado) y neto (azul/verde), con leyenda.
+Separar la **vista previa visual** (lo que se exporta/comparte) del **layout de la página**. La card exportable mantiene su ratio 1200x630 para PDF/Twitter, pero la página muestra el contenido de forma responsive.
 
-### 2. Rediseño completo del Dashboard (Mobile + Desktop)
+### Cambios en `src/pages/ExportReport.tsx`
 
-El dashboard actual tiene 8 columnas en la tabla de holdings (ilegible en mobile 407px), demasiadas metric cards apiladas, y falta un "hero" que muestre el valor total del portfolio de un vistazo.
+**1. Header y controles (mobile-friendly)**
+- Botones apilados verticalmente en mobile, horizontales en desktop
+- Toggle de tema más compacto
 
-**Nuevo layout**:
+**2. Dos modos de visualización:**
+
+- **Card exportable** (hidden ref div): Se mantiene el div con aspect-ratio 1200x630 pero se oculta visualmente (`position: absolute, left: -9999px`). Solo se usa para `html2canvas` al exportar PDF o compartir.
+
+- **Preview responsive** (lo que el usuario ve): Renderizar el mismo contenido pero con layout adaptable:
+  - Mobile: stats en grid 2x2, pie chart debajo a ancho completo, holdings como lista vertical
+  - Desktop: layout similar al actual pero sin restricción de aspect-ratio
 
 ```text
-MOBILE (407px):
+MOBILE:
 ┌─────────────────────┐
-│ PORTFOLIO VALUE      │  Hero card: valor total + % cambio
-│ $XX,XXX    +X.X%    │  Sub: cost basis → market value
-└─────────────────────┘
-┌────────┬────────────┐
-│Realized│Unrealized  │  2x2 compact grid
-├────────┼────────────┤
-│Win Rate│   Cash     │
-└────────┴────────────┘
-┌─────────────────────┐
-│ HOLDINGS (cards)    │  Cards verticales en vez de tabla
-│ ┌─ AAPL ──────────┐ │  Cada card: symbol, qty, price,
-│ │ 10 @ $150  +5%  │ │  market val, P&L con color
-│ └─────────────────┘ │
-│ ┌─ MSFT ──────────┐ │
-│ │ 5 @ $380   -2%  │ │
-│ └─────────────────┘ │
+│ 📥 Portfolio        │
+│ [☀️/🌙] [PDF] [X]  │  ← botones stack o wrap
 └─────────────────────┘
 ┌─────────────────────┐
-│ ALLOCATION TABS     │  Tabs: Por Tipo | Por Activo
-│ [Pie chart]         │  Tipo: stock/etf/crypto/bond/cash
-│                     │  Activo: % por symbol individual
+│ Avatar + Username   │
+│ Portfolio • Date    │
+└─────────────────────┘
+┌──────────┬──────────┐
+│ Invested │ Mkt Val  │  2x2 grid
+├──────────┼──────────┤
+│ Unreal.  │ Realized │
+├──────────┼──────────┤
+│ Cash     │ Win Rate │
+└──────────┴──────────┘
+┌─────────────────────┐
+│ [Pie Chart grande]  │  ancho completo, 250px height
 └─────────────────────┘
 ┌─────────────────────┐
-│ P&L Over Time       │  2 líneas (realizado + neto)
-└─────────────────────┘
-┌─────────────────────┐
-│ P&L by Asset (bars) │
-└─────────────────────┘
-┌─────────────────────┐
-│ Recent Trades       │  Cards compactos en mobile
+│ Holdings badges     │
 └─────────────────────┘
 
-DESKTOP (1024px+):
-┌────────────────────────────────────────────┐
-│ Hero: Portfolio Value + mini metrics inline│
-└────────────────────────────────────────────┘
-┌──────────┬──────────┬──────────┬───────────┐
-│Realized  │Unrealized│ Win Rate │   Cash    │
-└──────────┴──────────┴──────────┴───────────┘
-┌────────────────────────┬──────────────────┐
-│ Holdings Table         │ Allocation Tabs  │
-│ (symbol, qty, avg,     │ [Por Tipo]       │
-│  price, mktVal, P&L%)  │ [Por Activo]     │
-└────────────────────────┴──────────────────┘
-┌────────────────────────────────────────────┐
-│ P&L Over Time (2 lines + legend)          │
-└────────────────────────────────────────────┘
-┌──────────────────┬─────────────────────────┐
-│ P&L by Asset     │ Recent Trades (table)   │
-└──────────────────┴─────────────────────────┘
+DESKTOP:
+┌────────────────────────────────────┐
+│ Header + controles en línea       │
+└────────────────────────────────────┘
+┌────────────────────────────────────┐
+│ Card preview (aspect-ratio, como  │
+│ ahora pero visible y scrollable)  │
+└────────────────────────────────────┘
 ```
 
-**Cambios concretos**:
+**3. La card oculta para exportación** usa `min-width: 1200px` y `min-height: 630px` con tamaños de fuente fijos en px (no rem), garantizando que el PNG/PDF siempre se vea bien independientemente del viewport.
 
-- **Hero Card**: Valor total del portfolio (market value + cash), cambio % vs cost basis, sub-línea con dividendos y total trades.
-- **Holdings en mobile**: Reemplazar tabla de 8 cols por cards verticales. Cada card muestra symbol (prominente), qty, avg cost, precio actual, market value, y P&L % con color. Clickeable → `/asset/:symbol`.
-- **Holdings en desktop**: Tabla simplificada — quitar columna "Name" y "Type", dejar: Symbol, Qty, Avg Cost, Price, Market Val, P&L, P&L%.
-- **Allocation con Tabs**: 2 vistas — "Por Tipo" (stock/etf/crypto/bond/cash como ahora) y "Por Activo" (pie por symbol individual, mostrando % de cada acción en el portfolio total).
-- **Recent Trades en mobile**: Cards compactos con fecha, symbol, badge de tipo (BUY/SELL/DIV), y monto.
-- **Stats secundarias** (holdings count, total trades, buys/sells, total return): mover a una fila compacta debajo del hero o eliminar redundancias.
-
-### 3. Nota sobre distribución por país
-
-La tabla `trades` no tiene campo `country`. Para agregar distribución geográfica se necesitaría:
-- Opción A: Inferir país del símbolo (`.BA` = Argentina, sin sufijo = USA) — aproximado pero sin cambios en DB.
-- Opción B: Agregar columna `country` a trades — preciso pero requiere migración y actualizar formularios.
-
-**Propuesta**: Implementar Opción A (inferencia por sufijo) como un tab adicional "Por Mercado" en la sección de allocation. Esto cubre el 90% del caso de uso sin tocar la DB.
-
-## Archivos modificados
+### Archivos modificados
 
 | Archivo | Cambio |
 |---|---|
-| `src/hooks/usePortfolio.tsx` | `computeCumulativePnLWithUnrealized()`, actualizar interface |
-| `src/pages/Index.tsx` | Rediseño completo: hero, holdings cards (mobile), allocation tabs, P&L 2 líneas |
-| `src/i18n/en.ts`, `es.ts` | ~10 keys nuevas (portfolioValue, netPnl, byType, byAsset, byMarket, etc.) |
+| `src/pages/ExportReport.tsx` | Separar preview responsive de card exportable, layout mobile-first |
 
