@@ -408,6 +408,9 @@ export const es: Record<TranslationKey, string> = {
   "asset.marketValue": "Valor de Mercado",
   "asset.unrealizedPnl": "P&L No Realizado",
   "asset.unrealizedPct": "% No Realizado",
+  "asset.priceHistory": "Historial de Precio",
+  "asset.chartLoading": "Cargando gráfico...",
+  "asset.noChartData": "Sin datos de precio disponibles",
 
   // Edit Trade Dialog
   "editTrade.title": "Editar Operación",

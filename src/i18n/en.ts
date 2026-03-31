@@ -407,6 +407,9 @@ export const en = {
   "asset.marketValue": "Market Value",
   "asset.unrealizedPnl": "Unrealized P&L",
   "asset.unrealizedPct": "Unrealized %",
+  "asset.priceHistory": "Price History",
+  "asset.chartLoading": "Loading chart...",
+  "asset.noChartData": "No price data available",
 
   // Edit Trade Dialog
   "editTrade.title": "Edit Trade",
