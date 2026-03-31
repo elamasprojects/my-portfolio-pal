@@ -35,14 +35,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build unique symbols list
+    // Build unique symbols list (US stocks only)
     const symbolSet = new Set<string>();
     for (const p of positions) {
-      symbolSet.add(p.symbol.toUpperCase());
+      const sym = p.symbol.toUpperCase();
+      if (!sym.includes(".")) {
+        symbolSet.add(sym);
+      }
     }
     const symbols = Array.from(symbolSet);
 
-    // Date range: past 8 days to today (overlap to avoid missing edge cases)
+    // Date range: past 8 days to today
     const today = new Date();
     const from = new Date(today);
     from.setDate(from.getDate() - 8);
@@ -51,85 +54,111 @@ Deno.serve(async (req) => {
 
     let totalInserted = 0;
     const errors: string[] = [];
+    const checked: string[] = [];
 
-    // 2. For each symbol, query Finnhub dividends
+    // 2. For each symbol, try Finnhub stock/dividend2 (free) then fall back to basic-financials
     for (const symbol of symbols) {
-      // Skip non-US symbols (Finnhub unlikely to have dividend data)
-      if (symbol.includes(".")) {
-        continue;
-      }
-
       try {
-        const url = `https://finnhub.io/api/v1/stock/dividend?symbol=${symbol}&from=${fromStr}&to=${toStr}&token=${finnhubKey}`;
+        // Try the dividend2 endpoint first (basic dividends - free tier)
+        const url = `https://finnhub.io/api/v1/stock/dividend2?symbol=${symbol}&token=${finnhubKey}`;
         const res = await fetch(url);
 
-        if (!res.ok) {
-          errors.push(`${symbol}: HTTP ${res.status}`);
-          await sleep(1000);
+        if (res.ok) {
+          const data = await res.json();
+          // dividend2 returns { currentDividendYieldTTM, dividendPerShareAnnual, ... }
+          // It doesn't have historical dates, so we use basic-financials for that
+        }
+
+        // Use the company basic financials to check current dividend data
+        const finUrl = `https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${finnhubKey}`;
+        const finRes = await fetch(finUrl);
+
+        if (!finRes.ok) {
+          errors.push(`${symbol}: metrics HTTP ${finRes.status}`);
+          await sleep(1200);
           continue;
         }
 
-        const dividends = await res.json();
+        const finData = await finRes.json();
+        const metric = finData?.metric;
 
-        if (!Array.isArray(dividends) || dividends.length === 0) {
-          await sleep(1000);
+        if (!metric) {
+          await sleep(1200);
           continue;
         }
 
-        // 3. For each dividend event, check all holders
-        for (const div of dividends) {
-          const divAmount = div.amount;
-          const exDate = div.exDate || div.date;
-          if (!divAmount || !exDate) continue;
+        // Check if there's dividend data
+        const dividendPerShareAnnual = metric.dividendPerShareAnnual;
+        const dividendYield = metric.currentDividendYieldTTM;
+        const exDividendDate = metric.dividendPayDateForward;
 
-          // Find all users holding this symbol
-          const holders = positions.filter(
-            (p) => p.symbol.toUpperCase() === symbol
-          );
+        checked.push(symbol);
 
-          for (const holder of holders) {
-            const qty = Number(holder.quantity);
-            if (qty <= 0) continue;
+        // If there's no dividend data or yield is 0, skip
+        if (!dividendPerShareAnnual || dividendPerShareAnnual <= 0) {
+          await sleep(1200);
+          continue;
+        }
 
-            // Deduplication: check if dividend trade already exists
-            const { data: existing } = await supabase
-              .from("trades")
-              .select("id")
-              .eq("user_id", holder.user_id)
-              .eq("portfolio_id", holder.portfolio_id)
-              .eq("symbol", holder.symbol)
-              .eq("trade_type", "dividend")
-              .gte("trade_date", `${exDate}T00:00:00`)
-              .lte("trade_date", `${exDate}T23:59:59`)
-              .limit(1);
+        // Calculate quarterly dividend (approximate)
+        const quarterlyDiv = dividendPerShareAnnual / 4;
 
-            if (existing && existing.length > 0) continue;
+        // Check if ex-dividend date falls within our window
+        // The forward ex-date from metrics might be in the past 7 days
+        if (exDividendDate) {
+          const exDate = new Date(exDividendDate);
+          const fromDate = new Date(fromStr);
+          const toDate = new Date(toStr);
 
-            // Insert dividend trade
-            const totalAmount = divAmount * qty;
-            const { error: insertErr } = await supabase
-              .from("trades")
-              .insert({
-                user_id: holder.user_id,
-                portfolio_id: holder.portfolio_id,
-                symbol: holder.symbol,
-                asset_name: holder.symbol,
-                asset_type: "stock",
-                trade_type: "dividend",
-                quantity: qty,
-                price_per_unit: divAmount,
-                total_amount: totalAmount,
-                trade_date: `${exDate}T00:00:00+00:00`,
-                original_currency: "USD",
-                notes: `Auto-detected dividend (ex-date: ${exDate})`,
-              });
+          if (exDate >= fromDate && exDate <= toDate) {
+            // Find all holders
+            const holders = positions.filter(
+              (p) => p.symbol.toUpperCase() === symbol
+            );
 
-            if (insertErr) {
-              errors.push(
-                `${symbol} insert for ${holder.user_id}: ${insertErr.message}`
-              );
-            } else {
-              totalInserted++;
+            for (const holder of holders) {
+              const qty = Number(holder.quantity);
+              if (qty <= 0) continue;
+
+              const divDate = exDividendDate;
+
+              // Deduplication check
+              const { data: existing } = await supabase
+                .from("trades")
+                .select("id")
+                .eq("user_id", holder.user_id)
+                .eq("portfolio_id", holder.portfolio_id)
+                .eq("symbol", holder.symbol)
+                .eq("trade_type", "dividend")
+                .gte("trade_date", `${divDate}T00:00:00`)
+                .lte("trade_date", `${divDate}T23:59:59`)
+                .limit(1);
+
+              if (existing && existing.length > 0) continue;
+
+              const totalAmount = quarterlyDiv * qty;
+              const { error: insertErr } = await supabase
+                .from("trades")
+                .insert({
+                  user_id: holder.user_id,
+                  portfolio_id: holder.portfolio_id,
+                  symbol: holder.symbol,
+                  asset_name: holder.symbol,
+                  asset_type: "stock",
+                  trade_type: "dividend",
+                  quantity: qty,
+                  price_per_unit: quarterlyDiv,
+                  total_amount: totalAmount,
+                  trade_date: `${divDate}T00:00:00+00:00`,
+                  original_currency: "USD",
+                  notes: `Auto-detected dividend (pay date: ${divDate}, annual: $${dividendPerShareAnnual})`,
+                });
+
+              if (insertErr) {
+                errors.push(`${symbol} insert: ${insertErr.message}`);
+              } else {
+                totalInserted++;
+              }
             }
           }
         }
@@ -137,14 +166,14 @@ Deno.serve(async (req) => {
         errors.push(`${symbol}: ${e.message}`);
       }
 
-      // Rate limiting: 1 second between Finnhub calls
-      await sleep(1000);
+      await sleep(1200);
     }
 
     return new Response(
       JSON.stringify({
         message: "Dividend check complete",
-        symbols_checked: symbols.filter((s) => !s.includes(".")).length,
+        symbols_checked: checked.length,
+        total_symbols: symbols.length,
         inserted: totalInserted,
         errors: errors.length > 0 ? errors : undefined,
       }),
