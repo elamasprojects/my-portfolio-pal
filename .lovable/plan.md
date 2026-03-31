@@ -1,61 +1,47 @@
 
 
-# Plan: Historical Stock Chart with Buy/Sell Markers
+# Plan: Fix Price Chart — Data Source + Y-Axis Display
 
-## What We're Building
+## Root Cause Analysis
 
-A price chart on the AssetDetail page (`/asset/:symbol`) showing the historical price of the stock with visual markers (arrows/dots) indicating where the user bought and sold. This lets users visually evaluate their entry/exit timing.
+**Two distinct bugs:**
 
-## API Choice
+1. **Y-Axis shows "$0" for all values**: The `tickFormatter` uses `v.toFixed(0)` which rounds to integer. For assets priced under $1 (crypto like fractional tokens), everything shows as "$0". The chart line IS rendering correctly (visible in screenshot), but the axis labels are useless.
 
-**Finnhub stock candles endpoint** (`/stock/candle?symbol=X&resolution=D&from=UNIX&to=UNIX`) — already have `finnhub_api_key` configured. Returns OHLCV data. Free tier supports this. For crypto, fall back to CoinGecko's `/market_chart/range` endpoint (already used in `dca-history`).
+2. **Finnhub stock candles require a paid subscription**: The free tier returns `{"s":"no_data"}` for the `/stock/candle` endpoint. Confirmed by testing — AAPL returns `{ candles: [] }`. The `fetch-quote` endpoint works fine on free tier, but historical candles do not. This means **stock charts never load**, only crypto charts (via CoinGecko fallback) work.
 
-## Changes
+3. **Infinite re-fetch loop**: `now` is computed as `Math.floor(Date.now() / 1000)` at the component top level, meaning it changes every render, triggering the `useEffect` dependency repeatedly.
 
-### 1. New Edge Function: `supabase/functions/stock-history/index.ts`
+## Fix Plan
 
-- Accepts `{ symbol, from, to }` (unix timestamps)
-- Tries Finnhub `/stock/candle` first (resolution=D for daily candles)
-- Returns `{ candles: [{ time, open, high, low, close }] }`
-- Falls back to CoinGecko `/coins/{id}/market_chart/range` for crypto (same mapping as `fetch-quote`)
-- CORS headers, `verify_jwt = false`
+### 1. `supabase/functions/stock-history/index.ts` — Use Yahoo Finance (free, no key needed)
 
-### 2. Updated: `src/pages/AssetDetail.tsx`
+Replace the Finnhub candle call with Yahoo Finance's chart API, which is free and doesn't require authentication:
 
-- Add a new `Card` section between the P&L cards and the trade history table
-- Contains a **Recharts AreaChart** showing daily close prices
-- **Buy markers**: Green upward triangles on the chart at buy dates/prices
-- **Sell markers**: Red downward triangles at sell dates/prices
-- **Time range selector**: buttons for 1M, 3M, 6M, 1Y, ALL (defaults to 1Y or ALL based on first trade date)
-- Fetches data via `supabase.functions.invoke("stock-history", { body: { symbol, from, to } })`
-- Overlays trade markers using Recharts `ReferenceDot` components positioned at the trade date + trade price
-
-```text
-┌─────────────────────────────────┐
-│  Price History          [1M][3M][6M][1Y][ALL]  │
-│  ╭─────────────╮                               │
-│  │   ▲ buy     │  Area chart with              │
-│  │  /  \  ▼sell│  gradient fill                │
-│  │ /    \_/    │                                │
-│  ╰─────────────╯                               │
-│  ▲ = Buy  ▼ = Sell                             │
-└─────────────────────────────────┘
+```
+GET https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1y&interval=1d
 ```
 
-### 3. Config: `supabase/config.toml`
+- Accepts `range` param: `1mo`, `3mo`, `6mo`, `1y`, `5y`, `max`
+- Returns OHLCV data with timestamps
+- Works for all US stocks, ETFs, and many international tickers
+- Keep CoinGecko fallback for crypto
+- Change the function signature to accept `{ symbol, range }` instead of `{ symbol, from, to }` since Yahoo uses range strings
 
-- Add `[functions.stock-history]` with `verify_jwt = false`
+### 2. `src/components/PriceChart.tsx` — Fix Y-axis + stabilize fetching
 
-### 4. i18n: `src/i18n/en.ts` & `es.ts`
+**Y-Axis fix**: Use smart formatting — if max value < $1, show decimals; if > $1000, show abbreviated. Replace `v.toFixed(0)` with a dynamic formatter.
 
-New keys: `asset.priceHistory`, `asset.chartLoading`, `asset.noChartData`
+**Stabilize `now`**: Wrap in `useMemo` or `useRef` so it doesn't change every render.
 
-## Files
+**Adapt to new API**: Pass `range` string directly instead of computing unix timestamps.
+
+**Trade markers**: The `ReferenceDot` approach is correct but needs the `x` value to exactly match a `date` string in the candle data. Currently it finds the closest candle by timestamp, which is correct. No change needed for marker logic.
+
+### Files modified
 
 | File | Change |
 |---|---|
-| `supabase/functions/stock-history/index.ts` | New edge function for historical candles |
-| `supabase/config.toml` | Add stock-history entry |
-| `src/pages/AssetDetail.tsx` | Add chart section with AreaChart + trade markers |
-| `src/i18n/en.ts`, `es.ts` | 3 new keys |
+| `supabase/functions/stock-history/index.ts` | Replace Finnhub candles with Yahoo Finance chart API; keep CoinGecko for crypto |
+| `src/components/PriceChart.tsx` | Fix Y-axis formatter for small/large values; stabilize `now` to prevent re-fetch loop; adapt API call to new range-based params |
 
