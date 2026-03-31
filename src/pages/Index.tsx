@@ -188,6 +188,8 @@ const Index = () => {
     }).sort((a, b) => b.value - a.value);
     return data;
   }, [assetBrokerFilter, allocationByAsset, trades, marketPrices]);
+
+  const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
     .sort((a, b) => b.total_return - a.total_return)
     .slice(0, 10);
