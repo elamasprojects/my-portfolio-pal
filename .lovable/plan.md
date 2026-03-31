@@ -1,68 +1,44 @@
 
 
-# Plan: Rediseño de Export Report (Mobile + Desktop)
+# Plan: Allocation by Broker + Broker Filter in "By Asset"
 
-## Problema
+## Changes
 
-La página `/export` tiene un card con aspect-ratio fijo de 1200x630 (optimizado para Twitter). En mobile (407px), esto resulta en un card de apenas ~213px de alto donde todo el contenido se comprime: textos ilegibles, pie chart minúsculo, stats cortados. Los botones de acción también se desbordan horizontalmente.
+### 1. `src/pages/Index.tsx`
 
-## Solución
+**New data: import `useBrokers`** from `useBrokers.tsx` to get broker names (mapping `broker_id` → `name`).
 
-Separar la **vista previa visual** (lo que se exporta/comparte) del **layout de la página**. La card exportable mantiene su ratio 1200x630 para PDF/Twitter, pero la página muestra el contenido de forma responsive.
+**New allocation tab "By Broker"**:
+- Group holdings value by `broker_id` from trades. Since each trade has a `broker_id`, walk through trades to compute per-broker invested value using the same logic as `computeHoldings` but grouped by broker.
+- New `useMemo` that iterates trades, builds positions per `(broker_id, symbol)`, then aggregates market value per broker. Trades without a broker go into "Sin broker" / "No broker".
+- Add a 4th tab trigger "By Broker" in the existing `TabsList`.
 
-### Cambios en `src/pages/ExportReport.tsx`
+**Broker filter in "By Asset" tab**:
+- Add a small `Select` dropdown inside the "asset" `TabsContent`, above the pie chart.
+- Options: "All" (default) + one per broker that has trades.
+- When a broker is selected, filter `allocationByAsset` to only show symbols where that broker was used.
+- The filter uses a `useState` for `assetBrokerFilter` (null = all).
 
-**1. Header y controles (mobile-friendly)**
-- Botones apilados verticalmente en mobile, horizontales en desktop
-- Toggle de tema más compacto
+**Computing per-broker data**:
+- New `useMemo` → `tradesByBroker`: a Map from `broker_id` to trades array.
+- `allocationByBroker`: aggregate market value of positions built from each broker's trades.
+- `filteredAllocationByAsset`: when `assetBrokerFilter` is set, recompute `computeHoldings` on filtered trades, then map to allocation data.
 
-**2. Dos modos de visualización:**
+### 2. `src/i18n/en.ts` & `src/i18n/es.ts`
 
-- **Card exportable** (hidden ref div): Se mantiene el div con aspect-ratio 1200x630 pero se oculta visualmente (`position: absolute, left: -9999px`). Solo se usa para `html2canvas` al exportar PDF o compartir.
+New keys:
+- `board.byBroker`: "By Broker" / "Por Broker"
+- `board.allBrokers`: "All Brokers" / "Todos los Brokers"
+- `board.noBroker`: "No Broker" / "Sin Broker"
 
-- **Preview responsive** (lo que el usuario ve): Renderizar el mismo contenido pero con layout adaptable:
-  - Mobile: stats en grid 2x2, pie chart debajo a ancho completo, holdings como lista vertical
-  - Desktop: layout similar al actual pero sin restricción de aspect-ratio
+### No DB changes
 
-```text
-MOBILE:
-┌─────────────────────┐
-│ 📥 Portfolio        │
-│ [☀️/🌙] [PDF] [X]  │  ← botones stack o wrap
-└─────────────────────┘
-┌─────────────────────┐
-│ Avatar + Username   │
-│ Portfolio • Date    │
-└─────────────────────┘
-┌──────────┬──────────┐
-│ Invested │ Mkt Val  │  2x2 grid
-├──────────┼──────────┤
-│ Unreal.  │ Realized │
-├──────────┼──────────┤
-│ Cash     │ Win Rate │
-└──────────┴──────────┘
-┌─────────────────────┐
-│ [Pie Chart grande]  │  ancho completo, 250px height
-└─────────────────────┘
-┌─────────────────────┐
-│ Holdings badges     │
-└─────────────────────┘
+Trades already store `broker_id`. Broker names come from the existing `useBrokers()` hook.
 
-DESKTOP:
-┌────────────────────────────────────┐
-│ Header + controles en línea       │
-└────────────────────────────────────┘
-┌────────────────────────────────────┐
-│ Card preview (aspect-ratio, como  │
-│ ahora pero visible y scrollable)  │
-└────────────────────────────────────┘
-```
+## Files modified
 
-**3. La card oculta para exportación** usa `min-width: 1200px` y `min-height: 630px` con tamaños de fuente fijos en px (no rem), garantizando que el PNG/PDF siempre se vea bien independientemente del viewport.
-
-### Archivos modificados
-
-| Archivo | Cambio |
+| File | Change |
 |---|---|
-| `src/pages/ExportReport.tsx` | Separar preview responsive de card exportable, layout mobile-first |
+| `src/pages/Index.tsx` | 4th allocation tab, broker filter Select in "By Asset" tab |
+| `src/i18n/en.ts`, `es.ts` | 3 new keys |
 
