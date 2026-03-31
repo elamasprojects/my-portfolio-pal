@@ -455,9 +455,10 @@ const Index = () => {
                 <TabsTrigger value="type" className="text-xs flex-1">{t("board.byType")}</TabsTrigger>
                 <TabsTrigger value="asset" className="text-xs flex-1">{t("board.byAsset")}</TabsTrigger>
                 <TabsTrigger value="market" className="text-xs flex-1">{t("board.byMarket")}</TabsTrigger>
+                <TabsTrigger value="broker" className="text-xs flex-1">{t("board.byBroker")}</TabsTrigger>
               </TabsList>
-              {["type", "asset", "market"].map((tab) => {
-                const data = tab === "type" ? allocationByType : tab === "asset" ? allocationByAsset : allocationByMarket;
+              {["type", "market", "broker"].map((tab) => {
+                const data = tab === "type" ? allocationByType : tab === "market" ? allocationByMarket : allocationByBroker;
                 const total = data.reduce((s, d) => s + d.value, 0);
                 return (
                   <TabsContent key={tab} value={tab}>
@@ -497,6 +498,62 @@ const Index = () => {
                   </TabsContent>
                 );
               })}
+
+              {/* By Asset tab with broker filter */}
+              <TabsContent value="asset">
+                {brokersInTrades.length > 0 && (
+                  <div className="mb-3">
+                    <Select value={assetBrokerFilter || "all"} onValueChange={(v) => setAssetBrokerFilter(v === "all" ? null : v)}>
+                      <SelectTrigger className="h-8 text-xs w-full">
+                        <SelectValue placeholder={t("board.allBrokers")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("board.allBrokers")}</SelectItem>
+                        {brokersInTrades.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {(() => {
+                  const data = filteredAllocationByAsset;
+                  const total = data.reduce((s, d) => s + d.value, 0);
+                  return data.length > 0 ? (
+                    <>
+                      <div className="h-44">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value">
+                              {data.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number) => `${fmt(cx(value))} (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`}
+                              contentStyle={chartTooltipStyle}
+                              itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {data.map((entry, i) => (
+                          <div key={entry.name} className="flex items-center gap-1 text-[11px]">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-muted-foreground capitalize truncate max-w-[80px]">{entry.name}</span>
+                            <span className="text-foreground font-mono">{total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 py-8">
+                      <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
+                    </div>
+                  );
+                })()}
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
