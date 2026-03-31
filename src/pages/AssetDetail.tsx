@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { Trade } from "@/hooks/usePortfolio";
 import { supabase } from "@/integrations/supabase/client";
+import { PriceChart } from "@/components/PriceChart";
 
 const AssetDetail = () => {
   const { symbol } = useParams<{ symbol: string }>();
