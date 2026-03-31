@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.check-dividends]
 verify_jwt = false
+
+[functions.stock-history]
+verify_jwt = false

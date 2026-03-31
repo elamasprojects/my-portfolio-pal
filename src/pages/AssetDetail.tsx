@@ -185,6 +185,9 @@ const AssetDetail = () => {
         </div>
       )}
 
+      {/* Price History Chart */}
+      <PriceChart symbol={symbol || ""} trades={assetTrades} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t("asset.tradeHistory")}</CardTitle>
