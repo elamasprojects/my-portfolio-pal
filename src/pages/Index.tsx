@@ -31,9 +31,11 @@ const CHART_COLORS = [
 
 const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
+  const { data: brokersList = [] } = useBrokers();
   const { profile } = useProfile();
   const { venta: mepRate } = useDolarMEP();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
+  const [assetBrokerFilter, setAssetBrokerFilter] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
