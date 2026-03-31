@@ -126,7 +126,68 @@ const Index = () => {
     return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [holdings, marketPrices]);
 
-  const pnlByAsset = performance.by_symbol
+  // Broker name map
+  const brokerNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of brokersList) m.set(b.id, b.name);
+    return m;
+  }, [brokersList]);
+
+  // Allocation by broker
+  const allocationByBroker = useMemo(() => {
+    const brokerPositions = new Map<string, Map<string, { qty: number; buyCost: number; symbol: string }>>();
+    for (const t_ of trades) {
+      if (t_.trade_type === "dividend") continue;
+      const bKey = t_.broker_id || "__none__";
+      if (!brokerPositions.has(bKey)) brokerPositions.set(bKey, new Map());
+      const symMap = brokerPositions.get(bKey)!;
+      const pos = symMap.get(t_.symbol) || { qty: 0, buyCost: 0, symbol: t_.symbol };
+      if (t_.trade_type === "buy") {
+        pos.buyCost += t_.quantity * t_.price_per_unit;
+        pos.qty += t_.quantity;
+      } else {
+        pos.qty -= t_.quantity;
+      }
+      symMap.set(t_.symbol, pos);
+    }
+    const result: { name: string; value: number }[] = [];
+    for (const [bKey, symMap] of brokerPositions.entries()) {
+      let total = 0;
+      for (const [sym, pos] of symMap.entries()) {
+        if (pos.qty <= 0) continue;
+        const mktPrice = marketPrices.get(sym.toUpperCase());
+        const avgCost = pos.buyCost / (pos.qty + (pos.qty <= 0 ? pos.qty : 0)); // simplified
+        total += mktPrice ? mktPrice * pos.qty : (pos.buyCost > 0 ? (pos.buyCost / (pos.qty > 0 ? pos.qty : 1)) * pos.qty : 0);
+      }
+      if (total > 0) {
+        const name = bKey === "__none__" ? t("board.noBroker") : (brokerNameMap.get(bKey) || t("board.noBroker"));
+        result.push({ name, value: total });
+      }
+    }
+    return result.sort((a, b) => b.value - a.value);
+  }, [trades, marketPrices, brokerNameMap, t]);
+
+  // Brokers that have trades (for filter dropdown)
+  const brokersInTrades = useMemo(() => {
+    const set = new Set<string>();
+    for (const t_ of trades) {
+      if (t_.broker_id) set.add(t_.broker_id);
+    }
+    return Array.from(set).map(id => ({ id, name: brokerNameMap.get(id) || id }));
+  }, [trades, brokerNameMap]);
+
+  // Filtered allocation by asset (when broker filter active)
+  const filteredAllocationByAsset = useMemo(() => {
+    if (!assetBrokerFilter) return allocationByAsset;
+    const filteredTrades = trades.filter(t_ => t_.broker_id === assetBrokerFilter);
+    const filteredHoldings = computeHoldings(filteredTrades);
+    const data = filteredHoldings.map(h => {
+      const mktPrice = marketPrices.get(h.symbol.toUpperCase());
+      const val = mktPrice ? mktPrice * h.net_quantity : h.total_invested;
+      return { name: h.symbol, value: val };
+    }).sort((a, b) => b.value - a.value);
+    return data;
+  }, [assetBrokerFilter, allocationByAsset, trades, marketPrices]);
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
     .sort((a, b) => b.total_return - a.total_return)
     .slice(0, 10);
