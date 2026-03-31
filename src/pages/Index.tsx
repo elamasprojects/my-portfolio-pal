@@ -4,6 +4,7 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useBrokers } from "@/hooks/useBrokers";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend } from "recharts";
 import { useNavigate } from "react-router-dom";
@@ -29,9 +31,11 @@ const CHART_COLORS = [
 
 const Index = () => {
   const { data: trades = [], isLoading } = useTrades();
+  const { data: brokersList = [] } = useBrokers();
   const { profile } = useProfile();
   const { venta: mepRate } = useDolarMEP();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
+  const [assetBrokerFilter, setAssetBrokerFilter] = useState<string | null>(null);
   const navigate = useNavigate();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -121,6 +125,69 @@ const Index = () => {
     }
     return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [holdings, marketPrices]);
+
+  // Broker name map
+  const brokerNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of brokersList) m.set(b.id, b.name);
+    return m;
+  }, [brokersList]);
+
+  // Allocation by broker
+  const allocationByBroker = useMemo(() => {
+    const brokerPositions = new Map<string, Map<string, { qty: number; buyCost: number; symbol: string }>>();
+    for (const t_ of trades) {
+      if (t_.trade_type === "dividend") continue;
+      const bKey = t_.broker_id || "__none__";
+      if (!brokerPositions.has(bKey)) brokerPositions.set(bKey, new Map());
+      const symMap = brokerPositions.get(bKey)!;
+      const pos = symMap.get(t_.symbol) || { qty: 0, buyCost: 0, symbol: t_.symbol };
+      if (t_.trade_type === "buy") {
+        pos.buyCost += t_.quantity * t_.price_per_unit;
+        pos.qty += t_.quantity;
+      } else {
+        pos.qty -= t_.quantity;
+      }
+      symMap.set(t_.symbol, pos);
+    }
+    const result: { name: string; value: number }[] = [];
+    for (const [bKey, symMap] of brokerPositions.entries()) {
+      let total = 0;
+      for (const [sym, pos] of symMap.entries()) {
+        if (pos.qty <= 0) continue;
+        const mktPrice = marketPrices.get(sym.toUpperCase());
+        const avgCost = pos.buyCost / (pos.qty + (pos.qty <= 0 ? pos.qty : 0)); // simplified
+        total += mktPrice ? mktPrice * pos.qty : (pos.buyCost > 0 ? (pos.buyCost / (pos.qty > 0 ? pos.qty : 1)) * pos.qty : 0);
+      }
+      if (total > 0) {
+        const name = bKey === "__none__" ? t("board.noBroker") : (brokerNameMap.get(bKey) || t("board.noBroker"));
+        result.push({ name, value: total });
+      }
+    }
+    return result.sort((a, b) => b.value - a.value);
+  }, [trades, marketPrices, brokerNameMap, t]);
+
+  // Brokers that have trades (for filter dropdown)
+  const brokersInTrades = useMemo(() => {
+    const set = new Set<string>();
+    for (const t_ of trades) {
+      if (t_.broker_id) set.add(t_.broker_id);
+    }
+    return Array.from(set).map(id => ({ id, name: brokerNameMap.get(id) || id }));
+  }, [trades, brokerNameMap]);
+
+  // Filtered allocation by asset (when broker filter active)
+  const filteredAllocationByAsset = useMemo(() => {
+    if (!assetBrokerFilter) return allocationByAsset;
+    const filteredTrades = trades.filter(t_ => t_.broker_id === assetBrokerFilter);
+    const filteredHoldings = computeHoldings(filteredTrades);
+    const data = filteredHoldings.map(h => {
+      const mktPrice = marketPrices.get(h.symbol.toUpperCase());
+      const val = mktPrice ? mktPrice * h.net_quantity : h.total_invested;
+      return { name: h.symbol, value: val };
+    }).sort((a, b) => b.value - a.value);
+    return data;
+  }, [assetBrokerFilter, allocationByAsset, trades, marketPrices]);
 
   const pnlByAsset = performance.by_symbol
     .filter((s) => s.realized_pnl !== 0 || s.dividends_received !== 0)
@@ -388,9 +455,10 @@ const Index = () => {
                 <TabsTrigger value="type" className="text-xs flex-1">{t("board.byType")}</TabsTrigger>
                 <TabsTrigger value="asset" className="text-xs flex-1">{t("board.byAsset")}</TabsTrigger>
                 <TabsTrigger value="market" className="text-xs flex-1">{t("board.byMarket")}</TabsTrigger>
+                <TabsTrigger value="broker" className="text-xs flex-1">{t("board.byBroker")}</TabsTrigger>
               </TabsList>
-              {["type", "asset", "market"].map((tab) => {
-                const data = tab === "type" ? allocationByType : tab === "asset" ? allocationByAsset : allocationByMarket;
+              {["type", "market", "broker"].map((tab) => {
+                const data = tab === "type" ? allocationByType : tab === "market" ? allocationByMarket : allocationByBroker;
                 const total = data.reduce((s, d) => s + d.value, 0);
                 return (
                   <TabsContent key={tab} value={tab}>
@@ -430,6 +498,62 @@ const Index = () => {
                   </TabsContent>
                 );
               })}
+
+              {/* By Asset tab with broker filter */}
+              <TabsContent value="asset">
+                {brokersInTrades.length > 0 && (
+                  <div className="mb-3">
+                    <Select value={assetBrokerFilter || "all"} onValueChange={(v) => setAssetBrokerFilter(v === "all" ? null : v)}>
+                      <SelectTrigger className="h-8 text-xs w-full">
+                        <SelectValue placeholder={t("board.allBrokers")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("board.allBrokers")}</SelectItem>
+                        {brokersInTrades.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {(() => {
+                  const data = filteredAllocationByAsset;
+                  const total = data.reduce((s, d) => s + d.value, 0);
+                  return data.length > 0 ? (
+                    <>
+                      <div className="h-44">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} dataKey="value">
+                              {data.map((_, i) => (
+                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number) => `${fmt(cx(value))} (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`}
+                              contentStyle={chartTooltipStyle}
+                              itemStyle={{ color: "hsl(var(--popover-foreground))" }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {data.map((entry, i) => (
+                          <div key={entry.name} className="flex items-center gap-1 text-[11px]">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-muted-foreground capitalize truncate max-w-[80px]">{entry.name}</span>
+                            <span className="text-foreground font-mono">{total > 0 ? ((entry.value / total) * 100).toFixed(0) : 0}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 py-8">
+                      <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
+                    </div>
+                  );
+                })()}
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
