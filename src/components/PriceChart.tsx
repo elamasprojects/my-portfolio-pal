@@ -12,14 +12,17 @@ import {
 type Candle = { time: number; close: number; date: string };
 type Range = "1M" | "3M" | "6M" | "1Y" | "ALL";
 
-const RANGE_DAYS: Record<Range, number | null> = {
-  "1M": 30, "3M": 90, "6M": 180, "1Y": 365, ALL: null,
-};
-
 interface PriceChartProps {
   symbol: string;
   trades: Trade[];
 }
+
+const formatPrice = (v: number): string => {
+  if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
+  if (v >= 1) return `$${v.toFixed(0)}`;
+  if (v >= 0.01) return `$${v.toFixed(2)}`;
+  return `$${v.toFixed(4)}`;
+};
 
 export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
   const { t } = useLanguage();
@@ -27,25 +30,14 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<Range>("1Y");
 
-  const now = Math.floor(Date.now() / 1000);
-
-  const fromTs = useMemo(() => {
-    const days = RANGE_DAYS[range];
-    if (!days) {
-      const firstTrade = trades.length
-        ? Math.min(...trades.map((t) => new Date(t.trade_date).getTime() / 1000))
-        : now - 365 * 86400;
-      return Math.floor(firstTrade) - 30 * 86400;
-    }
-    return now - days * 86400;
-  }, [range, trades, now]);
-
   useEffect(() => {
     if (!symbol) return;
+    let cancelled = false;
     setLoading(true);
     supabase.functions
-      .invoke("stock-history", { body: { symbol, from: fromTs, to: now } })
+      .invoke("stock-history", { body: { symbol, range } })
       .then(({ data }) => {
+        if (cancelled) return;
         if (data?.candles?.length) {
           setCandles(
             data.candles.map((c: any) => ({
@@ -58,9 +50,10 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
           setCandles([]);
         }
       })
-      .catch(() => setCandles([]))
-      .finally(() => setLoading(false));
-  }, [symbol, fromTs, now]);
+      .catch(() => !cancelled && setCandles([]))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [symbol, range]);
 
   // Map trades to chart points
   const tradeMarkers = useMemo(() => {
@@ -69,7 +62,6 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
       .filter((t) => t.trade_type === "buy" || t.trade_type === "sell")
       .map((t) => {
         const tradeTs = Math.floor(new Date(t.trade_date).getTime() / 1000);
-        // Find closest candle
         let closest = candles[0];
         let minDiff = Math.abs(candles[0].time - tradeTs);
         for (const c of candles) {
@@ -139,7 +131,7 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
                   tickLine={false}
                   axisLine={false}
                   width={55}
-                  tickFormatter={(v: number) => `$${v.toFixed(0)}`}
+                  tickFormatter={formatPrice}
                 />
                 <Tooltip
                   contentStyle={{

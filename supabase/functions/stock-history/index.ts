@@ -11,47 +11,71 @@ const cryptoMap: Record<string, string> = {
   op: 'optimism', sui: 'sui', bnb: 'binancecoin', shib: 'shiba-inu',
 };
 
+const RANGE_MAP: Record<string, { yahoo: string; cgDays: string }> = {
+  '1M':  { yahoo: '1mo',  cgDays: '30' },
+  '3M':  { yahoo: '3mo',  cgDays: '90' },
+  '6M':  { yahoo: '6mo',  cgDays: '180' },
+  '1Y':  { yahoo: '1y',   cgDays: '365' },
+  'ALL': { yahoo: '10y',  cgDays: 'max' },
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { symbol, from, to } = await req.json();
-    if (!symbol || !from || !to) {
-      return new Response(JSON.stringify({ error: 'symbol, from, to required' }), {
+    const { symbol, range = '1Y' } = await req.json();
+    if (!symbol) {
+      return new Response(JSON.stringify({ error: 'symbol required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const apiKey = Deno.env.get('finnhub_api_key');
-    const upper = symbol.toUpperCase();
+    const rangeCfg = RANGE_MAP[range] || RANGE_MAP['1Y'];
+    const lower = symbol.toLowerCase();
+    const isCrypto = !!cryptoMap[lower];
 
-    // Try Finnhub candles first
-    const finnhubUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${upper}&resolution=D&from=${from}&to=${to}&token=${apiKey}`;
-    const fRes = await fetch(finnhubUrl);
-    const fData = await fRes.json();
+    // Try Yahoo Finance first (stocks/ETFs)
+    if (!isCrypto) {
+      try {
+        const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol.toUpperCase())}?range=${rangeCfg.yahoo}&interval=1d`;
+        const yRes = await fetch(yUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+        });
+        if (yRes.ok) {
+          const yData = await yRes.json();
+          const result = yData?.chart?.result?.[0];
+          if (result?.timestamp?.length) {
+            const ts = result.timestamp;
+            const quotes = result.indicators?.quote?.[0];
+            if (quotes) {
+              const candles = ts.map((t: number, i: number) => ({
+                time: t,
+                open: quotes.open?.[i] ?? null,
+                high: quotes.high?.[i] ?? null,
+                low: quotes.low?.[i] ?? null,
+                close: quotes.close?.[i] ?? null,
+              })).filter((c: any) => c.close !== null);
 
-    if (fData.s === 'ok' && fData.c?.length > 0) {
-      const candles = fData.t.map((t: number, i: number) => ({
-        time: t,
-        open: fData.o[i],
-        high: fData.h[i],
-        low: fData.l[i],
-        close: fData.c[i],
-      }));
-      return new Response(JSON.stringify({ candles }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+              if (candles.length > 0) {
+                return new Response(JSON.stringify({ candles }), {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              }
+            }
+          }
+        }
+      } catch { /* fall through */ }
     }
 
-    // Fallback: CoinGecko for crypto
-    const lower = symbol.toLowerCase();
+    // CoinGecko fallback for crypto
     const coinId = cryptoMap[lower] || lower;
     try {
-      const cgRes = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart/range?vs_currency=usd&from=${from}&to=${to}`
-      );
+      const cgUrl = rangeCfg.cgDays === 'max'
+        ? `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=max`
+        : `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${rangeCfg.cgDays}`;
+      const cgRes = await fetch(cgUrl);
       if (cgRes.ok) {
         const cgData = await cgRes.json();
         if (cgData.prices?.length > 0) {
