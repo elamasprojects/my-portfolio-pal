@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.dca-history]
 verify_jwt = false
+
+[functions.check-dividends]
+verify_jwt = false
