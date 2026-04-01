@@ -199,6 +199,53 @@ const AssetDetail = () => {
       {/* Price History Chart */}
       <PriceChart symbol={symbol || ""} trades={assetTrades} />
 
+      {/* Closed Trades (FIFO) */}
+      {closedTrades.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("asset.closedTrades")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {closedTrades.map((ct, i) => (
+                <div
+                  key={i}
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border p-3 ${
+                    ct.pnl >= 0 ? "border-gain/20 bg-gain/5" : "border-loss/20 bg-loss/5"
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5 text-sm">
+                    <span className="text-muted-foreground text-xs">
+                      {new Date(ct.buyDate).toLocaleDateString()} → {new Date(ct.sellDate).toLocaleDateString()}
+                    </span>
+                    <span className="font-mono">
+                      {ct.quantity} × ${ct.buyPrice.toFixed(2)} → ${ct.sellPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`font-mono font-bold ${ct.pnl >= 0 ? "text-gain" : "text-loss"}`}>
+                      {ct.pnl >= 0 ? "+" : ""}${ct.pnl.toFixed(2)}
+                    </span>
+                    <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${
+                      ct.returnPct >= 0 ? "bg-gain/10 text-gain" : "bg-loss/10 text-loss"
+                    }`}>
+                      {ct.returnPct >= 0 ? "+" : ""}{ct.returnPct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {totalOpenQty > 0 && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground border-t pt-3">
+                <span className="font-mono font-medium text-foreground">{totalOpenQty}</span>
+                <span>{t("common.shares")} @ ${avgOpenCost.toFixed(2)}</span>
+                <span className="text-xs">— {t("asset.stillOpen")}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t("asset.tradeHistory")}</CardTitle>
