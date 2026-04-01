@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTrades, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
@@ -11,6 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import { Trade } from "@/hooks/usePortfolio";
 import { supabase } from "@/integrations/supabase/client";
 import { PriceChart } from "@/components/PriceChart";
+import { matchTradesFIFO } from "@/lib/tradeMatching";
 
 const AssetDetail = () => {
   const { symbol } = useParams<{ symbol: string }>();
