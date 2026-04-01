@@ -29,6 +29,16 @@ const AssetDetail = () => {
   const perf = computePerformance(assetTrades);
   const symbolPerf = perf.by_symbol[0];
 
+  const { closedTrades, openLots } = useMemo(
+    () => matchTradesFIFO(assetTrades),
+    [assetTrades]
+  );
+  const totalOpenQty = openLots.reduce((s, l) => s + l.remainingQty, 0);
+  const avgOpenCost =
+    totalOpenQty > 0
+      ? openLots.reduce((s, l) => s + l.price * l.remainingQty, 0) / totalOpenQty
+      : 0;
+
   useEffect(() => {
     if (!symbol) return;
     setPriceLoading(true);
