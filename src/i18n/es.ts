@@ -411,6 +411,13 @@ export const es: Record<TranslationKey, string> = {
   "asset.priceHistory": "Historial de Precio",
   "asset.chartLoading": "Cargando gráfico...",
   "asset.noChartData": "Sin datos de precio disponibles",
+  "asset.closedTrades": "Trades Cerrados",
+  "asset.openShares": "Posiciones Abiertas",
+  "asset.buyDate": "Fecha Compra",
+  "asset.sellDate": "Fecha Venta",
+  "asset.tradeReturn": "Rendimiento",
+  "asset.stillOpen": "aún abiertas",
+  "asset.qty": "Cant.",
 
   // Edit Trade Dialog
   "editTrade.title": "Editar Operación",

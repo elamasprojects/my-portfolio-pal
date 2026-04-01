@@ -9,8 +9,23 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot,
 } from "recharts";
 
-type Candle = { time: number; close: number; date: string };
 type Range = "1M" | "3M" | "6M" | "1Y" | "ALL";
+
+interface TradeMarker {
+  type: "buy" | "sell";
+  quantity: number;
+  price: number;
+  total: number;
+  date: string;
+  id: string;
+}
+
+interface CandlePoint {
+  time: number;
+  close: number;
+  date: string;
+  tradeMarker?: TradeMarker;
+}
 
 interface PriceChartProps {
   symbol: string;
@@ -24,9 +39,57 @@ const formatPrice = (v: number): string => {
   return `$${v.toFixed(4)}`;
 };
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+
+  const point = payload[0]?.payload as CandlePoint | undefined;
+  if (!point) return null;
+
+  const marker = point.tradeMarker;
+
+  if (marker) {
+    const isBuy = marker.type === "buy";
+    return (
+      <div
+        className={`rounded-lg border px-3 py-2 text-xs shadow-lg ${
+          isBuy
+            ? "bg-gain/10 border-gain/30 text-gain"
+            : "bg-loss/10 border-loss/30 text-loss"
+        }`}
+      >
+        <p className="font-bold text-sm mb-1">
+          {isBuy ? "BUY" : "SELL"}
+        </p>
+        <p className="text-foreground/80">{point.date}</p>
+        <p className="font-mono mt-1">
+          {marker.quantity} × ${marker.price.toFixed(2)}
+        </p>
+        <p className="font-mono font-bold">
+          Total: ${marker.total.toFixed(2)}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-lg border px-3 py-2 text-xs shadow-md"
+      style={{
+        backgroundColor: "hsl(var(--card))",
+        borderColor: "hsl(var(--border))",
+      }}
+    >
+      <p className="text-muted-foreground">{point.date}</p>
+      <p className="font-mono font-bold text-foreground">
+        ${point.close.toFixed(2)}
+      </p>
+    </div>
+  );
+};
+
 export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
   const { t } = useLanguage();
-  const [candles, setCandles] = useState<Candle[]>([]);
+  const [rawCandles, setRawCandles] = useState<CandlePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<Range>("1Y");
 
@@ -39,7 +102,7 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
       .then(({ data }) => {
         if (cancelled) return;
         if (data?.candles?.length) {
-          setCandles(
+          setRawCandles(
             data.candles.map((c: any) => ({
               time: c.time,
               close: c.close,
@@ -47,38 +110,72 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
             }))
           );
         } else {
-          setCandles([]);
+          setRawCandles([]);
         }
       })
-      .catch(() => !cancelled && setCandles([]))
+      .catch(() => !cancelled && setRawCandles([]))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [symbol, range]);
 
-  // Map trades to chart points
-  const tradeMarkers = useMemo(() => {
-    if (!candles.length) return [];
-    return trades
-      .filter((t) => t.trade_type === "buy" || t.trade_type === "sell")
-      .map((t) => {
-        const tradeTs = Math.floor(new Date(t.trade_date).getTime() / 1000);
-        let closest = candles[0];
-        let minDiff = Math.abs(candles[0].time - tradeTs);
-        for (const c of candles) {
-          const diff = Math.abs(c.time - tradeTs);
-          if (diff < minDiff) {
-            closest = c;
-            minDiff = diff;
-          }
+  // Merge trade markers into candle data
+  const { candles, tradeMarkers } = useMemo(() => {
+    if (!rawCandles.length) return { candles: rawCandles, tradeMarkers: [] };
+
+    const relevantTrades = trades.filter(
+      (t) => t.trade_type === "buy" || t.trade_type === "sell"
+    );
+
+    const maxBuyQty = Math.max(
+      ...relevantTrades.filter((t) => t.trade_type === "buy").map((t) => Number(t.quantity)),
+      1
+    );
+    const maxSellQty = Math.max(
+      ...relevantTrades.filter((t) => t.trade_type === "sell").map((t) => Number(t.quantity)),
+      1
+    );
+
+    const markers: (TradeMarker & { closestIdx: number; radius: number })[] = [];
+    const candlesCopy = rawCandles.map((c) => ({ ...c }));
+
+    for (const trade of relevantTrades) {
+      const tradeTs = Math.floor(new Date(trade.trade_date).getTime() / 1000);
+      let closestIdx = 0;
+      let minDiff = Math.abs(candlesCopy[0].time - tradeTs);
+      for (let i = 1; i < candlesCopy.length; i++) {
+        const diff = Math.abs(candlesCopy[i].time - tradeTs);
+        if (diff < minDiff) {
+          closestIdx = i;
+          minDiff = diff;
         }
-        return {
-          date: closest.date,
-          price: Number(t.price_per_unit),
-          type: t.trade_type as "buy" | "sell",
-          id: t.id,
-        };
-      });
-  }, [candles, trades]);
+      }
+
+      const qty = Number(trade.quantity);
+      const maxQ = trade.trade_type === "buy" ? maxBuyQty : maxSellQty;
+      const hasMult =
+        relevantTrades.filter((t) => t.trade_type === trade.trade_type).length > 1;
+      const radius = hasMult ? 4 + (qty / maxQ) * 6 : 6;
+
+      const marker: TradeMarker = {
+        type: trade.trade_type as "buy" | "sell",
+        quantity: qty,
+        price: Number(trade.price_per_unit),
+        total: Number(trade.total_amount),
+        date: new Date(trade.trade_date).toLocaleDateString(),
+        id: trade.id,
+      };
+
+      // Embed marker into the candle point for tooltip detection
+      candlesCopy[closestIdx] = {
+        ...candlesCopy[closestIdx],
+        tradeMarker: marker,
+      };
+
+      markers.push({ ...marker, closestIdx, radius });
+    }
+
+    return { candles: candlesCopy, tradeMarkers: markers };
+  }, [rawCandles, trades]);
 
   const ranges: Range[] = ["1M", "3M", "6M", "1Y", "ALL"];
 
@@ -133,15 +230,7 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
                   width={55}
                   tickFormatter={formatPrice}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="close"
@@ -149,15 +238,16 @@ export const PriceChart = ({ symbol, trades }: PriceChartProps) => {
                   fill="url(#priceGradient)"
                   strokeWidth={2}
                   dot={false}
+                  activeDot={{ r: 4, fill: "hsl(var(--primary))" }}
                 />
                 {tradeMarkers.map((m) => (
                   <ReferenceDot
                     key={m.id}
-                    x={m.date}
+                    x={candles[m.closestIdx]?.date}
                     y={m.price}
-                    r={6}
+                    r={m.radius}
                     fill={m.type === "buy" ? "hsl(var(--gain))" : "hsl(var(--loss))"}
-                    stroke={m.type === "buy" ? "hsl(var(--gain))" : "hsl(var(--loss))"}
+                    stroke="hsl(var(--background))"
                     strokeWidth={2}
                   />
                 ))}

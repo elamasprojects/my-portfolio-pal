@@ -410,6 +410,13 @@ export const en = {
   "asset.priceHistory": "Price History",
   "asset.chartLoading": "Loading chart...",
   "asset.noChartData": "No price data available",
+  "asset.closedTrades": "Closed Trades",
+  "asset.openShares": "Open Shares",
+  "asset.buyDate": "Buy Date",
+  "asset.sellDate": "Sell Date",
+  "asset.tradeReturn": "Return",
+  "asset.stillOpen": "still open",
+  "asset.qty": "Qty",
 
   // Edit Trade Dialog
   "editTrade.title": "Edit Trade",
