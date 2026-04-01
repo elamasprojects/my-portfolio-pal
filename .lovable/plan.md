@@ -1,47 +1,87 @@
 
 
-# Plan: Fix Price Chart — Data Source + Y-Axis Display
+# Plan: Enhanced Chart Markers + FIFO Trade Matching
 
-## Root Cause Analysis
+This is a large feature with three distinct parts. I recommend implementing in **3 phases**.
 
-**Two distinct bugs:**
+---
 
-1. **Y-Axis shows "$0" for all values**: The `tickFormatter` uses `v.toFixed(0)` which rounds to integer. For assets priced under $1 (crypto like fractional tokens), everything shows as "$0". The chart line IS rendering correctly (visible in screenshot), but the axis labels are useless.
+## Phase 1: Enhanced Chart Markers (hover tooltips + dynamic sizes)
 
-2. **Finnhub stock candles require a paid subscription**: The free tier returns `{"s":"no_data"}` for the `/stock/candle` endpoint. Confirmed by testing — AAPL returns `{ candles: [] }`. The `fetch-quote` endpoint works fine on free tier, but historical candles do not. This means **stock charts never load**, only crypto charts (via CoinGecko fallback) work.
+### What changes
 
-3. **Infinite re-fetch loop**: `now` is computed as `Math.floor(Date.now() / 1000)` at the component top level, meaning it changes every render, triggering the `useEffect` dependency repeatedly.
+**`src/components/PriceChart.tsx`**:
 
-## Fix Plan
+- **Enrich trade markers** with `quantity`, `total_amount`, and trade metadata
+- **Dynamic dot radius**: Calculate relative size per trade type. For a single trade, use default `r=6`. For multiple buys (or sells), scale proportionally: `r = 4 + (quantity / maxQuantity) * 6` (range 4-10px)
+- **Custom tooltip on marker hover**: Replace the default Recharts tooltip when hovering a `ReferenceDot`. Use a custom `label` prop on `ReferenceDot` that renders a styled div — green background for buy, red for sell — showing:
+  - Date
+  - Type (Buy/Sell)
+  - Quantity + Price
+  - Total amount
 
-### 1. `supabase/functions/stock-history/index.ts` — Use Yahoo Finance (free, no key needed)
+**Technical approach for custom hover**: Recharts `ReferenceDot` doesn't natively support hover tooltips. Instead:
+1. Embed trade marker data directly into the `candles` data array (add optional `tradeMarker` field to each candle point that has a trade)
+2. Use a **custom Tooltip component** that checks if the hovered point has a `tradeMarker` — if yes, render the buy/sell styled card; if no, render the default price tooltip
+3. This avoids fighting Recharts limitations with `ReferenceDot` hover events
 
-Replace the Finnhub candle call with Yahoo Finance's chart API, which is free and doesn't require authentication:
+---
 
+## Phase 2: FIFO Trade Matching (closed trades calculation)
+
+### What changes
+
+**New utility: `src/lib/tradeMatching.ts`**
+
+Pure client-side FIFO matching logic:
+
+```text
+Input: trades[] sorted by date (buys + sells for one symbol)
+Output: ClosedTrade[] — each sell "closes" a portion of a previous buy
+
+Algorithm:
+1. Maintain a queue of open buy lots: { date, price, remainingQty }
+2. For each sell (chronological):
+   - Consume from oldest buy lot until sell qty is filled
+   - Each consumption = one ClosedTrade with:
+     - buyDate, buyPrice, sellDate, sellPrice
+     - quantity (portion closed)
+     - pnl = (sellPrice - buyPrice) * quantity
+     - returnPct = (sellPrice - buyPrice) / buyPrice * 100
 ```
-GET https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1y&interval=1d
-```
 
-- Accepts `range` param: `1mo`, `3mo`, `6mo`, `1y`, `5y`, `max`
-- Returns OHLCV data with timestamps
-- Works for all US stocks, ETFs, and many international tickers
-- Keep CoinGecko fallback for crypto
-- Change the function signature to accept `{ symbol, range }` instead of `{ symbol, from, to }` since Yahoo uses range strings
+No DB changes — purely derived from existing trades.
 
-### 2. `src/components/PriceChart.tsx` — Fix Y-axis + stabilize fetching
+---
 
-**Y-Axis fix**: Use smart formatting — if max value < $1, show decimals; if > $1000, show abbreviated. Replace `v.toFixed(0)` with a dynamic formatter.
+## Phase 3: Closed Trades UI on Asset Detail Page
 
-**Stabilize `now`**: Wrap in `useMemo` or `useRef` so it doesn't change every render.
+### What changes
 
-**Adapt to new API**: Pass `range` string directly instead of computing unix timestamps.
+**`src/pages/AssetDetail.tsx`**:
 
-**Trade markers**: The `ReferenceDot` approach is correct but needs the `x` value to exactly match a `date` string in the candle data. Currently it finds the closest candle by timestamp, which is correct. No change needed for marker logic.
+Add a new Card section "Closed Trades" between the chart and the trade history table. Each row shows:
+- Buy date → Sell date
+- Quantity closed
+- Buy price → Sell price
+- P&L ($) and Return (%)
+- Green/red styling based on profit/loss
 
-### Files modified
+If there are remaining open shares, show a summary row: "X shares still open @ avg $Y"
 
-| File | Change |
-|---|---|
-| `supabase/functions/stock-history/index.ts` | Replace Finnhub candles with Yahoo Finance chart API; keep CoinGecko for crypto |
-| `src/components/PriceChart.tsx` | Fix Y-axis formatter for small/large values; stabilize `now` to prevent re-fetch loop; adapt API call to new range-based params |
+### i18n keys (6 new)
+
+`asset.closedTrades`, `asset.openShares`, `asset.buyDate`, `asset.sellDate`, `asset.tradeReturn`, `asset.stillOpen`
+
+---
+
+## Implementation Order
+
+| Phase | Files | Description |
+|-------|-------|-------------|
+| 1 | `src/components/PriceChart.tsx` | Custom tooltip + dynamic dot sizes |
+| 2 | `src/lib/tradeMatching.ts` (new) | FIFO matching utility |
+| 3 | `src/pages/AssetDetail.tsx`, `src/i18n/en.ts`, `es.ts` | Closed trades card using matching utility |
+
+Each phase is independently shippable. Phase 1 enhances the existing chart. Phase 2 is a pure utility with no UI. Phase 3 uses Phase 2 to render the closed trades view.
 
