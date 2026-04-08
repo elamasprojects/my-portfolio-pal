@@ -61,7 +61,7 @@ const Index = () => {
     return fmt(v);
   };
 
-  const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
+  const { prices: marketPrices, previousCloses, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
 
   const marketValue = useMemo(() =>
     holdings.reduce((s, h) => {
@@ -84,6 +84,21 @@ const Index = () => {
 
   const totalPortfolioValue = marketValue + cash;
   const totalPnl = performance.total_realized_pnl + unrealizedPnl + performance.total_dividends;
+  const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
+
+  // Daily performance
+  const dailyChange = useMemo(() =>
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      const prevClose = previousCloses.get(h.symbol.toUpperCase());
+      if (!price || !prevClose) return s;
+      return s + (price - prevClose) * h.net_quantity;
+    }, 0),
+    [holdings, marketPrices, previousCloses]
+  );
+  const dailyChangePct = totalPortfolioValue - dailyChange > 0
+    ? (dailyChange / (totalPortfolioValue - dailyChange)) * 100
+    : 0;
   const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
