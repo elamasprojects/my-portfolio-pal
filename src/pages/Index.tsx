@@ -296,6 +296,28 @@ const Index = () => {
         </CardContent>
       </Card>
 
+      {/* ═══════ TODAY'S PERFORMANCE ═══════ */}
+      {profile?.show_daily_performance !== false && !pricesLoading && holdings.length > 0 && (
+        <Card className={`border-l-4 ${dailyChange >= 0 ? "border-l-gain" : "border-l-loss"}`}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${dailyChange >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {dailyChange >= 0 ? <TrendingUp className="h-5 w-5 text-gain" /> : <TrendingDown className="h-5 w-5 text-loss" />}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.todayPerformance")}</p>
+                <p className={`text-lg font-bold font-mono ${dailyChange >= 0 ? "text-gain" : "text-loss"}`}>
+                  {dailyChange >= 0 ? "+" : ""}{fmt(cx(dailyChange))}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className={`font-mono text-sm ${dailyChange >= 0 ? "text-gain border-gain/30" : "text-loss border-loss/30"}`}>
+              {dailyChangePct >= 0 ? "+" : ""}{dailyChangePct.toFixed(2)}%
+            </Badge>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ═══════ METRICS GRID (2x2 mobile, 4-col desktop) ═══════ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
