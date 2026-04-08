@@ -110,6 +110,7 @@ export const es: Record<TranslationKey, string> = {
   "board.change": "Cambio",
   "board.mktVal": "Val. Mercado",
   "board.pnl": "P&L",
+  "board.todayPerformance": "Rendimiento del Día",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",
@@ -473,6 +474,8 @@ export const es: Record<TranslationKey, string> = {
   "settings.brokerUpdated": "Broker actualizado",
   "brokers.argentina": "Argentina",
   "brokers.us": "Estados Unidos",
+  "settings.showDailyPerformance": "Mostrar Rendimiento Diario",
+  "settings.showDailyPerformanceDesc": "Mostrar el rendimiento diario del portfolio en el tablero.",
 
   // Social
   "social.playersTitle": "Jugadores",
