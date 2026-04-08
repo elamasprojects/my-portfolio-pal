@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN show_daily_performance boolean NOT NULL DEFAULT true;
