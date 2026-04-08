@@ -266,6 +266,7 @@ export type Database = {
           default_currency: string
           display_name: string | null
           id: string
+          show_daily_performance: boolean
           username: string | null
         }
         Insert: {
@@ -275,6 +276,7 @@ export type Database = {
           default_currency?: string
           display_name?: string | null
           id: string
+          show_daily_performance?: boolean
           username?: string | null
         }
         Update: {
@@ -284,6 +286,7 @@ export type Database = {
           default_currency?: string
           display_name?: string | null
           id?: string
+          show_daily_performance?: boolean
           username?: string | null
         }
         Relationships: []

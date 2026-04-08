@@ -108,6 +108,7 @@ export const en = {
   "board.change": "Change",
   "board.mktVal": "Mkt Val",
   "board.pnl": "P&L",
+  "board.todayPerformance": "Today's Performance",
 
   // Add Trade
   "addTrade.title": "New Move",
@@ -472,6 +473,8 @@ export const en = {
   "settings.brokerUpdated": "Broker updated",
   "brokers.argentina": "Argentina",
   "brokers.us": "United States",
+  "settings.showDailyPerformance": "Show Daily Performance",
+  "settings.showDailyPerformanceDesc": "Display today's portfolio performance on the dashboard.",
 
   // Social
   "social.playersTitle": "Players",

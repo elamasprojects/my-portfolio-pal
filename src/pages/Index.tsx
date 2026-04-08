@@ -61,7 +61,7 @@ const Index = () => {
     return fmt(v);
   };
 
-  const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
+  const { prices: marketPrices, previousCloses, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
 
   const marketValue = useMemo(() =>
     holdings.reduce((s, h) => {
@@ -85,6 +85,20 @@ const Index = () => {
   const totalPortfolioValue = marketValue + cash;
   const totalPnl = performance.total_realized_pnl + unrealizedPnl + performance.total_dividends;
   const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
+
+  // Daily performance
+  const dailyChange = useMemo(() =>
+    holdings.reduce((s, h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      const prevClose = previousCloses.get(h.symbol.toUpperCase());
+      if (!price || !prevClose) return s;
+      return s + (price - prevClose) * h.net_quantity;
+    }, 0),
+    [holdings, marketPrices, previousCloses]
+  );
+  const dailyChangePct = totalPortfolioValue - dailyChange > 0
+    ? (dailyChange / (totalPortfolioValue - dailyChange)) * 100
+    : 0;
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
@@ -281,6 +295,28 @@ const Index = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* ═══════ TODAY'S PERFORMANCE ═══════ */}
+      {profile?.show_daily_performance !== false && !pricesLoading && holdings.length > 0 && (
+        <Card className={`border-l-4 ${dailyChange >= 0 ? "border-l-gain" : "border-l-loss"}`}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${dailyChange >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                {dailyChange >= 0 ? <TrendingUp className="h-5 w-5 text-gain" /> : <TrendingDown className="h-5 w-5 text-loss" />}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.todayPerformance")}</p>
+                <p className={`text-lg font-bold font-mono ${dailyChange >= 0 ? "text-gain" : "text-loss"}`}>
+                  {dailyChange >= 0 ? "+" : ""}{fmt(cx(dailyChange))}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className={`font-mono text-sm ${dailyChange >= 0 ? "text-gain border-gain/30" : "text-loss border-loss/30"}`}>
+              {dailyChangePct >= 0 ? "+" : ""}{dailyChangePct.toFixed(2)}%
+            </Badge>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ═══════ METRICS GRID (2x2 mobile, 4-col desktop) ═══════ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

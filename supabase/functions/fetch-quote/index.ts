@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
     if (quote.c && quote.c > 0) {
       return new Response(JSON.stringify({
         price: quote.c,
+        previousClose: quote.pc || 0,
         name: profile.name || '',
         symbol: upper,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -36,7 +37,6 @@ Deno.serve(async (req) => {
 
     // Fallback: try CoinGecko for crypto
     const lower = symbol.toLowerCase();
-    // Map common ticker symbols to CoinGecko IDs
     const cryptoMap: Record<string, string> = {
       btc: 'bitcoin', eth: 'ethereum', sol: 'solana', ada: 'cardano',
       xrp: 'ripple', dot: 'polkadot', doge: 'dogecoin', avax: 'avalanche-2',
@@ -52,17 +52,19 @@ Deno.serve(async (req) => {
       );
       if (cgRes.ok) {
         const coin = await cgRes.json();
+        const currentPrice = coin.market_data?.current_price?.usd || 0;
+        const change24h = coin.market_data?.price_change_24h || 0;
         return new Response(JSON.stringify({
-          price: coin.market_data?.current_price?.usd || 0,
+          price: currentPrice,
+          previousClose: currentPrice - change24h,
           name: coin.name || '',
           symbol: upper,
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     } catch {}
 
-    // Neither worked — return zeros
     return new Response(JSON.stringify({
-      price: 0, name: '', symbol: upper,
+      price: 0, previousClose: 0, name: '', symbol: upper,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

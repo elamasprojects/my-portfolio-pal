@@ -298,6 +298,22 @@ export default function Settings() {
         )}
       </Card>
 
+      {/* Daily Performance Toggle */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">{t("settings.showDailyPerformance")}</CardTitle>
+              <CardDescription className="text-xs mt-1">{t("settings.showDailyPerformanceDesc")}</CardDescription>
+            </div>
+            <Switch
+              checked={profile?.show_daily_performance ?? true}
+              onCheckedChange={(enabled) => updateProfile.mutate({ show_daily_performance: enabled })}
+            />
+          </div>
+        </CardHeader>
+      </Card>
+
       <Button onClick={handleSave} disabled={updateProfile.isPending} className="w-full">
         {updateProfile.isPending ? t("common.loading") : t("common.save")}
       </Button>
