@@ -99,7 +99,6 @@ const Index = () => {
   const dailyChangePct = totalPortfolioValue - dailyChange > 0
     ? (dailyChange / (totalPortfolioValue - dailyChange)) * 100
     : 0;
-  const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
