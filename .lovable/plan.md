@@ -1,87 +1,75 @@
 
 
-# Plan: Enhanced Chart Markers + FIFO Trade Matching
+# Plan: Daily Portfolio Performance Widget + Global Currency Display
 
-This is a large feature with three distinct parts. I recommend implementing in **3 phases**.
+## What We're Building
 
----
+1. A **"Today's Performance"** card on the dashboard showing how much the portfolio gained/lost today (in $ and %)
+2. A **Settings toggle** to show/hide this card
+3. The existing currency toggle already works globally on the dashboard — no changes needed there
 
-## Phase 1: Enhanced Chart Markers (hover tooltips + dynamic sizes)
+## How Daily Performance Works
 
-### What changes
+Finnhub's `/quote` endpoint already returns `pc` (previous close) alongside `c` (current price). We just need to pass `pc` through to the frontend.
 
-**`src/components/PriceChart.tsx`**:
+**Daily P&L formula**: For each holding, `(currentPrice - previousClose) * quantity`. Sum across all holdings = today's portfolio change.
 
-- **Enrich trade markers** with `quantity`, `total_amount`, and trade metadata
-- **Dynamic dot radius**: Calculate relative size per trade type. For a single trade, use default `r=6`. For multiple buys (or sells), scale proportionally: `r = 4 + (quantity / maxQuantity) * 6` (range 4-10px)
-- **Custom tooltip on marker hover**: Replace the default Recharts tooltip when hovering a `ReferenceDot`. Use a custom `label` prop on `ReferenceDot` that renders a styled div — green background for buy, red for sell — showing:
-  - Date
-  - Type (Buy/Sell)
-  - Quantity + Price
-  - Total amount
+## Changes
 
-**Technical approach for custom hover**: Recharts `ReferenceDot` doesn't natively support hover tooltips. Instead:
-1. Embed trade marker data directly into the `candles` data array (add optional `tradeMarker` field to each candle point that has a trade)
-2. Use a **custom Tooltip component** that checks if the hovered point has a `tradeMarker` — if yes, render the buy/sell styled card; if no, render the default price tooltip
-3. This avoids fighting Recharts limitations with `ReferenceDot` hover events
+### 1. Edge Function: `supabase/functions/fetch-quote/index.ts`
 
----
+Add `previousClose: quote.pc` to the response object (alongside the existing `price: quote.c`). For CoinGecko, use `price_change_24h` from the market data response.
 
-## Phase 2: FIFO Trade Matching (closed trades calculation)
+### 2. Hook: `src/hooks/useMarketPrices.tsx`
 
-### What changes
+- Expand the return type to include `previousClose` per symbol: `Map<string, { price: number; previousClose: number }>`
+- Or simpler: add a second map `previousCloses: Map<string, number>`
 
-**New utility: `src/lib/tradeMatching.ts`**
+### 3. Dashboard: `src/pages/Index.tsx`
 
-Pure client-side FIFO matching logic:
+Add a new card after the Hero card (or inside the 2x2 metrics grid, replacing or adding to it):
 
 ```text
-Input: trades[] sorted by date (buys + sells for one symbol)
-Output: ClosedTrade[] — each sell "closes" a portion of a previous buy
-
-Algorithm:
-1. Maintain a queue of open buy lots: { date, price, remainingQty }
-2. For each sell (chronological):
-   - Consume from oldest buy lot until sell qty is filled
-   - Each consumption = one ClosedTrade with:
-     - buyDate, buyPrice, sellDate, sellPrice
-     - quantity (portion closed)
-     - pnl = (sellPrice - buyPrice) * quantity
-     - returnPct = (sellPrice - buyPrice) / buyPrice * 100
+┌────────────────────────────┐
+│  TODAY'S PERFORMANCE       │
+│  +$342.50  (+1.2%)         │
+│  ▲ green or ▼ red          │
+└────────────────────────────┘
 ```
 
-No DB changes — purely derived from existing trades.
+- Calculates: `Σ (currentPrice - previousClose) × quantity` for all holdings
+- Percentage: `dailyChange / (totalPortfolioValue - dailyChange) × 100`
+- Respects the existing `displayCurrency` toggle (ARS/USD)
+- Conditionally rendered based on `profile.show_daily_performance`
 
----
+### 4. Profile/Settings: DB + UI
 
-## Phase 3: Closed Trades UI on Asset Detail Page
+- **Migration**: Add `show_daily_performance boolean NOT NULL DEFAULT true` to `profiles` table
+- **`src/hooks/useProfile.tsx`**: Add `show_daily_performance` to the Profile interface and select/update queries
+- **`src/pages/Settings.tsx`**: Add a Switch toggle under the currency card: "Show daily performance on dashboard"
 
-### What changes
+### 5. i18n: `src/i18n/en.ts` & `es.ts`
 
-**`src/pages/AssetDetail.tsx`**:
+New keys: `board.todayPerformance`, `settings.showDailyPerformance`, `settings.showDailyPerformanceDesc`
 
-Add a new Card section "Closed Trades" between the chart and the trade history table. Each row shows:
-- Buy date → Sell date
-- Quantity closed
-- Buy price → Sell price
-- P&L ($) and Return (%)
-- Green/red styling based on profit/loss
+## Files
 
-If there are remaining open shares, show a summary row: "X shares still open @ avg $Y"
-
-### i18n keys (6 new)
-
-`asset.closedTrades`, `asset.openShares`, `asset.buyDate`, `asset.sellDate`, `asset.tradeReturn`, `asset.stillOpen`
-
----
+| File | Change |
+|---|---|
+| `supabase/functions/fetch-quote/index.ts` | Return `previousClose` from Finnhub (`pc`) and CoinGecko |
+| `src/hooks/useMarketPrices.tsx` | Expose `previousCloses` map |
+| `src/pages/Index.tsx` | Add "Today's Performance" card, conditionally rendered |
+| `src/hooks/useProfile.tsx` | Add `show_daily_performance` field |
+| `src/pages/Settings.tsx` | Add toggle for daily performance visibility |
+| `src/i18n/en.ts`, `es.ts` | 3 new keys |
+| Migration | Add `show_daily_performance` column to `profiles` |
 
 ## Implementation Order
 
-| Phase | Files | Description |
-|-------|-------|-------------|
-| 1 | `src/components/PriceChart.tsx` | Custom tooltip + dynamic dot sizes |
-| 2 | `src/lib/tradeMatching.ts` (new) | FIFO matching utility |
-| 3 | `src/pages/AssetDetail.tsx`, `src/i18n/en.ts`, `es.ts` | Closed trades card using matching utility |
-
-Each phase is independently shippable. Phase 1 enhances the existing chart. Phase 2 is a pure utility with no UI. Phase 3 uses Phase 2 to render the closed trades view.
+1. Migration (add column)
+2. Update `fetch-quote` to return `previousClose`
+3. Update `useMarketPrices` to expose previous closes
+4. Update `useProfile` with new field
+5. Add Settings toggle
+6. Add dashboard card with daily performance
 
