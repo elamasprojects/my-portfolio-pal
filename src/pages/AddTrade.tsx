@@ -286,8 +286,8 @@ const AddTrade = () => {
         setSymbol(match.symbol);
         setAssetName(match.asset_name);
         setAssetType(match.asset_type);
-        // Fetch current quote but preserve OCR price
-        const ocrPrice = data.price_per_unit;
+        // Fetch current quote but preserve OCR price (use reconciled price)
+        const ocrPrice = resolvedPrice;
         setFetchingQuote(true);
         supabase.functions.invoke("fetch-quote", { body: { symbol: match.symbol } })
           .then(({ data: quoteData }) => {
