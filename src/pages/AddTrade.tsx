@@ -242,12 +242,30 @@ const AddTrade = () => {
     if (data.asset_name) setAssetName(data.asset_name);
     if (data.asset_type) setAssetType(data.asset_type);
     if (data.quantity) setQuantity(String(data.quantity));
-    if (data.price_per_unit) setPrice(String(data.price_per_unit));
+
+    // Reconcile price_per_unit against gross_amount when both are present.
+    // If qty × price_per_unit doesn't match gross_amount within 5%, trust gross_amount.
+    let resolvedPrice = data.price_per_unit;
+    if (data.quantity > 0 && data.gross_amount > 0 && data.price_per_unit > 0) {
+      const computed = data.quantity * data.price_per_unit;
+      const diffPct = Math.abs(computed - data.gross_amount) / data.gross_amount;
+      if (diffPct > 0.05) {
+        const corrected = data.gross_amount / data.quantity;
+        console.warn("[OCR] price_per_unit mismatch with gross_amount, correcting", {
+          original: data.price_per_unit,
+          corrected,
+          gross_amount: data.gross_amount,
+          quantity: data.quantity,
+        });
+        resolvedPrice = corrected;
+      }
+    }
+    if (resolvedPrice) setPrice(String(resolvedPrice));
     if (data.trade_date) setTradeDate(data.trade_date);
     if (data.currency === "ARS") setTradeCurrency("ARS");
     else if (data.currency === "USD") setTradeCurrency("USD");
-    if (data.quantity && data.price_per_unit) {
-      setAmount(String((data.quantity * data.price_per_unit).toFixed(2)));
+    if (data.quantity && resolvedPrice) {
+      setAmount(String((data.quantity * resolvedPrice).toFixed(2)));
     }
     if (data._preview) setImagePreview(data._preview);
     fromScreenshotRef.current = true;
