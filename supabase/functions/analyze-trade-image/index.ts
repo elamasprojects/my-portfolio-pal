@@ -37,14 +37,22 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, asset names, and currency. Detect currency from context clues: if you see pesos, ARS, $AR, or Argentine broker interfaces (IOL, Balanz, Bull Market, PPI, Cocos Capital, ARQ), the currency is ARS. If you see USD, dollars, or US broker interfaces, the currency is USD. If you cannot determine a field, use null. IMPORTANT asset_type classification: Index ETFs like SPY, QQQ, IVV, VOO, FXI, EWZ, EEM, VTI, DIA, IWM, XLF, ARKK, VWO, MCHI should be classified as 'etf'. Argentine bonds like AL30, AL35, GD30, GD35, GD38, GD41, GD46, AE38, AL29, TX26, DICP, PARP, CUAP, Para and sovereign/corporate bonds should be classified as 'bond'. Mutual funds and FCI (Fondos Comunes de Inversión) should be classified as 'etf'. CEDEARs of ETFs are also 'etf'. Crypto assets like BTC, ETH, USDT are 'crypto'. Individual company stocks are 'stock'.",
+              "You are a trade data extractor. You analyze screenshots of trade confirmations/orders and extract structured trade information. Look for buy/sell indicators, ticker symbols, quantities, prices, dates, asset names, and currency. Detect currency from context clues: if you see pesos, ARS, $AR, or Argentine broker interfaces (IOL, Balanz, Bull Market, PPI, Cocos Capital, ARQ), the currency is ARS. If you see USD, dollars, or US broker interfaces, the currency is USD. If you cannot determine a field, use null. " +
+              "CRITICAL price extraction rules: " +
+              "(1) `price_per_unit` MUST be the GROSS price PER SINGLE UNIT/SHARE BEFORE commissions, fees, or taxes. " +
+              "(2) Prefer numbers labeled 'Precio', 'Price', 'Cotización', 'Precio unitario', 'Limit price', 'Precio de ejecución'. " +
+              "(3) NEVER use numbers labeled 'Neto', 'Net', 'Total a recibir', 'Importe acreditado', 'Monto neto', 'Net proceeds', 'Net amount'. Those are post-commission amounts and belong in `net_amount`. " +
+              "(4) If you see both a gross subtotal and a net amount, place the gross subtotal in `gross_amount` and the net (after fees) in `net_amount`. " +
+              "(5) VALIDATE: quantity × price_per_unit must approximately equal the gross subtotal (within 1%). If the math doesn't check out, re-examine which number is the unit price. " +
+              "(6) For orders showing a single round amount like '500 USD' as the order value with quantity 1 unit, that 500 IS the price_per_unit, not 449.77 (which would be net after fees). " +
+              "IMPORTANT asset_type classification: Index ETFs like SPY, QQQ, IVV, VOO, FXI, EWZ, EEM, VTI, DIA, IWM, XLF, ARKK, VWO, MCHI should be classified as 'etf'. Argentine bonds like AL30, AL35, GD30, GD35, GD38, GD41, GD46, AE38, AL29, TX26, DICP, PARP, CUAP, Para and sovereign/corporate bonds should be classified as 'bond'. Mutual funds and FCI (Fondos Comunes de Inversión) should be classified as 'etf'. CEDEARs of ETFs are also 'etf'. Crypto assets like BTC, ETH, USDT are 'crypto'. Individual company stocks are 'stock'.",
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Analyze this trade screenshot and extract the trade details. Determine if it's a buy or sell based on context clues (e.g., 'compra'/'bought' = buy, 'venta'/'sold' = sell). Extract the ticker symbol, asset name, quantity, price per unit, trade date, asset type, and currency (ARS or USD).",
+                text: "Analyze this trade screenshot and extract the trade details. Determine if it's a buy or sell based on context clues (e.g., 'compra'/'bought' = buy, 'venta'/'sold' = sell). Extract: ticker symbol, asset name, quantity, GROSS price per unit (before fees), trade date, asset type, and currency. If the screenshot shows a gross subtotal and a net amount (post-fees), include both in `gross_amount` and `net_amount`. Verify quantity × price_per_unit ≈ gross_amount before responding.",
               },
               {
                 type: "image_url",
@@ -86,7 +94,15 @@ serve(async (req) => {
                   },
                   price_per_unit: {
                     type: "number",
-                    description: "Price per share/unit",
+                    description: "GROSS price per single unit/share BEFORE any commissions, fees, or taxes. Must satisfy: quantity × price_per_unit ≈ gross_amount. Never use the net/post-fee amount here.",
+                  },
+                  gross_amount: {
+                    type: "number",
+                    description: "Optional. Gross subtotal = quantity × price_per_unit, before commissions/fees. Include if visible in the screenshot.",
+                  },
+                  net_amount: {
+                    type: "number",
+                    description: "Optional. Net amount actually credited (sells) or debited (buys) AFTER commissions/fees. Include only if explicitly shown.",
                   },
                   trade_date: {
                     type: "string",
