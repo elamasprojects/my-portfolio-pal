@@ -325,17 +325,29 @@ const AddTrade = () => {
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).filter(f => f.type.startsWith("image/"));
     if (files.length === 0) return;
-    setStagedFiles(prev => [...prev, ...files].slice(0, 10));
-    // Reset so same files can be re-selected
     e.target.value = "";
-  }, []);
+    // Auto-analyze when uploading exactly 1 image and nothing is staged or analyzing
+    setStagedFiles(prev => {
+      if (files.length === 1 && prev.length === 0 && !analyzingImage) {
+        handleImageUpload(files[0]);
+        return prev;
+      }
+      return [...prev, ...files].slice(0, 10);
+    });
+  }, [analyzingImage, handleImageUpload]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
     if (files.length === 0) return;
-    setStagedFiles(prev => [...prev, ...files].slice(0, 10));
-  }, []);
+    setStagedFiles(prev => {
+      if (files.length === 1 && prev.length === 0 && !analyzingImage) {
+        handleImageUpload(files[0]);
+        return prev;
+      }
+      return [...prev, ...files].slice(0, 10);
+    });
+  }, [analyzingImage, handleImageUpload]);
 
   const removeStagedFile = useCallback((index: number) => {
     setStagedFiles(prev => prev.filter((_, i) => i !== index));
