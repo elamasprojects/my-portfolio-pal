@@ -7,6 +7,7 @@ import { useStrategies } from "@/hooks/useStrategies";
 import { useUserBrokers } from "@/hooks/useBrokers";
 import { useProfile } from "@/hooks/useProfile";
 import { TagPicker } from "@/components/TagPicker";
+import { useLanguage } from "@/i18n";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2, Loader2, Copy } from "lucide-react";
+import { Trash2, Loader2, Copy, BookOpen } from "lucide-react";
 
 interface EditTradeDialogProps {
   trade: Trade | null;
@@ -43,6 +44,7 @@ interface EditTradeDialogProps {
 }
 
 export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogProps) {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: allTags = [] } = useTags();
@@ -298,6 +300,27 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
             <Label className="text-xs text-muted-foreground">Notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
+          {trade.journal_notes && (
+            <div className="rounded-lg border border-border bg-accent/15 p-3 space-y-2.5 my-2 animate-in fade-in duration-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>{t("addTrade.journalTitle")}</span>
+              </div>
+              <div className="space-y-2 text-xs divide-y divide-border/50">
+                {Object.entries(trade.journal_notes as Record<string, string>).map(([key, val]) => {
+                  const qNum = key.replace("q", "");
+                  const qTranslationKey = `addTrade.journalQ${qNum}`;
+                  return (
+                    <div key={key} className="pt-2 first:pt-0">
+                      <p className="font-semibold text-foreground mb-0.5 leading-relaxed">{t(qTranslationKey as any)}</p>
+                      <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{val}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

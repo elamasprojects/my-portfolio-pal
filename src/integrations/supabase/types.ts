@@ -411,6 +411,7 @@ export type Database = {
           commission_pct: number
           created_at: string
           id: string
+          journal_notes: Json | null
           mep_rate: number | null
           notes: string | null
           original_currency: string
@@ -433,6 +434,7 @@ export type Database = {
           commission_pct?: number
           created_at?: string
           id?: string
+          journal_notes?: Json | null
           mep_rate?: number | null
           notes?: string | null
           original_currency?: string
@@ -455,6 +457,7 @@ export type Database = {
           commission_pct?: number
           created_at?: string
           id?: string
+          journal_notes?: Json | null
           mep_rate?: number | null
           notes?: string | null
           original_currency?: string

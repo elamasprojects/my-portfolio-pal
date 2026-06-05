@@ -22,10 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus, Clipboard } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus, Clipboard, BookOpen, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import confetti from "canvas-confetti";
 import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
@@ -113,6 +114,19 @@ const AddTrade = () => {
   const [analyzingCount, setAnalyzingCount] = useState(0);
   const [analyzingTotal, setAnalyzingTotal] = useState(0);
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+
+  // Journaling state
+  const [journalEnabled, setJournalEnabled] = useState(false);
+  const [journalWizardOpen, setJournalWizardOpen] = useState(false);
+  const [journalStep, setJournalStep] = useState(1);
+  const [journalAnswers, setJournalAnswers] = useState<Record<string, string>>({
+    q1: "",
+    q2: "",
+    q3: "",
+    q4: "",
+    q5: "",
+    q6: "",
+  });
 
   // Broker state
   const { data: userBrokers } = useUserBrokers();
@@ -694,8 +708,8 @@ const AddTrade = () => {
     }
   }, [submittedTrades, currentQueueIndex, screenshotQueue, populateFormFromData]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, bypassJournal = false) => {
+    if (e) e.preventDefault();
     if (!user || !portfolio) return;
 
     let finalQuantity: number;
@@ -721,6 +735,15 @@ const AddTrade = () => {
           : parseFloat(quantity);
       finalPrice = parseFloat(price);
 
+      if (isNaN(finalQuantity) || finalQuantity <= 0) {
+        toast.error("Please enter a valid quantity");
+        return;
+      }
+      if (isNaN(finalPrice) || finalPrice <= 0) {
+        toast.error("Please enter a valid price");
+        return;
+      }
+
       // Convert ARS price to USD before storing
       if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
         finalPrice = convertArsToUsd(finalPrice, effectiveMepRate);
@@ -735,6 +758,12 @@ const AddTrade = () => {
         toast.error(t("addTrade.notEnoughShares", { shares: availableShares.toFixed(4) }));
         return;
       }
+    }
+
+    if (tradeType === "buy" && journalEnabled && !bypassJournal) {
+      setJournalStep(1);
+      setJournalWizardOpen(true);
+      return;
     }
 
     setSubmitting(true);
@@ -768,6 +797,7 @@ const AddTrade = () => {
         broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
         commission_amount: commissionAmount,
         mep_rate: tradeCurrency === "ARS" && effectiveMepRate > 0 ? effectiveMepRate : null,
+        journal_notes: journalEnabled && tradeType === "buy" ? journalAnswers : null,
       } as any).select("id").single();
 
       if (error) throw error;
@@ -842,6 +872,17 @@ const AddTrade = () => {
     setCustomMepRate("");
     setSearchResults([]);
     setShowSearchDropdown(false);
+    setJournalEnabled(false);
+    setJournalWizardOpen(false);
+    setJournalStep(1);
+    setJournalAnswers({
+      q1: "",
+      q2: "",
+      q3: "",
+      q4: "",
+      q5: "",
+      q6: "",
+    });
   };
 
   const handleAddAnother = () => {
@@ -1609,6 +1650,23 @@ const AddTrade = () => {
                                 rows={2}
                               />
                             </div>
+                            {tradeType === "buy" && (
+                              <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-accent/20 my-2 animate-in fade-in duration-200">
+                                <div className="space-y-0.5 pr-2">
+                                  <Label htmlFor="journal-toggle" className="text-sm font-medium cursor-pointer">
+                                    {t("addTrade.enableJournal")}
+                                  </Label>
+                                  <p className="text-xs text-muted-foreground">
+                                    {t("addTrade.enableJournalSub")}
+                                  </p>
+                                </div>
+                                <Switch
+                                  id="journal-toggle"
+                                  checked={journalEnabled}
+                                  onCheckedChange={setJournalEnabled}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1735,6 +1793,8 @@ const AddTrade = () => {
                     )}
                     {submitting
                       ? t("addTrade.adding")
+                      : (journalEnabled && tradeType === "buy")
+                      ? t("addTrade.completeJournalAndRecord")
                       : isMultiMode
                       ? t("addTrade.tradeOf", { current: String(currentPositionInQueue), total: String(totalSuccessful) })
                       : `${t("addTrade.addTrade")} ${tradeType ? tradeType.toUpperCase() : ""}`}
@@ -1900,6 +1960,201 @@ const AddTrade = () => {
           </div>
         </div>
       </div>
+
+      {/* Graham's Journal Wizard Modal */}
+      <Dialog open={journalWizardOpen} onOpenChange={(open) => {
+        if (!open && !submitting) {
+          setJournalWizardOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-lg w-[95vw] rounded-xl border border-border bg-card shadow-2xl p-6">
+          <DialogHeader>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                {journalStep === 1
+                  ? t("addTrade.journalStep1")
+                  : journalStep === 2
+                  ? t("addTrade.journalStep2")
+                  : t("addTrade.journalStep3")}
+              </span>
+              <span className="text-xs font-mono text-muted-foreground">
+                {t("addTrade.journalStepIndicator", { current: String(journalStep), total: "3" })}
+              </span>
+            </div>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 mt-1">
+              <BookOpen className="h-5 w-5 text-primary" />
+              {t("addTrade.journalTitle")}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              {t("addTrade.journalSubtitle")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Progress bar */}
+          <div className="w-full bg-accent h-1.5 rounded-full overflow-hidden my-4">
+            <div
+              className="bg-primary h-full transition-all duration-300 ease-in-out"
+              style={{ width: `${(journalStep / 3) * 100}%` }}
+            />
+          </div>
+
+          <div className="space-y-4 py-2">
+            {journalStep === 1 && (
+              <>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ1")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q1}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q1: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ2")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q2}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q2: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {journalStep === 2 && (
+              <>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ3")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q3}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q3: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ4")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q4}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q4: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {journalStep === 3 && (
+              <>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ5")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q5}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q5: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <Label className="text-sm font-medium leading-relaxed">
+                    {t("addTrade.journalQ6")}
+                  </Label>
+                  <Textarea
+                    placeholder={t("addTrade.journalTypeHere")}
+                    value={journalAnswers.q6}
+                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q6: e.target.value }))}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center mt-6 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={journalStep === 1 || submitting}
+              onClick={() => setJournalStep(prev => prev - 1)}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {t("addTrade.journalBack")}
+            </Button>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={submitting}
+                onClick={() => setJournalWizardOpen(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              
+              {journalStep < 3 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const qA = journalAnswers[`q${(journalStep - 1) * 2 + 1}`].trim();
+                    const qB = journalAnswers[`q${(journalStep - 1) * 2 + 2}`].trim();
+                    if (!qA || !qB) {
+                      toast.error("Please answer all questions before proceeding.");
+                      return;
+                    }
+                    setJournalStep(prev => prev + 1);
+                  }}
+                >
+                  {t("addTrade.journalNext")}
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={async () => {
+                    const q5 = journalAnswers.q5.trim();
+                    const q6 = journalAnswers.q6.trim();
+                    if (!q5 || !q6) {
+                      toast.error("Please answer all questions before proceeding.");
+                      return;
+                    }
+                    await handleSubmit(undefined, true);
+                    setJournalWizardOpen(false);
+                  }}
+                >
+                  {submitting ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  {t("common.confirm")}
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

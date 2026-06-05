@@ -24,6 +24,7 @@ export interface Trade {
   commission_pct: number;
   commission_amount: number;
   mep_rate: number | null;
+  journal_notes: Record<string, string> | null;
 }
 
 export interface Portfolio {
