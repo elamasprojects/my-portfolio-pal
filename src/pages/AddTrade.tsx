@@ -128,6 +128,10 @@ const AddTrade = () => {
     q6: "",
   });
 
+  // Journal chart upload state
+  const [journalChartFile, setJournalChartFile] = useState<File | null>(null);
+  const [journalChartPreview, setJournalChartPreview] = useState<string | null>(null);
+
   // Broker state
   const { data: userBrokers } = useUserBrokers();
   const defaultBroker = useDefaultBroker();
@@ -768,6 +772,35 @@ const AddTrade = () => {
 
     setSubmitting(true);
     try {
+      let finalJournalNotes: any = null;
+
+      if (journalEnabled && tradeType === "buy") {
+        let chartUrl = null;
+        if (journalChartFile) {
+          const ext = journalChartFile.name.split(".").pop();
+          const fileName = `${symbol.toUpperCase()}_${Date.now()}.${ext}`;
+          const filePath = `${user.id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("journal_charts")
+            .upload(filePath, journalChartFile, { upsert: true });
+
+          if (uploadError) {
+            toast.error("Failed to upload TradingView chart. Proceeding without chart.");
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from("journal_charts")
+              .getPublicUrl(filePath);
+            chartUrl = publicUrl;
+          }
+        }
+
+        finalJournalNotes = {
+          ...journalAnswers,
+          ...(chartUrl ? { chart_image_url: chartUrl } : {}),
+        };
+      }
+
       // Compute original price before conversion
       const originalPrice = tradeType === "dividend"
         ? parseFloat(dividendAmount)
@@ -797,7 +830,7 @@ const AddTrade = () => {
         broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
         commission_amount: commissionAmount,
         mep_rate: tradeCurrency === "ARS" && effectiveMepRate > 0 ? effectiveMepRate : null,
-        journal_notes: journalEnabled && tradeType === "buy" ? journalAnswers : null,
+        journal_notes: finalJournalNotes,
       } as any).select("id").single();
 
       if (error) throw error;
@@ -883,6 +916,8 @@ const AddTrade = () => {
       q5: "",
       q6: "",
     });
+    setJournalChartFile(null);
+    setJournalChartPreview(null);
   };
 
   const handleAddAnother = () => {
@@ -1651,20 +1686,82 @@ const AddTrade = () => {
                               />
                             </div>
                             {tradeType === "buy" && (
-                              <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-accent/20 my-2 animate-in fade-in duration-200">
-                                <div className="space-y-0.5 pr-2">
-                                  <Label htmlFor="journal-toggle" className="text-sm font-medium cursor-pointer">
-                                    {t("addTrade.enableJournal")}
-                                  </Label>
-                                  <p className="text-xs text-muted-foreground">
-                                    {t("addTrade.enableJournalSub")}
-                                  </p>
+                              <div className="space-y-3 my-2 animate-in fade-in duration-200">
+                                <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-accent/20">
+                                  <div className="space-y-0.5 pr-2">
+                                    <Label htmlFor="journal-toggle" className="text-sm font-medium cursor-pointer">
+                                      {t("addTrade.enableJournal")}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                      {t("addTrade.enableJournalSub")}
+                                    </p>
+                                  </div>
+                                  <Switch
+                                    id="journal-toggle"
+                                    checked={journalEnabled}
+                                    onCheckedChange={(val) => {
+                                      setJournalEnabled(val);
+                                      if (!val) {
+                                        setJournalChartFile(null);
+                                        setJournalChartPreview(null);
+                                      }
+                                    }}
+                                  />
                                 </div>
-                                <Switch
-                                  id="journal-toggle"
-                                  checked={journalEnabled}
-                                  onCheckedChange={setJournalEnabled}
-                                />
+                                {journalEnabled && (
+                                  <div className="border border-dashed border-border rounded-lg p-3 bg-accent/5 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                                    <Label className="text-xs font-semibold text-muted-foreground">
+                                      {t("addTrade.uploadChart")}
+                                    </Label>
+                                    {!journalChartPreview ? (
+                                      <div
+                                        onClick={() => document.getElementById("journal-chart-input")?.click()}
+                                        className="relative border border-dashed border-border/60 hover:border-primary/40 hover:bg-accent/10 rounded-md p-4 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                      >
+                                        <input
+                                          id="journal-chart-input"
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                              setJournalChartFile(file);
+                                              setJournalChartPreview(URL.createObjectURL(file));
+                                            }
+                                          }}
+                                        />
+                                        <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                                        <span className="text-[11px] text-muted-foreground text-center">
+                                          {t("addTrade.uploadChartSub")}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="relative rounded-md border border-border overflow-hidden h-24 bg-card group">
+                                        <img
+                                          src={journalChartPreview}
+                                          alt="TradingView Chart"
+                                          className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => {
+                                              setJournalChartFile(null);
+                                              setJournalChartPreview(null);
+                                            }}
+                                            className="h-7 text-xs px-2"
+                                          >
+                                            <X className="h-3 w-3 mr-1" />
+                                            {t("addTrade.removeChart")}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

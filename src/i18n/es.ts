@@ -225,6 +225,10 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.journalBack": "Atrás",
   "addTrade.journalStepIndicator": "Paso {current} de {total}",
   "addTrade.journalTypeHere": "Escribe tus reflexiones aquí...",
+  "addTrade.uploadChart": "Subir gráfico de análisis (opcional)",
+  "addTrade.uploadChartSub": "Selecciona o arrastra una captura de TradingView",
+  "addTrade.removeChart": "Quitar gráfico",
+  "addTrade.uploadingChart": "Subiendo gráfico...",
 
   // Trade Log
   "tradeLog.title": "Historial de Jugadas",

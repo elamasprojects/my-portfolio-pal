@@ -223,6 +223,10 @@ export const en = {
   "addTrade.journalBack": "Back",
   "addTrade.journalStepIndicator": "Step {current} of {total}",
   "addTrade.journalTypeHere": "Type your thoughts here...",
+  "addTrade.uploadChart": "Upload analysis chart (optional)",
+  "addTrade.uploadChartSub": "Select or drag a TradingView analysis screenshot",
+  "addTrade.removeChart": "Remove chart",
+  "addTrade.uploadingChart": "Uploading chart...",
 
   // Trade Log
   "tradeLog.title": "Move History",

@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Trash2, Loader2, Copy, BookOpen } from "lucide-react";
+import { Trash2, Loader2, Copy, BookOpen, TrendingUp } from "lucide-react";
 
 interface EditTradeDialogProps {
   trade: Trade | null;
@@ -308,17 +308,40 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
                 <span>{t("addTrade.journalTitle")}</span>
               </div>
               <div className="space-y-2 text-xs divide-y divide-border/50">
-                {Object.entries(trade.journal_notes as Record<string, string>).map(([key, val]) => {
-                  const qNum = key.replace("q", "");
-                  const qTranslationKey = `addTrade.journalQ${qNum}`;
-                  return (
-                    <div key={key} className="pt-2 first:pt-0">
-                      <p className="font-semibold text-foreground mb-0.5 leading-relaxed">{t(qTranslationKey as any)}</p>
-                      <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{val}</p>
-                    </div>
-                  );
-                })}
+                {Object.entries(trade.journal_notes as Record<string, string>)
+                  .filter(([key]) => key.startsWith("q"))
+                  .map(([key, val]) => {
+                    const qNum = key.replace("q", "");
+                    const qTranslationKey = `addTrade.journalQ${qNum}`;
+                    return (
+                      <div key={key} className="pt-2 first:pt-0">
+                        <p className="font-semibold text-foreground mb-0.5 leading-relaxed">{t(qTranslationKey as any)}</p>
+                        <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{val}</p>
+                      </div>
+                    );
+                  })
+                }
               </div>
+              {(trade.journal_notes as any).chart_image_url && (
+                <div className="pt-2.5 border-t border-border/50 space-y-1.5">
+                  <p className="font-semibold text-foreground mb-0.5 leading-relaxed flex items-center gap-1">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                    <span>TradingView Analysis Chart</span>
+                  </p>
+                  <a
+                    href={(trade.journal_notes as any).chart_image_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block relative rounded-md border border-border overflow-hidden bg-muted hover:opacity-95 transition-opacity"
+                  >
+                    <img
+                      src={(trade.journal_notes as any).chart_image_url}
+                      alt="TradingView Price Chart"
+                      className="w-full max-h-48 object-contain"
+                    />
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
