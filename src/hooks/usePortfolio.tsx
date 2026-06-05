@@ -205,39 +205,56 @@ export function useTrades(portfolioId?: string) {
 }
 
 export function computeHoldings(trades: Trade[]): Holding[] {
-  const map = new Map<string, { buys: number; buyQty: number; sells: number; sellQty: number; asset_name: string; asset_type: string }>();
-
+  // Group trades by symbol
+  const bySymbol = new Map<string, Trade[]>();
   for (const t of trades) {
-    // Exclude dividend trades from holdings calculation
     if (t.trade_type === "dividend") continue;
-
-    const entry = map.get(t.symbol) || { buys: 0, buyQty: 0, sells: 0, sellQty: 0, asset_name: t.asset_name, asset_type: t.asset_type };
-    if (t.trade_type === "buy") {
-      entry.buys += t.quantity * t.price_per_unit;
-      entry.buyQty += t.quantity;
-    } else {
-      entry.sells += t.quantity * t.price_per_unit;
-      entry.sellQty += t.quantity;
-    }
-    entry.asset_name = t.asset_name;
-    entry.asset_type = t.asset_type;
-    map.set(t.symbol, entry);
+    const arr = bySymbol.get(t.symbol) || [];
+    arr.push(t);
+    bySymbol.set(t.symbol, arr);
   }
 
-  return Array.from(map.entries())
-    .map(([symbol, e]) => {
-      const net_quantity = e.buyQty - e.sellQty;
-      const avg_cost = e.buyQty > 0 ? e.buys / e.buyQty : 0;
-      return {
-        symbol,
-        asset_name: e.asset_name,
-        asset_type: e.asset_type,
-        net_quantity,
-        avg_cost,
-        total_invested: avg_cost * net_quantity,
-      };
-    })
-    .filter((h) => h.net_quantity > 0.005 && h.total_invested >= 10.00);
+  const holdingsList: Holding[] = [];
+
+  for (const [symbol, symbolTrades] of bySymbol.entries()) {
+    // Sort chronological ascending
+    const sorted = [...symbolTrades].sort(
+      (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+    );
+
+    let qty = 0;
+    let avgCost = 0;
+    let assetName = sorted[0]?.asset_name || "";
+    let assetType = sorted[0]?.asset_type || "";
+
+    for (const t of sorted) {
+      assetName = t.asset_name;
+      assetType = t.asset_type;
+
+      if (t.trade_type === "buy") {
+        const totalCost = avgCost * qty + t.price_per_unit * t.quantity;
+        qty += t.quantity;
+        avgCost = qty > 0 ? totalCost / qty : 0;
+      } else if (t.trade_type === "sell") {
+        qty -= t.quantity;
+        if (qty <= 0) {
+          qty = 0;
+          avgCost = 0;
+        }
+      }
+    }
+
+    holdingsList.push({
+      symbol,
+      asset_name: assetName,
+      asset_type: assetType,
+      net_quantity: qty,
+      avg_cost: avgCost,
+      total_invested: avgCost * qty,
+    });
+  }
+
+  return holdingsList.filter((h) => h.net_quantity > 0.005 && h.total_invested >= 10.00);
 }
 
 // --- Realized P&L computation (average cost method) ---
