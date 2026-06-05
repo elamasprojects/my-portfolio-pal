@@ -66,6 +66,8 @@ export const es: Record<TranslationKey, string> = {
   "board.costBasis": "Costo Base (Abierto)",
   "board.realizedPnl": "P&L Realizado",
   "board.winRate": "Tasa de Éxito",
+  "board.realized": "Realizado",
+  "board.projected": "Proyectado",
   "board.dividends": "Dividendos",
   "board.holdings": "Posiciones",
   "board.totalTrades": "Total Operaciones",

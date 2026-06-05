@@ -64,6 +64,8 @@ export const en = {
   "board.costBasis": "Cost Basis (Open)",
   "board.realizedPnl": "Realized P&L",
   "board.winRate": "Win Rate",
+  "board.realized": "Realized",
+  "board.projected": "Projected",
   "board.dividends": "Dividends",
   "board.holdings": "Holdings",
   "board.totalTrades": "Total Trades",

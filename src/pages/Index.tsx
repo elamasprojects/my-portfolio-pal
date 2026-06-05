@@ -84,6 +84,24 @@ const Index = () => {
 
   const cumulativePnL = useMemo(() => computeCumulativePnLWithUnrealized(trades, marketPrices), [trades, marketPrices]);
 
+  const combinedWinRate = useMemo(() => {
+    let openWinning = 0;
+    let openTotal = 0;
+    for (const h of holdings) {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      if (price !== undefined && price !== null) {
+        if (price > h.avg_cost) {
+          openWinning++;
+        }
+        openTotal++;
+      }
+    }
+    const wins = performance.winning_sells + openWinning;
+    const total = performance.total_sells + openTotal;
+    const rate = total > 0 ? (wins / total) * 100 : 0;
+    return { wins, total, rate };
+  }, [holdings, marketPrices, performance.winning_sells, performance.total_sells]);
+
   const totalPortfolioValue = marketValue + cash;
   const totalPnl = performance.total_realized_pnl + unrealizedPnl + performance.total_dividends;
   const totalPnlPct = performance.total_cost_basis > 0 ? (totalPnl / performance.total_cost_basis) * 100 : 0;
@@ -439,17 +457,33 @@ const Index = () => {
 
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate">{t("board.winRate")}</p>
-                <p className="text-lg md:text-xl font-bold font-mono mt-0.5">
-                  {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
+            <div className="flex items-start justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate mb-1">
+                  {t("board.winRate")}
                 </p>
-                {performance.total_sells > 0 && (
-                  <p className="text-[10px] text-muted-foreground">{performance.winning_sells}/{performance.total_sells}</p>
-                )}
+                <div className="flex items-baseline gap-3">
+                  <div>
+                    <p className="text-lg md:text-xl font-bold font-mono">
+                      {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+                      {performance.total_sells > 0 ? `${performance.winning_sells}/${performance.total_sells}` : "0/0"}{" "}
+                      <span className="text-[9px] opacity-80 font-sans">({t("board.realized")})</span>
+                    </p>
+                  </div>
+                  <div className="border-l pl-3 border-border">
+                    <p className="text-base md:text-lg font-bold font-mono text-muted-foreground">
+                      {combinedWinRate.total > 0 ? `${combinedWinRate.rate.toFixed(0)}%` : "—"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/75 mt-0.5 whitespace-nowrap">
+                      {combinedWinRate.total > 0 ? `${combinedWinRate.wins}/${combinedWinRate.total}` : "0/0"}{" "}
+                      <span className="text-[9px] opacity-80 font-sans">({t("board.projected")})</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 ml-2 mt-0.5">
                 <Target className="h-4 w-4 text-primary" />
               </div>
             </div>
