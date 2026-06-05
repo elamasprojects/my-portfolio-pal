@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp, LineChart as LucideLineChart } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp, LineChart as LucideLineChart, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend, LineChart, Line } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
@@ -355,14 +355,47 @@ const Index = () => {
     );
   }
 
-  // Holdings with computed P&L
-  const holdingsWithPnl = holdings.map(h => {
-    const currentPrice = marketPrices.get(h.symbol.toUpperCase());
-    const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
-    const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
-    const uPnlPct = currentPrice && h.avg_cost > 0 ? ((currentPrice - h.avg_cost) / h.avg_cost) * 100 : null;
-    return { ...h, currentPrice, mktVal, uPnl, uPnlPct };
-  });
+  const [sortField, setSortField] = useState<"mktVal" | "pnl" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // Holdings with computed P&L (mapped & sorted)
+  const holdingsWithPnl = useMemo(() => {
+    const data = holdings.map(h => {
+      const currentPrice = marketPrices.get(h.symbol.toUpperCase());
+      const mktVal = currentPrice ? currentPrice * h.net_quantity : null;
+      const uPnl = currentPrice ? (currentPrice - h.avg_cost) * h.net_quantity : null;
+      const uPnlPct = currentPrice && h.avg_cost > 0 ? ((currentPrice - h.avg_cost) / h.avg_cost) * 100 : null;
+      return { ...h, currentPrice, mktVal, uPnl, uPnlPct };
+    });
+
+    if (!sortField) return data;
+
+    return [...data].sort((a, b) => {
+      let valA = 0;
+      let valB = 0;
+
+      if (sortField === "mktVal") {
+        valA = a.mktVal !== null ? a.mktVal : a.total_invested;
+        valB = b.mktVal !== null ? b.mktVal : b.total_invested;
+      } else if (sortField === "pnl") {
+        valA = a.uPnlPct !== null ? a.uPnlPct : -999999;
+        valB = b.uPnlPct !== null ? b.uPnlPct : -999999;
+      }
+
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [holdings, marketPrices, sortField, sortDirection]);
+
+  const handleSort = (field: "mktVal" | "pnl") => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
 
   const chartTooltipStyle = {
     background: "hsl(var(--popover))",
@@ -653,8 +686,40 @@ const Index = () => {
                       <TableHead className="text-right">{t("board.qty")}</TableHead>
                       <TableHead className="text-right">{t("board.avgCost")}</TableHead>
                       <TableHead className="text-right">{t("board.price")}</TableHead>
-                      <TableHead className="text-right">{t("board.mktVal")}</TableHead>
-                      <TableHead className="text-right">{t("board.pnl")}</TableHead>
+                      <TableHead 
+                        className="text-right cursor-pointer select-none hover:text-foreground transition-colors"
+                        onClick={() => handleSort("mktVal")}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          {t("board.mktVal")}
+                          {sortField === "mktVal" ? (
+                            sortDirection === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                          )}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-right cursor-pointer select-none hover:text-foreground transition-colors"
+                        onClick={() => handleSort("pnl")}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          {t("board.pnl")}
+                          {sortField === "pnl" ? (
+                            sortDirection === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                          )}
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
