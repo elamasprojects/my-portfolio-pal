@@ -470,6 +470,54 @@ export function computeCumulativePnLWithUnrealized(
   return points;
 }
 
+export interface ChronoSell {
+  date: Date;
+  isWin: boolean;
+  symbol: string;
+}
+
+export function computeChronoSells(trades: Trade[]): ChronoSell[] {
+  const bySymbol = new Map<string, Trade[]>();
+  for (const t of trades) {
+    const arr = bySymbol.get(t.symbol) || [];
+    arr.push(t);
+    bySymbol.set(t.symbol, arr);
+  }
+
+  const sells: ChronoSell[] = [];
+
+  for (const [symbol, symbolTrades] of bySymbol.entries()) {
+    const sorted = [...symbolTrades].sort(
+      (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+    );
+
+    let qty = 0;
+    let avgCost = 0;
+
+    for (const t of sorted) {
+      if (t.trade_type === "buy") {
+        const totalCost = avgCost * qty + t.price_per_unit * t.quantity;
+        qty += t.quantity;
+        avgCost = qty > 0 ? totalCost / qty : 0;
+      } else if (t.trade_type === "sell") {
+        const pnl = (t.price_per_unit - avgCost) * t.quantity;
+        sells.push({
+          date: new Date(t.trade_date),
+          isWin: pnl > 0,
+          symbol,
+        });
+        qty -= t.quantity;
+        if (qty <= 0) {
+          qty = 0;
+          avgCost = 0;
+        }
+      }
+    }
+  }
+
+  return sells.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 // --- Infer market from symbol suffix ---
 export function inferMarket(symbol: string): string {
   if (symbol.endsWith(".BA")) return "BYMA (AR)";

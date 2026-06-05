@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useTrades, computeHoldings, computePerformance, computeCash, computeCumulativePnLWithUnrealized, inferMarket } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance, computeCash, computeCumulativePnLWithUnrealized, inferMarket, computeChronoSells } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
 import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend } from "recharts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp, LineChart as LucideLineChart } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend, LineChart, Line } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
 
@@ -101,6 +102,88 @@ const Index = () => {
     const rate = total > 0 ? (wins / total) * 100 : 0;
     return { wins, total, rate };
   }, [holdings, marketPrices, performance.winning_sells, performance.total_sells]);
+
+  // Historical win rate progression calculation
+  const chronoSells = useMemo(() => computeChronoSells(trades), [trades]);
+
+  const [winRateChartOpen, setWinRateChartOpen] = useState(false);
+  const [chartInterval, setChartInterval] = useState<"weekly" | "monthly">("weekly");
+  const [chartRange, setChartRange] = useState<"1M" | "3M" | "6M" | "1Y" | "YTD">("3M");
+
+  const winRateProgressionData = useMemo(() => {
+    if (chronoSells.length === 0) return [];
+
+    const endDate = new Date();
+    const startDate = new Date();
+    switch (chartRange) {
+      case "1M":
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case "3M":
+        startDate.setMonth(startDate.getMonth() - 3);
+        break;
+      case "6M":
+        startDate.setMonth(startDate.getMonth() - 6);
+        break;
+      case "1Y":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      case "YTD":
+        startDate.setMonth(0);
+        startDate.setDate(1);
+        break;
+    }
+
+    const datePoints: Date[] = [];
+    let current = new Date(startDate.getTime());
+
+    if (chartInterval === "weekly") {
+      while (current <= endDate) {
+        datePoints.push(new Date(current.getTime()));
+        current.setDate(current.getDate() + 7);
+      }
+    } else {
+      current.setDate(1);
+      while (current <= endDate) {
+        datePoints.push(new Date(current.getTime()));
+        current.setMonth(current.getMonth() + 1);
+      }
+    }
+
+    const lastPoint = datePoints[datePoints.length - 1];
+    if (!lastPoint || lastPoint.toDateString() !== endDate.toDateString()) {
+      datePoints.push(new Date(endDate.getTime()));
+    }
+
+    const dataPoints = datePoints.map((d) => {
+      const sellsUpToDate = chronoSells.filter((s) => s.date <= d);
+      const wins = sellsUpToDate.filter((s) => s.isWin).length;
+      const total = sellsUpToDate.length;
+      const rate = total > 0 ? Math.round((wins / total) * 100) : null;
+
+      let dateLabel = "";
+      if (chartInterval === "weekly") {
+        dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      } else {
+        dateLabel = d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+      }
+
+      return {
+        date: d,
+        dateStr: dateLabel,
+        winRate: rate,
+        wins,
+        total,
+      };
+    });
+
+    const firstNonNullIdx = dataPoints.findIndex((p) => p.winRate !== null);
+    if (firstNonNullIdx > 0) {
+      return dataPoints.slice(firstNonNullIdx);
+    }
+
+    return dataPoints;
+  }, [chronoSells, chartInterval, chartRange]);
 
   const totalPortfolioValue = marketValue + cash;
   const totalPnl = performance.total_realized_pnl + unrealizedPnl + performance.total_dividends;
@@ -483,8 +566,19 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 ml-2 mt-0.5">
-                <Target className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-1.5 shrink-0 ml-2 mt-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                  onClick={() => setWinRateChartOpen(true)}
+                  title="View win rate progression"
+                >
+                  <LucideLineChart className="h-4 w-4" />
+                </Button>
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Target className="h-4 w-4" />
+                </div>
               </div>
             </div>
           </CardContent>
@@ -857,6 +951,118 @@ const Index = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* ═══════ WIN RATE PROGRESSION DIALOG ═══════ */}
+      <Dialog open={winRateChartOpen} onOpenChange={setWinRateChartOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[95vh] overflow-y-auto bg-card border-border">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <LucideLineChart className="h-5 w-5 text-primary" />
+              {t("winRateProgression.title" as any)}
+            </DialogTitle>
+            <DialogDescription>
+              {t("winRateProgression.subtitle" as any)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Filters Row */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/60 py-3 my-2">
+            {/* Interval: Weekly vs Monthly */}
+            <div className="flex items-center gap-1 bg-accent/30 p-0.5 rounded-lg border border-border/40">
+              <Button
+                variant={chartInterval === "weekly" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-3 text-xs font-medium rounded-md"
+                onClick={() => setChartInterval("weekly")}
+              >
+                {t("winRateProgression.weekly" as any)}
+              </Button>
+              <Button
+                variant={chartInterval === "monthly" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-3 text-xs font-medium rounded-md"
+                onClick={() => setChartInterval("monthly")}
+              >
+                {t("winRateProgression.monthly" as any)}
+              </Button>
+            </div>
+
+            {/* Range: 1M, 3M, 6M, 1Y, YTD */}
+            <div className="flex items-center gap-1 bg-accent/30 p-0.5 rounded-lg border border-border/40 font-mono">
+              {(["1M", "3M", "6M", "1Y", "YTD"] as const).map((r) => (
+                <Button
+                  key={r}
+                  variant={chartRange === r ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-7 px-2 text-xs font-medium rounded-md"
+                  onClick={() => setChartRange(r)}
+                >
+                  {r}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart Container */}
+          <div className="h-72 mt-2 flex flex-col justify-center">
+            {winRateProgressionData.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-10">
+                {t("winRateProgression.noData" as any)}
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={winRateProgressionData}
+                  margin={{ top: 10, right: 15, left: -20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" vertical={false} />
+                  <XAxis
+                    dataKey="dateStr"
+                    className="text-[10px] text-muted-foreground fill-muted-foreground font-mono"
+                    dy={10}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                    className="text-[10px] text-muted-foreground fill-muted-foreground font-mono"
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-xs space-y-1 font-sans">
+                            <p className="font-semibold text-foreground font-mono">{data.dateStr}</p>
+                            <p className="text-primary font-bold">
+                              {t("board.winRate")}: {data.winRate}%
+                            </p>
+                            <p className="text-muted-foreground">
+                              {t("winRateProgression.realizedWins" as any)}: {data.wins} / {data.total}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="winRate"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, stroke: "hsl(var(--background))", strokeWidth: 1.5, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 6, stroke: "hsl(var(--background))", strokeWidth: 2, fill: "hsl(var(--primary))" }}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
