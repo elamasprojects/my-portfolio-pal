@@ -237,7 +237,7 @@ export function computeHoldings(trades: Trade[]): Holding[] {
         total_invested: avg_cost * net_quantity,
       };
     })
-    .filter((h) => h.net_quantity > 0);
+    .filter((h) => h.net_quantity > 0.005 && h.total_invested >= 10.00);
 }
 
 // --- Realized P&L computation (average cost method) ---
@@ -294,7 +294,15 @@ export function computePerformance(trades: Trade[]): PortfolioPerformance {
       }
     }
 
-    const costBasis = avgCost * qty;
+    let costBasis = avgCost * qty;
+    let finalQty = qty;
+    let finalAvgCost = avgCost;
+    if (finalQty <= 0.005 || costBasis < 10.00) {
+      finalQty = 0;
+      finalAvgCost = 0;
+      costBasis = 0;
+    }
+
     totalRealizedPnl += realizedPnl;
     totalDividends += dividends;
     totalCostBasis += costBasis;
@@ -309,8 +317,8 @@ export function computePerformance(trades: Trade[]): PortfolioPerformance {
       total_return: realizedPnl + dividends,
       winning_sells: winningSells,
       total_sells: sellCount,
-      open_quantity: qty,
-      avg_cost: avgCost,
+      open_quantity: finalQty,
+      avg_cost: finalAvgCost,
       cost_basis: costBasis,
     });
   }
@@ -421,7 +429,8 @@ export function computeCumulativePnLWithUnrealized(
     // Calculate unrealized P&L for all open positions using current market prices
     let unrealized = 0;
     for (const [sym, p] of positions.entries()) {
-      if (p.qty <= 0) continue;
+      const costBasis = p.avgCost * p.qty;
+      if (p.qty <= 0.005 || costBasis < 10.00) continue;
       const mktPrice = marketPrices.get(sym.toUpperCase());
       if (mktPrice) {
         unrealized += (mktPrice - p.avgCost) * p.qty;

@@ -111,6 +111,10 @@ export const es: Record<TranslationKey, string> = {
   "board.mktVal": "Val. Mercado",
   "board.pnl": "P&L",
   "board.todayPerformance": "Rendimiento del Día",
+  "board.dailyBreakdown": "Desglose de P&L Diario",
+  "board.priceChange": "Cambio de Precio",
+  "board.dailyPnl": "P&L Diario",
+  "board.portfolioContrib": "Contrib. al Portfolio",
 
   // Add Trade
   "addTrade.title": "Nueva Jugada",
@@ -163,6 +167,9 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.uploadScreenshot": "Sube una captura de tu confirmación de operación",
   "addTrade.tooltipHint": "Captura tu confirmación de operación así y súbela aquí. La IA extraerá todos los detalles automáticamente.",
   "addTrade.analyzing": "Analizando imagen...",
+  "addTrade.pasteClipboard": "Pegar desde el Portapapeles",
+  "addTrade.clipboardError": "No se encontró ninguna imagen en el portapapeles.",
+  "addTrade.clipboardPermissionError": "No se pudo leer el portapapeles. Por favor otorga permisos o pega manualmente.",
   "addTrade.analyzeError": "No se pudieron extraer los datos. Intenta de nuevo o ingresa manualmente.",
   "addTrade.dropImage": "Arrastra la imagen aquí o haz clic para subir",
   "addTrade.supportedFormats": "JPG, PNG, WEBP soportados",

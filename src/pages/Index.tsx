@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
@@ -36,6 +37,7 @@ const Index = () => {
   const { venta: mepRate } = useDolarMEP();
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const [assetBrokerFilter, setAssetBrokerFilter] = useState<string | null>(null);
+  const [dailyExpanded, setDailyExpanded] = useState(false);
   const navigate = useNavigate();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -99,6 +101,42 @@ const Index = () => {
   const dailyChangePct = totalPortfolioValue - dailyChange > 0
     ? (dailyChange / (totalPortfolioValue - dailyChange)) * 100
     : 0;
+
+  const dailyBreakdown = useMemo(() => {
+    const list = holdings.map((h) => {
+      const price = marketPrices.get(h.symbol.toUpperCase());
+      const prevClose = previousCloses.get(h.symbol.toUpperCase());
+      if (!price || !prevClose) return null;
+      
+      const changePerShare = price - prevClose;
+      const amountChange = changePerShare * h.net_quantity;
+      const pctChange = prevClose > 0 ? (changePerShare / prevClose) * 100 : 0;
+      
+      const prevTotalPortfolioValue = totalPortfolioValue - dailyChange;
+      const portfolioContribPct = prevTotalPortfolioValue > 0 ? (amountChange / prevTotalPortfolioValue) * 100 : 0;
+
+      return {
+        symbol: h.symbol,
+        amountChange,
+        pctChange,
+        portfolioContribPct,
+        net_quantity: h.net_quantity,
+        currentPrice: price,
+        prevClose,
+      };
+    }).filter(Boolean) as {
+      symbol: string;
+      amountChange: number;
+      pctChange: number;
+      portfolioContribPct: number;
+      net_quantity: number;
+      currentPrice: number;
+      prevClose: number;
+    }[];
+
+    // Sort by absolute change descending, so the biggest movers (positive or negative) are at the top
+    return list.sort((a, b) => Math.abs(b.amountChange) - Math.abs(a.amountChange));
+  }, [holdings, marketPrices, previousCloses, totalPortfolioValue, dailyChange]);
 
   const totalTrades = trades.filter((t) => t.trade_type !== "dividend").length;
   const recentTrades = trades.slice(0, 5);
@@ -298,24 +336,67 @@ const Index = () => {
 
       {/* ═══════ TODAY'S PERFORMANCE ═══════ */}
       {profile?.show_daily_performance !== false && !pricesLoading && holdings.length > 0 && (
-        <Card className={`border-l-4 ${dailyChange >= 0 ? "border-l-gain" : "border-l-loss"}`}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${dailyChange >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
-                {dailyChange >= 0 ? <TrendingUp className="h-5 w-5 text-gain" /> : <TrendingDown className="h-5 w-5 text-loss" />}
+        <Collapsible open={dailyExpanded} onOpenChange={setDailyExpanded} className="w-full">
+          <Card className={`border-l-4 ${dailyChange >= 0 ? "border-l-gain" : "border-l-loss"} overflow-hidden`}>
+            <CollapsibleTrigger asChild>
+              <div className="p-4 flex items-center justify-between cursor-pointer hover:bg-accent/10 transition-colors select-none">
+                <div className="flex items-center gap-3">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${dailyChange >= 0 ? "bg-gain/10" : "bg-loss/10"}`}>
+                    {dailyChange >= 0 ? <TrendingUp className="h-5 w-5 text-gain" /> : <TrendingDown className="h-5 w-5 text-loss" />}
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.todayPerformance")}</p>
+                    <p className={`text-lg font-bold font-mono ${dailyChange >= 0 ? "text-gain" : "text-loss"}`}>
+                      {dailyChange >= 0 ? "+" : ""}{fmt(cx(dailyChange))}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className={`font-mono text-sm ${dailyChange >= 0 ? "text-gain border-gain/30" : "text-loss border-loss/30"}`}>
+                    {dailyChangePct >= 0 ? "+" : ""}{dailyChangePct.toFixed(2)}%
+                  </Badge>
+                  {dailyBreakdown.length > 0 && (
+                    dailyExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("board.todayPerformance")}</p>
-                <p className={`text-lg font-bold font-mono ${dailyChange >= 0 ? "text-gain" : "text-loss"}`}>
-                  {dailyChange >= 0 ? "+" : ""}{fmt(cx(dailyChange))}
-                </p>
-              </div>
-            </div>
-            <Badge variant="outline" className={`font-mono text-sm ${dailyChange >= 0 ? "text-gain border-gain/30" : "text-loss border-loss/30"}`}>
-              {dailyChangePct >= 0 ? "+" : ""}{dailyChangePct.toFixed(2)}%
-            </Badge>
-          </CardContent>
-        </Card>
+            </CollapsibleTrigger>
+            
+            {dailyBreakdown.length > 0 && (
+              <CollapsibleContent className="border-t border-border/50 bg-accent/5">
+                <div className="p-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t("board.dailyBreakdown")}</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {dailyBreakdown.map((b) => (
+                      <div key={b.symbol} className="p-3 rounded-lg border border-border/50 bg-card hover:bg-accent/10 transition-all flex flex-col justify-between shadow-sm">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="font-mono font-bold text-sm text-foreground">{b.symbol}</span>
+                          <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded ${b.amountChange >= 0 ? "bg-gain/10 text-gain" : "bg-loss/10 text-loss"}`}>
+                            {b.amountChange >= 0 ? "+" : ""}{b.pctChange.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between font-mono">
+                            <span className="text-muted-foreground">{t("board.dailyPnl")}</span>
+                            <span className={`font-semibold ${b.amountChange >= 0 ? "text-gain" : "text-loss"}`}>
+                              {b.amountChange >= 0 ? "+" : ""}{fmt(cx(b.amountChange))}
+                            </span>
+                          </div>
+                          <div className="flex justify-between font-mono text-[10px]">
+                            <span className="text-muted-foreground">{t("board.portfolioContrib")}</span>
+                            <span className={`font-semibold ${b.amountChange >= 0 ? "text-gain" : "text-loss"}`}>
+                              {b.amountChange >= 0 ? "+" : ""}{b.portfolioContribPct.toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            )}
+          </Card>
+        </Collapsible>
       )}
 
       {/* ═══════ METRICS GRID (2x2 mobile, 4-col desktop) ═══════ */}

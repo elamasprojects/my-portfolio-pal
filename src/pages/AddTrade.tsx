@@ -25,7 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { toast } from "sonner";
-import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus } from "lucide-react";
+import { Search, Tag, TrendingUp, Plus, Loader2, CheckCircle2, RotateCcw, ArrowDownLeft, ArrowUpRight, Banknote, PenLine, Camera, Upload, Info, SkipForward, X, ImagePlus, Clipboard } from "lucide-react";
 import confetti from "canvas-confetti";
 import tradeScreenshotExample from "@/assets/trade-screenshot-example.jpg";
 
@@ -380,6 +380,71 @@ const AddTrade = () => {
     }
     setStagedFiles([]);
   }, [stagedFiles, handleImageUpload, processQueue]);
+
+  const handlePasteFromClipboard = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering file input click
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        toast.error(t("addTrade.clipboardPermissionError"));
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            const file = new File([blob], "clipboard-image.png", { type });
+            
+            // Auto-upload the pasted file
+            setStagedFiles(prev => {
+              if (prev.length === 0 && !analyzingImage) {
+                handleImageUpload(file);
+                return prev;
+              }
+              return [...prev, file].slice(0, 10);
+            });
+            toast.success("Image pasted from clipboard!");
+            return;
+          }
+        }
+      }
+      toast.error(t("addTrade.clipboardError"));
+    } catch (err: any) {
+      console.error("Clipboard paste error:", err);
+      toast.error(t("addTrade.clipboardPermissionError"));
+    }
+  }, [handleImageUpload, analyzingImage, t]);
+
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+        return; // Let standard paste happen for inputs
+      }
+      
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            setStagedFiles(prev => {
+              if (prev.length === 0 && !analyzingImage) {
+                handleImageUpload(file);
+                return prev;
+              }
+              return [...prev, file].slice(0, 10);
+            });
+            toast.success("Image pasted from clipboard!");
+            break;
+          }
+        }
+      }
+    };
+    
+    window.addEventListener("paste", handleGlobalPaste);
+    return () => window.removeEventListener("paste", handleGlobalPaste);
+  }, [handleImageUpload, analyzingImage]);
 
   // Strategies
   const { data: strategies } = useStrategies();
@@ -1056,7 +1121,17 @@ const AddTrade = () => {
                           <>
                             <Upload className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium text-foreground">{t("addTrade.dropImage")}</p>
-                            <p className="text-xs text-muted-foreground">{t("addTrade.supportedFormats")}</p>
+                            <p className="text-xs text-muted-foreground mb-1">{t("addTrade.supportedFormats")}</p>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={handlePasteFromClipboard}
+                              className="text-xs"
+                            >
+                              <Clipboard className="h-3.5 w-3.5 mr-1" />
+                              {t("addTrade.pasteClipboard")}
+                            </Button>
                           </>
                         )}
                       </div>

@@ -109,6 +109,10 @@ export const en = {
   "board.mktVal": "Mkt Val",
   "board.pnl": "P&L",
   "board.todayPerformance": "Today's Performance",
+  "board.dailyBreakdown": "Daily P&L Breakdown",
+  "board.priceChange": "Price Change",
+  "board.dailyPnl": "Daily P&L",
+  "board.portfolioContrib": "Portfolio Contrib.",
 
   // Add Trade
   "addTrade.title": "New Move",
@@ -161,6 +165,9 @@ export const en = {
   "addTrade.uploadScreenshot": "Upload a screenshot of your trade confirmation",
   "addTrade.tooltipHint": "Screenshot your trade confirmation like this and upload it here. The AI will extract all the details automatically.",
   "addTrade.analyzing": "Analyzing image...",
+  "addTrade.pasteClipboard": "Paste from Clipboard",
+  "addTrade.clipboardError": "No image found in clipboard.",
+  "addTrade.clipboardPermissionError": "Could not read clipboard. Please grant permission or paste manually.",
   "addTrade.analyzeError": "Could not extract trade data. Please try again or enter manually.",
   "addTrade.dropImage": "Drop image here or click to upload",
   "addTrade.supportedFormats": "JPG, PNG, WEBP supported",
