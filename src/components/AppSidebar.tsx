@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, List, LogOut, Moon, Sun, BarChart3, Trophy, PieChart, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft, Crosshair, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Plus, History, LogOut, Moon, Sun, BarChart3, Trophy, PieChart, Sparkles, Globe, Users, Settings, PanelLeftClose, PanelLeft, Crosshair, ShieldCheck } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +31,7 @@ import {
 const navItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.board", url: "/", icon: LayoutDashboard },
   { titleKey: "nav.newMove", url: "/add", icon: Plus },
-  { titleKey: "nav.moveHistory", url: "/trades", icon: List },
+  { titleKey: "nav.moveHistory", url: "/trades", icon: History },
   { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
   { titleKey: "nav.progress", url: "/progress", icon: Trophy },
   { titleKey: "nav.notation", url: "/export", icon: PieChart },
