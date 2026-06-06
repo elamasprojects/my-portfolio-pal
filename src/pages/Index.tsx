@@ -347,14 +347,6 @@ const Index = () => {
     .sort((a, b) => b.total_return - a.total_return)
     .slice(0, 10);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">{t("board.loadingPortfolio")}</div>
-      </div>
-    );
-  }
-
   const [sortField, setSortField] = useState<"mktVal" | "pnl" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -403,6 +395,18 @@ const Index = () => {
     borderRadius: "8px",
     color: "hsl(var(--popover-foreground))",
   };
+
+  // Keep this loading guard AFTER all hooks. It previously sat above the
+  // useState(sortField/sortDirection) and useMemo(holdingsWithPnl) calls, so when
+  // `isLoading` flipped (React Query refetch on Supabase auth refresh) the number of
+  // hooks rendered changed between renders → React error #300 (crash on mobile).
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-pulse text-muted-foreground">{t("board.loadingPortfolio")}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
