@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProfile } from "@/hooks/useProfile";
 import { useBrokers, useUserBrokers, useAddUserBroker, useUpdateUserBroker, useRemoveUserBroker } from "@/hooks/useBrokers";
 import { useLanguage } from "@/i18n";
@@ -30,7 +31,12 @@ export default function Settings() {
   const updateUserBroker = useUpdateUserBroker();
   const removeUserBroker = useRemoveUserBroker();
   const [addBrokerId, setAddBrokerId] = useState("");
+  const [addCommissionType, setAddCommissionType] = useState<"percentage" | "flat">("percentage");
+  const [addCommissionPct, setAddCommissionPct] = useState<number>(0.1);
+  const [addCommissionFlat, setAddCommissionFlat] = useState<number>(1.0);
   const [commissionOverrides, setCommissionOverrides] = useState<Record<string, number>>({});
+  const [commissionFlatOverrides, setCommissionFlatOverrides] = useState<Record<string, number>>({});
+  const [commissionTypeOverrides, setCommissionTypeOverrides] = useState<Record<string, "percentage" | "flat">>({});
 
   if (profile && !initialized) {
     setUsername(profile.username || "");
@@ -65,11 +71,20 @@ export default function Settings() {
   const handleAddBroker = () => {
     if (!addBrokerId) return;
     addUserBroker.mutate(
-      { brokerId: addBrokerId, isDefault: !userBrokers || userBrokers.length === 0 },
+      { 
+        brokerId: addBrokerId, 
+        isDefault: !userBrokers || userBrokers.length === 0,
+        commissionType: addCommissionType,
+        commissionPct: addCommissionType === "percentage" ? addCommissionPct : 0,
+        commissionFlat: addCommissionType === "flat" ? addCommissionFlat : 0,
+      },
       {
         onSuccess: () => {
           toast.success(t("settings.brokerAdded"));
           setAddBrokerId("");
+          setAddCommissionType("percentage");
+          setAddCommissionPct(0.1);
+          setAddCommissionFlat(1.0);
         },
         onError: (err: any) => toast.error(err.message),
       }
@@ -90,6 +105,37 @@ export default function Settings() {
     updateUserBroker.mutate({ id, commissionPct: value }, {
       onSettled: () => {
         setCommissionOverrides(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      },
+    });
+  };
+
+  const handleCommissionTypeChange = (id: string, type: "percentage" | "flat") => {
+    setCommissionTypeOverrides(prev => ({ ...prev, [id]: type }));
+    updateUserBroker.mutate({ id, commissionType: type }, {
+      onError: () => {
+        setCommissionTypeOverrides(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      }
+    });
+  };
+
+  const handleCommissionFlatChange = (id: string, value: number) => {
+    setCommissionFlatOverrides(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleCommissionFlatCommit = (id: string) => {
+    const value = commissionFlatOverrides[id];
+    if (value === undefined) return;
+    updateUserBroker.mutate({ id, commissionFlat: value }, {
+      onSettled: () => {
+        setCommissionFlatOverrides(prev => {
           const next = { ...prev };
           delete next[id];
           return next;
@@ -233,24 +279,65 @@ export default function Settings() {
                         </Button>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">{t("settings.commission")}</Label>
-                        <span className="text-xs font-mono font-bold">{(commissionOverrides[ub.id] ?? ub.commission_pct).toFixed(1)}%</span>
+                    <div className="space-y-3 pt-1 border-t border-border/40">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("settings.commissionType")}</Label>
+                        <Tabs 
+                          value={commissionTypeOverrides[ub.id] ?? ub.commission_type ?? "percentage"} 
+                          onValueChange={(val) => handleCommissionTypeChange(ub.id, val as "percentage" | "flat")}
+                          className="w-full"
+                        >
+                          <TabsList className="grid grid-cols-2 h-7 p-0.5 bg-background/50 border border-border/40">
+                            <TabsTrigger value="percentage" className="text-[10px] h-6 py-0">{t("settings.feeTypePercentage")}</TabsTrigger>
+                            <TabsTrigger value="flat" className="text-[10px] h-6 py-0">{t("settings.feeTypeFlat")}</TabsTrigger>
+                          </TabsList>
+                        </Tabs>
                       </div>
-                      <Slider
-                        value={[commissionOverrides[ub.id] ?? ub.commission_pct]}
-                        min={0}
-                        max={1.5}
-                        step={0.1}
-                        onValueChange={(val) => handleCommissionDrag(ub.id, val[0])}
-                        onValueCommit={(val) => handleCommissionCommit(ub.id, val[0])}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>0%</span>
-                        <span>1.5%</span>
-                      </div>
+
+                      {(commissionTypeOverrides[ub.id] ?? ub.commission_type ?? "percentage") === "percentage" ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">{t("settings.commission")}</Label>
+                            <span className="text-xs font-mono font-bold">{(commissionOverrides[ub.id] ?? ub.commission_pct).toFixed(1)}%</span>
+                          </div>
+                          <Slider
+                            value={[commissionOverrides[ub.id] ?? ub.commission_pct]}
+                            min={0}
+                            max={1.5}
+                            step={0.1}
+                            onValueChange={(val) => handleCommissionDrag(ub.id, val[0])}
+                            onValueCommit={(val) => handleCommissionCommit(ub.id, val[0])}
+                            className="w-full"
+                          />
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span>0%</span>
+                            <span>1.5%</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">{t("settings.flatFee")} (USD)</Label>
+                            <span className="text-xs font-mono font-bold">
+                              ${(commissionFlatOverrides[ub.id] ?? ub.commission_flat ?? 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={commissionFlatOverrides[ub.id] ?? ub.commission_flat ?? 0}
+                            onChange={(e) => handleCommissionFlatChange(ub.id, parseFloat(e.target.value) || 0)}
+                            onBlur={() => handleCommissionFlatCommit(ub.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleCommissionFlatCommit(ub.id);
+                              }
+                            }}
+                            className="h-8 text-xs font-mono bg-background/50 border border-border/40"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -262,37 +349,90 @@ export default function Settings() {
             <Separator />
 
             {/* Add broker picker */}
-            <div className="flex gap-2">
-              <Select value={addBrokerId} onValueChange={setAddBrokerId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={t("settings.addBroker")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {arBrokers.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{t("brokers.argentina")}</div>
-                      {arBrokers.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                      ))}
-                    </>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Select value={addBrokerId} onValueChange={setAddBrokerId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={t("settings.addBroker")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {arBrokers.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{t("brokers.argentina")}</div>
+                        {arBrokers.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                    {usBrokers.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{t("brokers.us")}</div>
+                        {usBrokers.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={handleAddBroker}
+                  disabled={!addBrokerId || addUserBroker.isPending}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {addBrokerId && (
+                <div className="animate-in fade-in duration-200 space-y-3 p-3 rounded-lg border border-border/40 bg-accent/10">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("settings.commissionType")}</Label>
+                    <Tabs value={addCommissionType} onValueChange={(val) => setAddCommissionType(val as "percentage" | "flat")} className="w-full">
+                      <TabsList className="grid grid-cols-2 h-7 p-0.5 bg-background/50 border border-border/40">
+                        <TabsTrigger value="percentage" className="text-[10px] h-6 py-0">{t("settings.feeTypePercentage")}</TabsTrigger>
+                        <TabsTrigger value="flat" className="text-[10px] h-6 py-0">{t("settings.feeTypeFlat")}</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+
+                  {addCommissionType === "percentage" ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">{t("settings.commission")}</Label>
+                        <span className="text-xs font-mono font-bold">{addCommissionPct.toFixed(1)}%</span>
+                      </div>
+                      <Slider
+                        value={[addCommissionPct]}
+                        min={0}
+                        max={1.5}
+                        step={0.1}
+                        onValueChange={(val) => setAddCommissionPct(val[0])}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>0%</span>
+                        <span>1.5%</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">{t("settings.flatFee")} (USD)</Label>
+                        <span className="text-xs font-mono font-bold">${addCommissionFlat.toFixed(2)}</span>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={addCommissionFlat}
+                        onChange={(e) => setAddCommissionFlat(parseFloat(e.target.value) || 0)}
+                        placeholder="1.00"
+                        className="h-8 text-xs font-mono bg-background/50 border border-border/40"
+                      />
+                    </div>
                   )}
-                  {usBrokers.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{t("brokers.us")}</div>
-                      {usBrokers.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                onClick={handleAddBroker}
-                disabled={!addBrokerId || addUserBroker.isPending}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         )}

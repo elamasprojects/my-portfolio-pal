@@ -15,6 +15,8 @@ export interface UserBroker {
   user_id: string;
   broker_id: string;
   commission_pct: number;
+  commission_type: string | null;
+  commission_flat: number | null;
   is_default: boolean;
   created_at: string;
   broker?: Broker;
@@ -65,12 +67,26 @@ export function useAddUserBroker() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ brokerId, commissionPct = 0, isDefault = false }: { brokerId: string; commissionPct?: number; isDefault?: boolean }) => {
+    mutationFn: async ({ 
+      brokerId, 
+      commissionPct = 0, 
+      commissionType = 'percentage', 
+      commissionFlat = 0, 
+      isDefault = false 
+    }: { 
+      brokerId: string; 
+      commissionPct?: number; 
+      commissionType?: string; 
+      commissionFlat?: number; 
+      isDefault?: boolean 
+    }) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase.from("user_brokers").insert({
         user_id: user.id,
         broker_id: brokerId,
         commission_pct: commissionPct,
+        commission_type: commissionType,
+        commission_flat: commissionFlat,
         is_default: isDefault,
       });
       if (error) throw error;
@@ -84,9 +100,23 @@ export function useAddUserBroker() {
 export function useUpdateUserBroker() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, commissionPct, isDefault }: { id: string; commissionPct?: number; isDefault?: boolean }) => {
+    mutationFn: async ({ 
+      id, 
+      commissionPct, 
+      commissionType, 
+      commissionFlat, 
+      isDefault 
+    }: { 
+      id: string; 
+      commissionPct?: number; 
+      commissionType?: string; 
+      commissionFlat?: number; 
+      isDefault?: boolean 
+    }) => {
       const updates: any = {};
       if (commissionPct !== undefined) updates.commission_pct = commissionPct;
+      if (commissionType !== undefined) updates.commission_type = commissionType;
+      if (commissionFlat !== undefined) updates.commission_flat = commissionFlat;
       if (isDefault !== undefined) updates.is_default = isDefault;
       const { error } = await supabase.from("user_brokers").update(updates).eq("id", id);
       if (error) throw error;

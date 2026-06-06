@@ -100,9 +100,19 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
       const selectedUserBroker = profile?.brokers_enabled && brokerId !== "none"
         ? userBrokers?.find(ub => ub.broker_id === brokerId)
         : null;
-      const commissionPct = selectedUserBroker?.commission_pct || 0;
+      let commissionPct = 0;
+      let commissionAmount = 0;
       const finalTotal = parseFloat(quantity) * parseFloat(price);
-      const commissionAmount = finalTotal * commissionPct / 100;
+
+      if (selectedUserBroker) {
+        if (selectedUserBroker.commission_type === "flat") {
+          commissionAmount = selectedUserBroker.commission_flat || 0;
+          commissionPct = 0;
+        } else {
+          commissionPct = selectedUserBroker.commission_pct || 0;
+          commissionAmount = finalTotal * commissionPct / 100;
+        }
+      }
 
       const { error } = await supabase
         .from("trades")
@@ -380,7 +390,11 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
                   {userBrokers.map((ub) => (
                     <SelectItem key={ub.broker_id} value={ub.broker_id}>
                       {ub.broker?.name || ub.broker_id}
-                      {ub.commission_pct > 0 ? ` (${ub.commission_pct}%)` : ""}
+                      {ub.commission_type === "flat"
+                        ? ` ($${ub.commission_flat?.toFixed(2)} Flat)`
+                        : ub.commission_pct > 0
+                        ? ` (${ub.commission_pct}%)`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

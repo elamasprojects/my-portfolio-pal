@@ -810,8 +810,18 @@ const AddTrade = () => {
       const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
         ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
         : null;
-      const commissionPct = selectedUserBroker?.commission_pct || 0;
-      const commissionAmount = finalTotal * commissionPct / 100;
+      let commissionPct = 0;
+      let commissionAmount = 0;
+
+      if (selectedUserBroker) {
+        if (selectedUserBroker.commission_type === "flat") {
+          commissionAmount = selectedUserBroker.commission_flat || 0;
+          commissionPct = 0;
+        } else {
+          commissionPct = selectedUserBroker.commission_pct || 0;
+          commissionAmount = finalTotal * commissionPct / 100;
+        }
+      }
 
       const { data: insertedTrade, error } = await supabase.from("trades").insert({
         portfolio_id: portfolio.id,
@@ -829,6 +839,7 @@ const AddTrade = () => {
         original_price: tradeCurrency === "ARS" ? originalPrice : null,
         broker_id: selectedBrokerId !== "none" ? selectedBrokerId : null,
         commission_amount: commissionAmount,
+        commission_pct: commissionPct,
         mep_rate: tradeCurrency === "ARS" && effectiveMepRate > 0 ? effectiveMepRate : null,
         journal_notes: finalJournalNotes,
       } as any).select("id").single();
@@ -1000,8 +1011,22 @@ const AddTrade = () => {
   const selectedUserBroker = profile?.brokers_enabled && selectedBrokerId !== "none"
     ? userBrokers?.find(ub => ub.broker_id === selectedBrokerId)
     : null;
-  const displayCommissionPct = selectedUserBroker?.commission_pct || 0;
-  const displayCommissionAmount = total * displayCommissionPct / 100;
+  const displayCommissionPct = selectedUserBroker?.commission_type !== "flat" ? (selectedUserBroker?.commission_pct || 0) : 0;
+  
+  let displayCommissionAmount = 0;
+  if (selectedUserBroker) {
+    if (selectedUserBroker.commission_type === "flat") {
+      const flatFee = selectedUserBroker.commission_flat || 0;
+      if (tradeCurrency === "ARS" && effectiveMepRate > 0) {
+        displayCommissionAmount = flatFee * effectiveMepRate;
+      } else {
+        displayCommissionAmount = flatFee;
+      }
+    } else {
+      displayCommissionAmount = total * (selectedUserBroker.commission_pct || 0) / 100;
+    }
+  }
+
   const displayNetTotal = tradeType === "sell"
     ? total - displayCommissionAmount
     : total + displayCommissionAmount;
@@ -1808,7 +1833,11 @@ const AddTrade = () => {
                                 {userBrokers.map((ub) => (
                                   <SelectItem key={ub.broker_id} value={ub.broker_id}>
                                     {ub.broker?.name || ub.broker_id}
-                                    {ub.commission_pct > 0 ? ` (${ub.commission_pct}%)` : ""}
+                                    {ub.commission_type === "flat"
+                                      ? ` ($${ub.commission_flat?.toFixed(2)} Flat)`
+                                      : ub.commission_pct > 0
+                                      ? ` (${ub.commission_pct}%)`
+                                      : ""}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1834,9 +1863,15 @@ const AddTrade = () => {
                                 <span className="font-mono font-bold text-foreground">
                                   {tradeCurrency === "ARS" ? "ARS$" : "$"}{total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
-                                {displayCommissionPct > 0 && (
+                                {displayCommissionAmount > 0 && (
                                   <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
-                                    <p>{t("addTrade.commission")}: {displayCommissionPct}% = {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayCommissionAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p>
+                                      {t("addTrade.commission")}:{" "}
+                                      {selectedUserBroker?.commission_type === "flat"
+                                        ? `${tradeCurrency === "ARS" ? "ARS$" : "$"}${displayCommissionAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Flat)`
+                                        : `${selectedUserBroker?.commission_pct}% = ${tradeCurrency === "ARS" ? "ARS$" : "$"}${displayCommissionAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      }
+                                    </p>
                                     <p className="font-semibold text-foreground">
                                       {tradeType === "sell" ? t("addTrade.netProceeds") : t("addTrade.totalCost")}: {tradeCurrency === "ARS" ? "ARS$" : "$"}{displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </p>
@@ -1863,9 +1898,9 @@ const AddTrade = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold font-mono text-foreground">
                     {total > 0
-                      ? displayCommissionPct > 0
-                        ? `$${displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ? displayCommissionAmount > 0
+                        ? `${tradeCurrency === "ARS" ? "ARS$" : "$"}${displayNetTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `${tradeCurrency === "ARS" ? "ARS$" : "$"}${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : "$0.00"}
                   </span>
                 </div>

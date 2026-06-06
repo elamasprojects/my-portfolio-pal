@@ -499,7 +499,9 @@ export type Database = {
       user_brokers: {
         Row: {
           broker_id: string
+          commission_flat: number | null
           commission_pct: number
+          commission_type: string | null
           created_at: string
           id: string
           is_default: boolean
@@ -507,7 +509,9 @@ export type Database = {
         }
         Insert: {
           broker_id: string
+          commission_flat?: number | null
           commission_pct?: number
+          commission_type?: string | null
           created_at?: string
           id?: string
           is_default?: boolean
@@ -515,7 +519,9 @@ export type Database = {
         }
         Update: {
           broker_id?: string
+          commission_flat?: number | null
           commission_pct?: number
+          commission_type?: string | null
           created_at?: string
           id?: string
           is_default?: boolean
