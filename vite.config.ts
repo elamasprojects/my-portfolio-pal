@@ -67,15 +67,6 @@ export default defineConfig(({ mode }) => ({
             if (id.includes("three")) {
               return "three";
             }
-            if (id.includes("recharts")) {
-              return "recharts";
-            }
-            if (id.includes("lucide-react")) {
-              return "lucide";
-            }
-            if (id.includes("@supabase")) {
-              return "supabase";
-            }
             return "vendor";
           }
         },
