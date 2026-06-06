@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      window.addEventListener('vite:preloadError', (event) => {
+        const now = Date.now();
+        const lastReload = parseInt(sessionStorage.getItem('last-chunk-reload') || '0', 10);
+        if (now - lastReload > 5000) {
+          sessionStorage.setItem('last-chunk-reload', now.toString());
+          window.location.reload();
+        }
+      });
+    </script>
     <link rel="icon" href="/favicon.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
