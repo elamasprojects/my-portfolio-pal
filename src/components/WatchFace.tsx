@@ -15,6 +15,8 @@ interface WatchFaceProps {
   dailyChangePct: number;
   /** All holdings with a quote today, sorted by |amountChange| desc. */
   stocks: WatchStock[];
+  /** Optional watchlist (not-owned tickers) with today's % change. */
+  watchlist?: WatchStock[];
   /** Compact, currency-aware amount formatter (e.g. +$1.2K). */
   fmtAmount: (usd: number) => string;
   /** Shown in the markets-closed fallback. */
@@ -32,10 +34,12 @@ export function WatchFace({
   dailyChange,
   dailyChangePct,
   stocks,
+  watchlist = [],
   fmtAmount,
   portfolioValueFmt,
 }: WatchFaceProps) {
   const [view, setView] = useState<"main" | "list">("main");
+  const [listTab, setListTab] = useState<"stocks" | "watchlist">("stocks");
   const dayUp = dailyChange >= 0;
   const movers = stocks.slice(0, 5);
   const hasDaily = stocks.length > 0;
@@ -61,27 +65,54 @@ export function WatchFace({
           >
             <ChevronLeft className="h-6 w-6" /> Today
           </button>
-          <p className="mb-2 mt-1 text-[24px] font-bold tracking-tight">All Stocks</p>
-          {hasDaily ? (
-            <div className="watch-fade scrollbar-hidden w-full flex-1 overflow-y-auto">
-              <div className="space-y-2 py-2">
-                {stocks.map((s) => {
-                  const up = s.amountChange >= 0;
-                  return (
-                    <div key={s.symbol} className="flex items-center justify-between rounded-2xl bg-white/[0.07] px-4 py-2.5">
-                      <span className="font-mono text-[22px] font-bold">{s.symbol}</span>
-                      <span className={cn("font-mono text-[21px] font-semibold", up ? "text-emerald-400" : "text-red-400")}>
-                        {up ? "+" : ""}
-                        {s.pctChange.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+          {watchlist.length > 0 ? (
+            <div className="mb-2 mt-1 flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setListTab("stocks")}
+                className={cn(
+                  "rounded-full px-3.5 py-1 text-[16px] font-semibold transition-colors",
+                  listTab === "stocks" ? "bg-white/15 text-white" : "text-white/45",
+                )}
+              >
+                Stocks
+              </button>
+              <button
+                type="button"
+                onClick={() => setListTab("watchlist")}
+                className={cn(
+                  "rounded-full px-3.5 py-1 text-[16px] font-semibold transition-colors",
+                  listTab === "watchlist" ? "bg-white/15 text-white" : "text-white/45",
+                )}
+              >
+                Watchlist
+              </button>
             </div>
           ) : (
-            <p className="mt-6 text-[18px] text-white/45">No quotes today</p>
+            <p className="mb-2 mt-1 text-[24px] font-bold tracking-tight">All Stocks</p>
           )}
+          {(() => {
+            const items = listTab === "watchlist" ? watchlist : stocks;
+            if (items.length === 0) return <p className="mt-6 text-[18px] text-white/45">No quotes today</p>;
+            return (
+              <div className="watch-fade scrollbar-hidden w-full flex-1 overflow-y-auto">
+                <div className="space-y-2 py-2">
+                  {items.map((s) => {
+                    const up = s.amountChange >= 0;
+                    return (
+                      <div key={s.symbol} className="flex items-center justify-between rounded-2xl bg-white/[0.07] px-4 py-2.5">
+                        <span className="font-mono text-[22px] font-bold">{s.symbol}</span>
+                        <span className={cn("font-mono text-[21px] font-semibold", up ? "text-emerald-400" : "text-red-400")}>
+                          {up ? "+" : ""}
+                          {s.pctChange.toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </>
       ) : (
         <>

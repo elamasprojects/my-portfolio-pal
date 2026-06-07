@@ -33,6 +33,8 @@ import DCASimulator from "./pages/DCASimulator";
 import Security from "./pages/Security";
 import DemoApp from "./pages/demo/DemoApp";
 import Watch from "./pages/Watch";
+import Alerts from "./pages/Alerts";
+import Watchlist from "./pages/Watchlist";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +81,8 @@ const App = () => (
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
+              <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+              <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
               <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
               <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
               {/* Mobile redesign prototype (Design Lab) — self-gates auth, custom layout */}

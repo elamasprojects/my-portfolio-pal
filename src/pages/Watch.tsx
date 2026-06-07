@@ -36,6 +36,7 @@ function WatchView() {
             dailyChange={w.dailyChange}
             dailyChangePct={w.dailyChangePct}
             stocks={stocks}
+            watchlist={w.watchlist}
             fmtAmount={fmtAmount}
             portfolioValueFmt={fmtAmount(w.totalPortfolioValue)}
           />

@@ -32,6 +32,27 @@ export const es: Record<TranslationKey, string> = {
   "nav.players": "Jugadores",
   "nav.settings": "Ajustes",
   "nav.progress": "Progreso",
+  "nav.alerts": "Alertas",
+  "nav.watchlist": "Seguimiento",
+
+  // Alerts
+  "alerts.title": "Alertas",
+  "alerts.subtitle": "Recibí avisos por precios objetivo y movimientos grandes",
+  "alerts.new": "Nueva",
+  "alerts.empty": "Tené una posición para crear alertas de precio o movimiento.",
+  "alerts.above": "Por encima de",
+  "alerts.below": "Por debajo de",
+  "alerts.moves": "Se mueve",
+  "alerts.away": "de distancia",
+  "alerts.triggered": "activada",
+  "alerts.comingSoon": "Prototipo — el creador de alertas llega pronto.",
+  "alerts.prototypeNote": "Prototipo — las alertas son ilustrativas; los precios actuales son en vivo.",
+
+  // Watchlist
+  "watchlist.title": "Lista de Seguimiento",
+  "watchlist.subtitle": "Seguí activos que aún no tenés — con cotizaciones en vivo.",
+  "watchlist.noQuote": "Sin cotización",
+  "watchlist.prototypeNote": "Las cotizaciones son en vivo; la lista de símbolos es de muestra (prototipo).",
 
   // Profile dropdown
   "profile.language": "Idioma",

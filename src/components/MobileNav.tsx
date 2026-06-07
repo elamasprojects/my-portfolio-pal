@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Plus, History, BarChart3, Trophy, Crosshair, PieChart, Sparkles, Users, Settings, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Plus, History, BarChart3, Trophy, Crosshair, PieChart, Sparkles, Users, Settings, ShieldCheck, Bell, Eye } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage, TranslationKey } from "@/i18n";
@@ -16,6 +16,8 @@ const galleryItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
   { titleKey: "nav.strategy", url: "/strategy", icon: Crosshair },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
   { titleKey: "nav.players", url: "/players", icon: Users },
+  { titleKey: "nav.alerts", url: "/alerts", icon: Bell },
+  { titleKey: "nav.watchlist", url: "/watchlist", icon: Eye },
   { titleKey: "nav.security", url: "/security", icon: ShieldCheck },
   { titleKey: "nav.settings", url: "/settings", icon: Settings },
 ];

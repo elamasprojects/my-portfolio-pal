@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
  * (e.g. Pixel Watch 4 45mm ≈ 456×456, often 228 CSS px @2x). Phones/tablets/desktops
  * are never that square + small, so false positives are unlikely.
  */
-export function isWatchDevice(): boolean {
+function isWatchDevice(): boolean {
   if (typeof window === "undefined") return false;
   const ua = navigator.userAgent || "";
   if (/wear\s?os|smart-?watch|watch/i.test(ua)) return true;

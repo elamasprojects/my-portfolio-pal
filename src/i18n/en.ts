@@ -30,6 +30,27 @@ export const en = {
   "nav.players": "Players",
   "nav.settings": "Settings",
   "nav.progress": "Progress",
+  "nav.alerts": "Alerts",
+  "nav.watchlist": "Watchlist",
+
+  // Alerts
+  "alerts.title": "Alerts",
+  "alerts.subtitle": "Get notified on price targets and big moves",
+  "alerts.new": "New",
+  "alerts.empty": "Own a position to set price or movement alerts.",
+  "alerts.above": "Above",
+  "alerts.below": "Below",
+  "alerts.moves": "Moves",
+  "alerts.away": "away",
+  "alerts.triggered": "triggered",
+  "alerts.comingSoon": "Prototype — alert builder coming soon.",
+  "alerts.prototypeNote": "Prototype — alerts are illustrative; current prices are live.",
+
+  // Watchlist
+  "watchlist.title": "Watchlist",
+  "watchlist.subtitle": "Track tickers you don't own yet — with live quotes.",
+  "watchlist.noQuote": "No quote",
+  "watchlist.prototypeNote": "Quotes are live; the symbol list is a sample (prototype).",
 
   // Profile dropdown
   "profile.language": "Language",
