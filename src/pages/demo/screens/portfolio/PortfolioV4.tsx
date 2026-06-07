@@ -5,6 +5,44 @@ import { SectionCard } from "../../components/SectionCard";
 import { CHART_COLORS } from "../../data/chartColors";
 import { enrichHoldings } from "../../data/portfolioMetrics";
 
+const RAD = Math.PI / 180;
+// Only label slices at/above this share — hides tickers on the many tiny slices so they don't overlap.
+const TICKER_MIN_PCT = 0.04; // 4%
+
+const renderSliceLabel = (props: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  outerRadius?: number;
+  percent?: number;
+  name?: string;
+}) => {
+  const { cx, cy, midAngle, outerRadius, percent, name } = props;
+  if (cx == null || cy == null || midAngle == null || outerRadius == null || percent == null) return null;
+  if (percent < TICKER_MIN_PCT) return null;
+  const r = outerRadius + 12;
+  const x = cx + r * Math.cos(-midAngle * RAD);
+  const y = cy + r * Math.sin(-midAngle * RAD);
+  const isLeft = x < cx;
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="hsl(var(--foreground))"
+      fontSize={11}
+      fontWeight={600}
+      stroke="hsl(var(--card))"
+      strokeWidth={3}
+      paintOrder="stroke"
+      textAnchor={isLeft ? "end" : "start"}
+      dominantBaseline="central"
+      style={{ fontFamily: "monospace" }}
+    >
+      {name}
+    </text>
+  );
+};
+
 /** V4 — Allocation-first: a big donut-hero with value in the center + weight bars. Composition over P&L. */
 export function PortfolioV4() {
   const { data, fmt } = useDemo();
@@ -16,10 +54,22 @@ export function PortfolioV4() {
   return (
     <div className="space-y-4">
       <SectionCard title="Composition">
-        <div className="relative h-64">
+        <div className="relative h-72">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="62%" outerRadius="92%" paddingAngle={1} isAnimationActive={false}>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius="52%"
+                outerRadius="74%"
+                paddingAngle={1}
+                isAnimationActive={false}
+                label={renderSliceLabel}
+                labelLine={false}
+              >
                 {pieData.map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="hsl(var(--card))" strokeWidth={1} />
                 ))}
