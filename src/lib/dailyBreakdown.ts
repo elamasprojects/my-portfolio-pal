@@ -36,8 +36,10 @@ export function computeDailyBreakdown(
   const list = holdings
     .map((h) => {
       const price = prices.get(h.symbol.toUpperCase());
-      const prevClose = previousCloses.get(h.symbol.toUpperCase());
-      if (!price || !prevClose) return null;
+      if (!price) return null;
+      // No previous close (partial quote) → treat as flat today so the holding still
+      // appears in "all stocks" lists instead of silently disappearing.
+      const prevClose = previousCloses.get(h.symbol.toUpperCase()) ?? price;
       const changePerShare = price - prevClose;
       const amountChange = changePerShare * h.net_quantity;
       const pctChange = prevClose > 0 ? (changePerShare / prevClose) * 100 : 0;

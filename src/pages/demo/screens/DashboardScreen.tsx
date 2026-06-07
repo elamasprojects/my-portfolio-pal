@@ -31,6 +31,7 @@ import { DonutAllocation } from "../components/DonutAllocation";
 import { SectionCard } from "../components/SectionCard";
 import { EmptyState } from "../components/EmptyState";
 import { StatPill } from "../components/StatPill";
+import { computeAllocationByType, sortHoldingsByValue } from "../data/allocation";
 import type { DemoScreenId } from "../data/types";
 
 const FEATURE_SHORTCUTS: { id: DemoScreenId; label: string; Icon: typeof Bell }[] = [
@@ -44,18 +45,10 @@ export function DashboardScreen() {
   const { data, fmt, isPhone, openAsset, setScreen } = useDemo();
   const [dailyOpen, setDailyOpen] = useState(false);
 
-  const allocationByType = useMemo(() => {
-    const acc: { name: string; value: number }[] = [];
-    for (const h of data.holdings) {
-      const price = data.prices.get(h.symbol.toUpperCase());
-      const val = price ? price * h.net_quantity : h.total_invested;
-      const ex = acc.find((a) => a.name === h.asset_type);
-      if (ex) ex.value += val;
-      else acc.push({ name: h.asset_type, value: val });
-    }
-    if (data.cash > 0) acc.push({ name: "cash", value: data.cash });
-    return acc.sort((a, b) => b.value - a.value);
-  }, [data.holdings, data.prices, data.cash]);
+  const allocationByType = useMemo(
+    () => computeAllocationByType(data.holdings, data.prices, data.cash),
+    [data.holdings, data.prices, data.cash],
+  );
 
   const chartData = useMemo(
     () => data.cumulativePnL.map((p) => ({ date: p.date, value: fmt.cx(p.net_pnl ?? p.cumulative_pnl) })),
@@ -252,14 +245,9 @@ export function DashboardScreen() {
           {data.holdings.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">No open positions.</p>
           ) : (
-            data.holdings
-              .slice()
-              .sort((a, b) => {
-                const pa = data.prices.get(a.symbol.toUpperCase());
-                const pb = data.prices.get(b.symbol.toUpperCase());
-                return (pb ? pb * b.net_quantity : b.total_invested) - (pa ? pa * a.net_quantity : a.total_invested);
-              })
-              .map((h) => <HoldingRowCard key={h.symbol} holding={h} onClick={() => openAsset(h.symbol)} />)
+            sortHoldingsByValue(data.holdings, data.prices).map((h) => (
+              <HoldingRowCard key={h.symbol} holding={h} onClick={() => openAsset(h.symbol)} />
+            ))
           )}
         </SectionCard>
 

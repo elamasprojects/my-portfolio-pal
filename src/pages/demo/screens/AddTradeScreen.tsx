@@ -19,7 +19,9 @@ export function AddTradeScreen() {
   const [amount, setAmount] = useState("");
 
   const computedQty = mode === "amount" && parseFloat(price) > 0 ? parseFloat(amount || "0") / parseFloat(price) : parseFloat(qty || "0");
-  const total = type === "dividend" ? parseFloat(amount || "0") : computedQty * parseFloat(price || "0");
+  // In amount mode the total is simply the amount entered (independent of price).
+  const total =
+    type === "dividend" || mode === "amount" ? parseFloat(amount || "0") : computedQty * parseFloat(price || "0");
 
   const submit = () => {
     if (!symbol.trim()) {

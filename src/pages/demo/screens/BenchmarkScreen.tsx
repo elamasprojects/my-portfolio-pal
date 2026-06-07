@@ -23,28 +23,42 @@ export function BenchmarkScreen() {
 
   const series = useMemo(() => {
     const cost = data.performance.total_cost_basis || 1;
+    // Portfolio cumulative return %, date-ascending.
     const portPts = data.cumulativePnL.map((p) => ({ date: p.date, pct: ((p.net_pnl ?? p.cumulative_pnl) / cost) * 100 }));
+    const revPort = [...portPts].reverse(); // reverse ONCE, reused below
+    const portAt = (d: string) => revPort.find((pp) => pp.date <= d)?.pct ?? 0;
 
-    let idxPts: { date: string; close: number }[] = [];
-    if (candles && candles.length) {
-      const step = Math.max(1, Math.floor(candles.length / 40));
-      idxPts = candles
-        .filter((_, i) => i % step === 0)
-        .map((c) => ({ date: new Date(c.time * 1000).toISOString().split("T")[0], close: c.close }));
-    }
+    const idxAll =
+      candles && candles.length
+        ? (() => {
+            const step = Math.max(1, Math.floor(candles.length / 40));
+            return candles
+              .filter((_, i) => i % step === 0)
+              .map((c) => ({ date: new Date(c.time * 1000).toISOString().split("T")[0], close: c.close }));
+          })()
+        : [];
 
-    if (!idxPts.length) {
+    // Synthetic fallback when the index history can't be fetched.
+    if (!idxAll.length) {
       if (!portPts.length) return [];
-      const synth = makeSyntheticIndexCurve(portPts.map((p) => ({ date: p.date, pct: p.pct })));
-      return portPts.map((p, i) => ({ date: p.date, portfolioPct: round2(p.pct), indexPct: synth[i]?.pct ?? 0 }));
+      const base = portPts[0].pct;
+      const rebased = portPts.map((p) => ({ date: p.date, pct: round2(p.pct - base) }));
+      const synth = makeSyntheticIndexCurve(rebased);
+      return rebased.map((p, i) => ({ date: p.date, portfolioPct: p.pct, indexPct: synth[i]?.pct ?? 0 }));
     }
 
-    const idxStart = idxPts[0].close || 1;
-    return idxPts.map((ip) => {
-      const indexPct = (ip.close / idxStart - 1) * 100;
-      const last = [...portPts].reverse().find((pp) => pp.date <= ip.date);
-      return { date: ip.date, indexPct: round2(indexPct), portfolioPct: round2(last ? last.pct : 0) };
-    });
+    // Compare over the OVERLAPPING window so both lines start at 0 on the same date
+    // (avoids mixing all-time portfolio return with a 1Y index, and the flat-at-0 lead).
+    const windowStart = portPts.length ? (portPts[0].date > idxAll[0].date ? portPts[0].date : idxAll[0].date) : idxAll[0].date;
+    const idxPts = idxAll.filter((c) => c.date >= windowStart);
+    const idxBase = idxPts[0]?.close || idxAll[0].close || 1;
+    const portBase = portAt(windowStart);
+
+    return idxPts.map((ip) => ({
+      date: ip.date,
+      indexPct: round2((ip.close / idxBase - 1) * 100),
+      portfolioPct: round2(portAt(ip.date) - portBase),
+    }));
   }, [candles, data.cumulativePnL, data.performance.total_cost_basis]);
 
   if (!data.hasData) {
@@ -59,8 +73,10 @@ export function BenchmarkScreen() {
     );
   }
 
-  const indexPct = series.length ? series[series.length - 1].indexPct : 0;
-  const myPct = data.totalPnlPct;
+  // Tiles use the charted window's endpoints so "You", index, and alpha are consistent.
+  const lastPoint = series[series.length - 1];
+  const myPct = lastPoint ? lastPoint.portfolioPct : 0;
+  const indexPct = lastPoint ? lastPoint.indexPct : 0;
   const alpha = myPct - indexPct;
   const label = INDICES.find((i) => i.id === idx)?.label ?? idx;
 

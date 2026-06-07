@@ -228,6 +228,7 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.uploadChart": "Subir gráfico de análisis (opcional)",
   "addTrade.uploadChartSub": "Selecciona o arrastra una captura de TradingView",
   "addTrade.removeChart": "Quitar gráfico",
+  "addTrade.skipJournal": "Saltear Registro del Diario",
   "addTrade.uploadingChart": "Subiendo gráfico...",
 
   // Trade Log

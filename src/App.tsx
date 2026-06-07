@@ -3,9 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
+import { RequireAuth } from "@/components/RequireAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AddTradeHub from "./pages/AddTradeHub";
@@ -35,16 +36,11 @@ import Watch from "./pages/Watch";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-  if (!session) return <Navigate to="/auth" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return (
+    <RequireAuth>
+      <AppLayout>{children}</AppLayout>
+    </RequireAuth>
+  );
 }
 
 const App = () => (
@@ -76,7 +72,7 @@ const App = () => (
               <Route path="/progress" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/progress/discipline" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-              <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
+              <Route path="/portfolio" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
               <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
@@ -88,6 +84,7 @@ const App = () => (
               {/* Standalone round watch view (Wear OS-style) on live data — self-gates auth */}
               <Route path="/watch" element={<Watch />} />
               {/* Legacy redirects */}
+              <Route path="/export" element={<Navigate to="/portfolio" replace />} />
               <Route path="/import" element={<Navigate to="/add/import" replace />} />
               <Route path="/performance" element={<Navigate to="/analysis" replace />} />
               <Route path="/timeline" element={<Navigate to="/analysis/timeline" replace />} />

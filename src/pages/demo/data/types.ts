@@ -50,12 +50,7 @@ export interface DemoData {
   pricesLoading: boolean;
 }
 
-export interface Formatters {
-  fmt: (v: number) => string;
-  fmtCompact: (v: number) => string;
-  cx: (usd: number) => number;
-  currencySymbol: string;
-}
+export type { Formatters } from "@/lib/format";
 
 // ── New-feature mock types ──
 export interface DemoAlert {

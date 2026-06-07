@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
@@ -131,6 +132,8 @@ const AddTrade = () => {
   // Journal chart upload state
   const [journalChartFile, setJournalChartFile] = useState<File | null>(null);
   const [journalChartPreview, setJournalChartPreview] = useState<string | null>(null);
+  // Attach the chart without filling out the 6-question diary wizard.
+  const [skipJournalEntry, setSkipJournalEntry] = useState(false);
 
   // Broker state
   const { data: userBrokers } = useUserBrokers();
@@ -432,6 +435,34 @@ const AddTrade = () => {
       toast.error(t("addTrade.clipboardPermissionError"));
     }
   }, [handleImageUpload, analyzingImage, t]);
+
+  // Paste a TradingView chart image straight from the clipboard (desktop + mobile).
+  const handlePasteJournalChart = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        toast.error(t("addTrade.clipboardPermissionError"));
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            const file = new File([blob], "chart.png", { type });
+            setJournalChartFile(file);
+            setJournalChartPreview(URL.createObjectURL(file));
+            toast.success("Chart pasted from clipboard!");
+            return;
+          }
+        }
+      }
+      toast.error(t("addTrade.clipboardError"));
+    } catch (err) {
+      console.error("Chart paste error:", err);
+      toast.error(t("addTrade.clipboardPermissionError"));
+    }
+  }, [t]);
 
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
@@ -764,7 +795,7 @@ const AddTrade = () => {
       }
     }
 
-    if (tradeType === "buy" && journalEnabled && !bypassJournal) {
+    if (tradeType === "buy" && journalEnabled && !skipJournalEntry && !bypassJournal) {
       setJournalStep(1);
       setJournalWizardOpen(true);
       return;
@@ -795,10 +826,14 @@ const AddTrade = () => {
           }
         }
 
-        finalJournalNotes = {
-          ...journalAnswers,
-          ...(chartUrl ? { chart_image_url: chartUrl } : {}),
-        };
+        finalJournalNotes = skipJournalEntry
+          ? chartUrl
+            ? { chart_image_url: chartUrl }
+            : null
+          : {
+              ...journalAnswers,
+              ...(chartUrl ? { chart_image_url: chartUrl } : {}),
+            };
       }
 
       // Compute original price before conversion
@@ -917,6 +952,7 @@ const AddTrade = () => {
     setSearchResults([]);
     setShowSearchDropdown(false);
     setJournalEnabled(false);
+    setSkipJournalEntry(false);
     setJournalWizardOpen(false);
     setJournalStep(1);
     setJournalAnswers({
@@ -1760,6 +1796,16 @@ const AddTrade = () => {
                                         <span className="text-[11px] text-muted-foreground text-center">
                                           {t("addTrade.uploadChartSub")}
                                         </span>
+                                        <Button
+                                          type="button"
+                                          variant="secondary"
+                                          size="sm"
+                                          onClick={handlePasteJournalChart}
+                                          className="mt-2 h-7 text-xs"
+                                        >
+                                          <Clipboard className="h-3.5 w-3.5 mr-1" />
+                                          {t("addTrade.pasteClipboard")}
+                                        </Button>
                                       </div>
                                     ) : (
                                       <div className="relative rounded-md border border-border overflow-hidden h-24 bg-card group">
@@ -1785,6 +1831,15 @@ const AddTrade = () => {
                                         </div>
                                       </div>
                                     )}
+                                    <label className="flex cursor-pointer items-center gap-2 pt-1">
+                                      <Checkbox
+                                        checked={skipJournalEntry}
+                                        onCheckedChange={(v) => setSkipJournalEntry(v === true)}
+                                      />
+                                      <span className="text-xs text-muted-foreground">
+                                        {t("addTrade.skipJournal")}
+                                      </span>
+                                    </label>
                                   </div>
                                 )}
                               </div>

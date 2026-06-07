@@ -226,6 +226,7 @@ export const en = {
   "addTrade.uploadChart": "Upload analysis chart (optional)",
   "addTrade.uploadChartSub": "Select or drag a TradingView analysis screenshot",
   "addTrade.removeChart": "Remove chart",
+  "addTrade.skipJournal": "Skip diary entry (attach chart only)",
   "addTrade.uploadingChart": "Uploading chart...",
 
   // Trade Log

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { DemoContext, type DemoContextValue } from "./DemoContext";
 import { useDemoData } from "./data/useDemoData";
@@ -26,15 +26,21 @@ export function DemoShell() {
     return "desktop";
   });
   const [screen, setScreen] = useState<DemoScreenId>("dashboard");
-  const [currency, setCurrency] = useState<DemoCurrency>("USD");
+  const [currency, setCurrencyState] = useState<DemoCurrency>("USD");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
-  const [currencyInit, setCurrencyInit] = useState(false);
+  const currencyTouched = useRef(false);
 
-  // Initialize currency from the user's profile default, once.
-  if (profile && !currencyInit) {
-    setCurrency((profile.default_currency as DemoCurrency) || "USD");
-    setCurrencyInit(true);
-  }
+  const setCurrency = useCallback((c: DemoCurrency) => {
+    currencyTouched.current = true;
+    setCurrencyState(c);
+  }, []);
+
+  // Apply the profile's default currency once it loads — unless the user already chose one.
+  useEffect(() => {
+    if (currencyTouched.current) return;
+    const c = profile?.default_currency;
+    if (c === "USD" || c === "ARS") setCurrencyState(c);
+  }, [profile]);
 
   const setDevice = useCallback((d: DeviceKind) => {
     setDeviceState(d);
