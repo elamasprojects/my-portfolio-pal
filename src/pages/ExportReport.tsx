@@ -211,13 +211,13 @@ export default function ExportReport() {
           <p className="text-[10px] opacity-40 font-mono hidden sm:block">♟ Chess</p>
         </div>
 
-        {/* Stats grid — 2 cols mobile, 3 cols desktop */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
+        {/* Stats grid — 2 cols mobile, 3 cols tablet, 6 cols desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3 mb-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="rounded-lg p-3 text-center" style={{ background: cardBg }}>
+            <div key={stat.label} className="rounded-lg p-3 text-center border border-border/10 shadow-sm" style={{ background: cardBg }}>
               <p className="text-[10px] sm:text-xs opacity-60 mb-0.5 truncate">{stat.label}</p>
               <p
-                className="text-base sm:text-xl font-bold font-mono truncate"
+                className="text-sm sm:text-lg font-bold font-mono truncate"
                 style={
                   stat.positive !== undefined
                     ? { color: stat.positive ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)" }
@@ -231,51 +231,79 @@ export default function ExportReport() {
         </div>
 
         {/* Allocation + Holdings — stacked on mobile, side-by-side on desktop */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-6 items-start mt-6">
           {pieData.length > 0 && (
-            <div className="w-full sm:flex-1" style={{ height: 220 }}>
-              <p className="text-xs font-semibold opacity-60 mb-1">{t("export.portfolioAllocation")}</p>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius="80%"
-                    strokeWidth={0}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                    fontSize={11}
-                    fill={fg}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="w-full md:flex-[2] h-[280px] sm:h-[380px] flex flex-col">
+              <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">{t("export.portfolioAllocation")}</p>
+              <div className="flex-1 rounded-xl border border-border/10 p-2 relative shadow-sm" style={{ background: cardBg }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="55%"
+                      outerRadius="80%"
+                      paddingAngle={2}
+                      stroke={cardBg}
+                      strokeWidth={2}
+                      label={({ name, percent }) => percent > 0.03 ? `${name} ${(percent * 100).toFixed(0)}%` : ""}
+                      labelLine={true}
+                      fontSize={10}
+                      fontWeight={600}
+                      fill={fg}
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        background: cardBg, 
+                        borderColor: borderClr, 
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        color: fg
+                      }} 
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
-          <div className="sm:w-44 sm:flex-shrink-0">
-            <p className="text-xs font-semibold opacity-60 mb-2">{t("export.holdings")}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {holdings.slice(0, 12).map((h, i) => (
-                <Badge
-                  key={h.symbol}
-                  variant="outline"
-                  className="text-[10px]"
-                  style={{ borderColor: COLORS[i % COLORS.length], color: COLORS[i % COLORS.length] }}
-                >
-                  {h.symbol}: ${h.total_invested.toFixed(0)}
-                </Badge>
-              ))}
-              {holdings.length > 12 && (
-                <Badge variant="outline" className="text-[10px] opacity-60">
-                  +{holdings.length - 12} more
-                </Badge>
+          <div className="w-full md:w-80 flex-shrink-0 flex flex-col">
+            <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-2">{t("export.holdings")}</p>
+            <div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1">
+              {holdings.slice(0, 8).map((h, i) => {
+                const percentage = totalInvested > 0 ? (h.total_invested / totalInvested) * 100 : 0;
+                return (
+                  <div 
+                    key={h.symbol} 
+                    className="flex items-center justify-between text-xs p-2.5 rounded-lg border transition-all hover:bg-muted/15"
+                    style={{ 
+                      background: previewDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.02)",
+                      borderColor: previewDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)"
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="font-bold font-mono text-sm">{h.symbol}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground font-semibold">{percentage.toFixed(0)}%</span>
+                      <span className="font-mono font-bold" style={{ color: COLORS[i % COLORS.length] }}>
+                        ${h.total_invested.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {holdings.length > 8 && (
+                <div className="text-[11px] opacity-50 text-right pr-2 font-medium">
+                  +{holdings.length - 8} {t("export.holdings").toLowerCase()} {t("settings.noBrokers").includes("agregados") ? "más" : "more"}
+                </div>
               )}
             </div>
           </div>
@@ -327,13 +355,15 @@ export default function ExportReport() {
           </div>
 
           {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 24 }}>
             {stats.map((stat) => (
-              <div key={stat.label} style={{ background: cardBg, borderRadius: 8, padding: 16, textAlign: "center" }}>
-                <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>{stat.label}</div>
+              <div key={stat.label} style={{ background: cardBg, borderRadius: 8, padding: "12px 8px", textAlign: "center" }}>
+                <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>{stat.label}</div>
                 <div
                   style={{
-                    fontSize: 22, fontWeight: 700, fontFamily: "monospace",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    fontFamily: "monospace",
                     color: stat.positive !== undefined
                       ? (stat.positive ? "hsl(174, 62%, 40%)" : "hsl(1, 84%, 63%)")
                       : fg,
@@ -346,55 +376,72 @@ export default function ExportReport() {
           </div>
 
           {/* Pie + Holdings */}
-          <div style={{ flex: 1, display: "flex", gap: 24, minHeight: 0 }}>
+          <div style={{ flex: 1, display: "flex", gap: 32, minHeight: 0, alignItems: "center" }}>
             {pieData.length > 0 && (
-              <div style={{ flex: 1, minHeight: 0 }}>
+              <div style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.6, marginBottom: 4 }}>{t("export.portfolioAllocation")}</div>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius="80%"
-                      strokeWidth={0}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                      fontSize={11}
-                      fill={fg}
-                    >
-                      {pieData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div style={{ flex: 1, position: "relative" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="55%"
+                        outerRadius="80%"
+                        paddingAngle={2}
+                        stroke={cardBg}
+                        strokeWidth={2}
+                        label={({ name, percent }) => percent > 0.03 ? `${name} ${(percent * 100).toFixed(0)}%` : ""}
+                        labelLine={true}
+                        fontSize={10}
+                        fontWeight={600}
+                        fill={fg}
+                      >
+                        {pieData.map((_, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
-            <div style={{ width: 176, flexShrink: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.6, marginBottom: 8 }}>{t("export.holdings")}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {holdings.slice(0, 12).map((h, i) => (
-                  <span
-                    key={h.symbol}
-                    style={{
-                      fontSize: 10, border: `1px solid ${COLORS[i % COLORS.length]}`,
-                      color: COLORS[i % COLORS.length], borderRadius: 999,
-                      padding: "2px 8px", whiteSpace: "nowrap",
+            <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.6, marginBottom: 4 }}>{t("export.holdings")}</div>
+              {holdings.slice(0, 8).map((h, i) => {
+                const percentage = totalInvested > 0 ? (h.total_invested / totalInvested) * 100 : 0;
+                return (
+                  <div 
+                    key={h.symbol} 
+                    style={{ 
+                      display: "flex", alignItems: "center", justifyContent: "space-between", 
+                      fontSize: 12, padding: "6px 10px", borderRadius: 6, 
+                      background: previewDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                      border: `1px solid ${previewDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`
                     }}
                   >
-                    {h.symbol}: ${h.total_invested.toFixed(0)}
-                  </span>
-                ))}
-                {holdings.length > 12 && (
-                  <span style={{ fontSize: 10, opacity: 0.5, padding: "2px 8px" }}>
-                    +{holdings.length - 12} more
-                  </span>
-                )}
-              </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: COLORS[i % COLORS.length] }} />
+                      <span style={{ fontWeight: 700, fontFamily: "monospace" }}>{h.symbol}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ opacity: 0.6 }}>{percentage.toFixed(0)}%</span>
+                      <span style={{ fontWeight: 700, fontFamily: "monospace", color: COLORS[i % COLORS.length] }}>
+                        ${h.total_invested.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {holdings.length > 8 && (
+                <div style={{ fontSize: 10, opacity: 0.5, textAlign: "right", paddingRight: 4, fontWeight: 500 }}>
+                  +{holdings.length - 8} {t("export.holdings").toLowerCase()} {t("settings.noBrokers").includes("agregados") ? "más" : "more"}
+                </div>
+              )}
             </div>
           </div>
 

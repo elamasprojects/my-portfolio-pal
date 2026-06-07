@@ -74,7 +74,7 @@ const App = () => (
               <Route path="/progress" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/progress/discipline" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-              <Route path="/export" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
+              <Route path="/portfolio" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
               <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

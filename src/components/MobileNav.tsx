@@ -32,7 +32,7 @@ export function MobileNav() {
     if (location.pathname === "/") return 0;
     if (location.pathname === "/analysis") return 1;
     if (location.pathname === "/trades") return 2;
-    if (location.pathname === "/export") return 3;
+    if (location.pathname === "/portfolio") return 3;
     return -1;
   };
 
@@ -42,7 +42,7 @@ export function MobileNav() {
     { titleKey: "nav.board" as TranslationKey, url: "/", icon: LayoutDashboard },
     { titleKey: "nav.analysis" as TranslationKey, url: "/analysis", icon: BarChart3 },
     { titleKey: "nav.moveHistory" as TranslationKey, url: "/trades", icon: History },
-    { titleKey: "nav.notation" as TranslationKey, url: "/export", icon: PieChart },
+    { titleKey: "nav.notation" as TranslationKey, url: "/portfolio", icon: PieChart },
   ];
 
   return (
