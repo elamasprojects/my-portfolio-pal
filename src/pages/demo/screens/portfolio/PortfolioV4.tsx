@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { useDemo } from "../../DemoContext";
 import { MetricTile } from "../../components/MetricTile";
@@ -7,7 +8,7 @@ import { enrichHoldings } from "../../data/portfolioMetrics";
 
 const RAD = Math.PI / 180;
 // Only label slices at/above this share — hides tickers on the many tiny slices so they don't overlap.
-const TICKER_MIN_PCT = 0.04; // 4%
+const TICKER_MIN_PCT = 0.03; // 3%
 
 const renderSliceLabel = (props: {
   cx?: number;
@@ -44,7 +45,7 @@ const renderSliceLabel = (props: {
 };
 
 /** V4 — Allocation-first: a big donut-hero with value in the center + weight bars. Composition over P&L. */
-export function PortfolioV4() {
+export function PortfolioV4({ action }: { action?: ReactNode }) {
   const { data, fmt } = useDemo();
   const { items } = enrichHoldings(data.holdings, data.prices, data.previousCloses);
   const pieData = items.map((h) => ({ name: h.symbol, value: h.mktVal }));
@@ -53,7 +54,7 @@ export function PortfolioV4() {
 
   return (
     <div className="space-y-4">
-      <SectionCard title="Composition">
+      <SectionCard title="Composition" action={action}>
         <div className="relative h-72">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

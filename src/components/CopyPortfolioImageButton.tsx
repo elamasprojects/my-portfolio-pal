@@ -53,7 +53,15 @@ const renderSliceLabel = (props: {
  * Copies a shareable PNG of the portfolio to the clipboard: person's name + a donut +
  * every ticker with its allocation %. No money amounts — percentages only.
  */
-export function CopyPortfolioImageButton({ name, items }: { name: string; items: ShareItem[] }) {
+export function CopyPortfolioImageButton({
+  name,
+  items,
+  iconOnly = false,
+}: {
+  name: string;
+  items: ShareItem[];
+  iconOnly?: boolean;
+}) {
   const { t } = useLanguage();
   const cardRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
@@ -95,10 +103,24 @@ export function CopyPortfolioImageButton({ name, items }: { name: string; items:
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={handleCopy} disabled={busy || !sorted.length} className="shrink-0">
-        {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ImageDown className="mr-1 h-4 w-4" />}
-        {t("portfolio.copyImage")}
-      </Button>
+      {iconOnly ? (
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleCopy}
+          disabled={busy || !sorted.length}
+          aria-label={t("portfolio.copyImage")}
+          title={t("portfolio.copyImage")}
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={handleCopy} disabled={busy || !sorted.length} className="shrink-0">
+          {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <ImageDown className="mr-1 h-4 w-4" />}
+          {t("portfolio.copyImage")}
+        </Button>
+      )}
 
       {/* Offscreen share card captured by html2canvas. Inline styles only (no CSS vars). */}
       <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none" }}>

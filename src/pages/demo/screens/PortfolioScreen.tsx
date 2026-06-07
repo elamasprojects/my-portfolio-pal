@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Briefcase } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -9,13 +9,14 @@ import { PortfolioV2 } from "./portfolio/PortfolioV2";
 import { PortfolioV3 } from "./portfolio/PortfolioV3";
 
 const VIEWS = [
-  { id: "allocation", label: "Allocation", Comp: PortfolioV4 },
-  { id: "terminal", label: "Terminal", Comp: PortfolioV2 },
-  { id: "heatmap", label: "Heatmap", Comp: PortfolioV3 },
+  { id: "allocation", label: "Allocation" },
+  { id: "terminal", label: "Terminal" },
+  { id: "heatmap", label: "Heatmap" },
 ];
 
-/** Portfolio page with three toggleable views — Allocation (default), Terminal, Heatmap. */
-export function PortfolioScreen() {
+/** Portfolio page with three toggleable views — Allocation (default), Terminal, Heatmap.
+ *  `compositionAction` renders in the Allocation "Composition" card's top-right corner. */
+export function PortfolioScreen({ compositionAction }: { compositionAction?: ReactNode } = {}) {
   const { data, setScreen } = useDemo();
   const [view, setView] = useState("allocation");
 
@@ -40,8 +41,6 @@ export function PortfolioScreen() {
     );
   }
 
-  const Active = VIEWS.find((x) => x.id === view)?.Comp ?? PortfolioV4;
-
   return (
     <div className="space-y-4">
       <div className="flex rounded-full border bg-card p-1">
@@ -59,7 +58,9 @@ export function PortfolioScreen() {
           </button>
         ))}
       </div>
-      <Active />
+      {view === "allocation" && <PortfolioV4 action={compositionAction} />}
+      {view === "terminal" && <PortfolioV2 />}
+      {view === "heatmap" && <PortfolioV3 />}
     </div>
   );
 }

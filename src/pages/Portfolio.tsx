@@ -54,11 +54,12 @@ export default function Portfolio() {
   return (
     <DemoContext.Provider value={ctx}>
       <div className="mx-auto max-w-2xl space-y-5">
-        <div className="flex items-center justify-between gap-3 pr-12 md:pr-0">
+        <div className="pr-12 md:pr-0">
           <h1 className="text-2xl chess-title">{t("portfolio.pageTitle")}</h1>
-          <CopyPortfolioImageButton name={name} items={shareItems} />
         </div>
-        <PortfolioScreen />
+        <PortfolioScreen
+          compositionAction={<CopyPortfolioImageButton iconOnly name={name} items={shareItems} />}
+        />
       </div>
     </DemoContext.Provider>
   );
