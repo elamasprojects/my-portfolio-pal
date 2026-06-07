@@ -156,6 +156,21 @@ work — not the MCP.** Practical caveats here:
 Deployed on **Vercel** — `vercel.json` rewrites all routes to `/index.html` (SPA). PWA
 auto-updates on deploy.
 
+## Prototyping — the `/demo` Design Lab
+
+**`/demo`** is the isolated, auth-gated **prototyping route** for trying new UI/features against
+**real account data** before promoting them to production. It's fully self-contained under
+`src/pages/demo/` (only `src/App.tsx` references it — one import + one route) and renders a
+redesigned, mobile-first app with a **device switcher: Desktop / Phone / Watch** (toggle via the
+bottom-center control dock on desktop, or the phone top-bar controls). Build and review new
+features here in all three form factors, then promote the polished bits to the real pages.
+
+- Keep `/demo` working — **don't delete or hide it**; it's our ongoing feature sandbox.
+- It reuses the real data hooks + pure compute fns (so numbers match production); shared bits live
+  in `src/lib/` (e.g. `dailyBreakdown.ts`) and `src/components/` (e.g. `WatchFace.tsx`).
+- There's also a standalone **`/watch`** route — a Wear OS-style round watch view on live data
+  (day P&L total + per-stock change), sharing `WatchFace` with the demo.
+
 ## Conventions & gotchas
 
 - Import from `src` via the `@/…` alias.
