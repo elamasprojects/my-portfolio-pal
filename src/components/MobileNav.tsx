@@ -84,10 +84,10 @@ export function MobileNav() {
         {/* FAB Plus Button */}
         <button
           onClick={() => setOpen(true)}
-          className={`shrink-0 h-16 w-16 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95 duration-300 ${
+          className={`shrink-0 h-16 w-16 rounded-full flex items-center justify-center shadow-lg border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black text-primary transition-all active:scale-95 duration-300 ${
             open || isGalleryActive
-              ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background scale-105"
-              : "bg-primary text-primary-foreground hover:bg-primary/95 hover:scale-105"
+              ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105"
+              : "hover:scale-105"
           }`}
         >
           <Plus className={`h-6 w-6 transition-transform duration-300 ${open ? 'rotate-45' : ''}`} />

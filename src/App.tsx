@@ -3,9 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { AuthProvider } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/i18n";
 import { AppLayout } from "@/components/AppLayout";
+import { RequireAuth } from "@/components/RequireAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AddTradeHub from "./pages/AddTradeHub";
@@ -29,20 +30,17 @@ import RiskProfile from "./pages/RiskProfile";
 import CompoundCalculator from "./pages/CompoundCalculator";
 import DCASimulator from "./pages/DCASimulator";
 import Security from "./pages/Security";
+import DemoApp from "./pages/demo/DemoApp";
+import Watch from "./pages/Watch";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-  if (!session) return <Navigate to="/auth" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return (
+    <RequireAuth>
+      <AppLayout>{children}</AppLayout>
+    </RequireAuth>
+  );
 }
 
 const App = () => (
@@ -81,7 +79,12 @@ const App = () => (
               <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
               <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
               <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
+              {/* Mobile redesign prototype (Design Lab) — self-gates auth, custom layout */}
+              <Route path="/demo" element={<DemoApp />} />
+              {/* Standalone round watch view (Wear OS-style) on live data — self-gates auth */}
+              <Route path="/watch" element={<Watch />} />
               {/* Legacy redirects */}
+              <Route path="/export" element={<Navigate to="/portfolio" replace />} />
               <Route path="/import" element={<Navigate to="/add/import" replace />} />
               <Route path="/performance" element={<Navigate to="/analysis" replace />} />
               <Route path="/timeline" element={<Navigate to="/analysis/timeline" replace />} />

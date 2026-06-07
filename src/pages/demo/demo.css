@@ -1,0 +1,25 @@
+/* Demo-only overrides (scoped to .demo-root). Production styling untouched. */
+
+/* WCAG-AA loss red. Production --loss (0 65% 55%) measured 3.81:1 on dark (fails AA).
+   Light theme: darker red on cream (~5.8:1). Dark theme: lighter red on near-black (~5:1). */
+.demo-root {
+  --loss: 0 72% 42%;
+}
+.dark .demo-root {
+  --loss: 0 80% 66%;
+}
+
+/* Clean, app-like scrolling inside the phone frame */
+.demo-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.demo-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Soft radial fade for the watch movers list */
+.demo-watch-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+}

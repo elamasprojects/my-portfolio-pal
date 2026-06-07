@@ -163,4 +163,19 @@
     font-weight: 600;
     letter-spacing: -0.02em;
   }
+
+  /* App-like hidden scrollbars (used by the watch face + demo frames) */
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Soft top/bottom fade for the round watch lists */
+  .watch-fade {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  }
 }

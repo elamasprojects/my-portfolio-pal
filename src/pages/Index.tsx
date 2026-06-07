@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useTrades, computeHoldings, computePerformance, computeCash, computeCumulativePnLWithUnrealized, inferMarket, computeChronoSells } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useProfile } from "@/hooks/useProfile";
-import { useDolarMEP, convertUsdToArs } from "@/hooks/useDolarMEP";
+import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { makeFormatters } from "@/lib/format";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrokers } from "@/hooks/useBrokers";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
@@ -54,15 +55,7 @@ const Index = () => {
   const cash = useMemo(() => computeCash(trades), [trades]);
 
   const isARS = displayCurrency === "ARS";
-  const cx = (usd: number) => isARS ? convertUsdToArs(usd, mepRate) : usd;
-  const currencySymbol = isARS ? "ARS$" : "$";
-  const fmt = (v: number) => `${currencySymbol}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtCompact = (v: number) => {
-    const abs = Math.abs(v);
-    if (abs >= 1_000_000) return `${currencySymbol}${(v / 1_000_000).toFixed(1)}M`;
-    if (abs >= 1_000) return `${currencySymbol}${(v / 1_000).toFixed(1)}K`;
-    return fmt(v);
-  };
+  const { fmt, fmtCompact, cx, currencySymbol } = makeFormatters(displayCurrency, mepRate);
 
   const { prices: marketPrices, previousCloses, isLoading: pricesLoading } = useMarketPrices(holdings.map(h => h.symbol));
 

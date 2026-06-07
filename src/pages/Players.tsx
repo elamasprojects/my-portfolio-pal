@@ -918,15 +918,18 @@ const PIE_COLORS = [
 ];
 
 function PortfolioPieChart({ data }: { data: { name: string; value: number }[] }) {
-  const renderLabel = ({ name, value, cx, x }: any) => {
+  const renderLabel = ({ name, value, cx, x, y }: any) => {
     const isLeft = x < cx;
     return (
       <text
         x={x}
-        y={undefined}
+        y={y}
         fill="hsl(var(--foreground))"
-        fontSize={11}
-        fontWeight={500}
+        fontSize={12}
+        fontWeight={600}
+        stroke="hsl(var(--card))"
+        strokeWidth={3}
+        paintOrder="stroke"
         textAnchor={isLeft ? "end" : "start"}
         dominantBaseline="central"
       >
