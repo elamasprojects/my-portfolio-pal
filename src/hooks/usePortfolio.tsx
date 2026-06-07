@@ -83,7 +83,9 @@ function getStoredPortfolioId(): string | null {
 function setStoredPortfolioId(id: string) {
   try {
     localStorage.setItem(ACTIVE_PORTFOLIO_KEY, id);
-  } catch {}
+  } catch {
+    /* ignore storage errors */
+  }
 }
 
 export function usePortfolios() {
@@ -205,6 +207,19 @@ export function useTrades(portfolioId?: string) {
   });
 }
 
+// Deterministic chronological order for replaying a trade ledger: by trade date, then by
+// record time, then BUYS BEFORE SELLS. That last tiebreaker matters when a same-day buy+sell
+// pair shares a timestamp (e.g. imported together): without it the sell can be processed
+// first, "over-sell" the position to zero, and leave the matching buy as a phantom residual.
+const TRADE_TYPE_ORDER: Record<string, number> = { buy: 0, dividend: 1, sell: 2 };
+export function chronoCompare(a: Trade, b: Trade): number {
+  const byDate = new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime();
+  if (byDate !== 0) return byDate;
+  const byCreated = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  if (byCreated !== 0) return byCreated;
+  return (TRADE_TYPE_ORDER[a.trade_type] ?? 1) - (TRADE_TYPE_ORDER[b.trade_type] ?? 1);
+}
+
 export function computeHoldings(trades: Trade[]): Holding[] {
   // Group trades by symbol
   const bySymbol = new Map<string, Trade[]>();
@@ -220,7 +235,7 @@ export function computeHoldings(trades: Trade[]): Holding[] {
   for (const [symbol, symbolTrades] of bySymbol.entries()) {
     // Sort chronological ascending
     const sorted = [...symbolTrades].sort(
-      (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+      chronoCompare
     );
 
     let qty = 0;
@@ -278,7 +293,7 @@ export function computePerformance(trades: Trade[]): PortfolioPerformance {
   for (const [symbol, symbolTrades] of bySymbol.entries()) {
     // Sort ascending by date
     const sorted = [...symbolTrades].sort(
-      (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+      chronoCompare
     );
 
     let qty = 0;
@@ -506,7 +521,7 @@ export function computeChronoSells(trades: Trade[]): ChronoSell[] {
 
   for (const [symbol, symbolTrades] of bySymbol.entries()) {
     const sorted = [...symbolTrades].sort(
-      (a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime()
+      chronoCompare
     );
 
     let qty = 0;
