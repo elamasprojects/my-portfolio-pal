@@ -61,6 +61,13 @@ export const es: Record<TranslationKey, string> = {
   "watchlist.empty": "Tu lista está vacía. Agregá un símbolo para empezar a seguirlo.",
   "watchlist.remove": "Quitar de la lista",
 
+  // Portfolio page
+  "portfolio.pageTitle": "Portafolio",
+  "portfolio.copyImage": "Copiar imagen",
+  "portfolio.copied": "Imagen del portafolio copiada",
+  "portfolio.copyError": "No se pudo copiar la imagen",
+  "portfolio.downloaded": "Imagen del portafolio descargada",
+
   // Profile dropdown
   "profile.language": "Idioma",
   "profile.theme": "Tema",

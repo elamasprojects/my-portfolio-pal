@@ -59,6 +59,13 @@ export const en = {
   "watchlist.empty": "Your watchlist is empty. Add a symbol to start tracking it.",
   "watchlist.remove": "Remove from watchlist",
 
+  // Portfolio page
+  "portfolio.pageTitle": "Portfolio",
+  "portfolio.copyImage": "Copy image",
+  "portfolio.copied": "Portfolio image copied to clipboard",
+  "portfolio.copyError": "Couldn't copy the image",
+  "portfolio.downloaded": "Portfolio image downloaded",
+
   // Profile dropdown
   "profile.language": "Language",
   "profile.theme": "Theme",

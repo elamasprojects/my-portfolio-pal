@@ -15,7 +15,7 @@ import TradeLog from "./pages/TradeLog";
 import AssetDetail from "./pages/AssetDetail";
 import AnalysisHub from "./pages/AnalysisHub";
 import ProgressHub from "./pages/ProgressHub";
-import ExportReport from "./pages/ExportReport";
+import Portfolio from "./pages/Portfolio";
 import Chess from "./pages/Chess";
 import Settings from "./pages/Settings";
 import Strategy from "./pages/Strategy";
@@ -76,7 +76,7 @@ const App = () => (
               <Route path="/progress" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/progress/discipline" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
               <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-              <Route path="/portfolio" element={<ProtectedRoute><ExportReport /></ProtectedRoute>} />
+              <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
               <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
               <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

@@ -1,5 +1,9 @@
 # Watchlist — Backend setup (Supabase)
 
+> ✅ **Status: APPLIED** to production (project `yimbswiaqmuggmqygicf`) on 2026-06-07 — the
+> `public.watchlist` table, RLS, and the 3 policies are live and verified. This doc is kept for
+> reference / re-creation.
+
 The watchlist is now a **real, DB-backed feature**: search a ticker, add it, remove it, and the
 list persists per-user and syncs across devices (production `/watchlist`, the `/demo` Watchlist
 screen, and the watch view all read the same table).
