@@ -1,17 +1,37 @@
 import { useState } from "react";
-import { LayoutDashboard, Plus, History, BarChart3, Trophy, Crosshair, PieChart, Sparkles, Users, Settings, ShieldCheck, Bell, Eye } from "lucide-react";
+import {
+  LayoutDashboard,
+  Plus,
+  History,
+  BarChart3,
+  PieChart,
+  Menu,
+  Trophy,
+  Crosshair,
+  Sparkles,
+  Users,
+  Settings,
+  ShieldCheck,
+  Bell,
+  Eye,
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage, TranslationKey } from "@/i18n";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-const galleryItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
-  { titleKey: "nav.newMove", url: "/add", icon: Plus },
+type NavItem = { titleKey: TranslationKey; url: string; icon: typeof History; end?: boolean };
+
+// Primary bottom-nav tabs (the center FAB is Add Trade).
+const tabs: NavItem[] = [
+  { titleKey: "nav.board", url: "/", icon: LayoutDashboard, end: true },
+  { titleKey: "nav.moveHistory", url: "/trades", icon: History },
+  { titleKey: "nav.analysis", url: "/analysis", icon: BarChart3 },
+  { titleKey: "nav.notation", url: "/portfolio", icon: PieChart },
+];
+
+// Everything else lives in the top-right "More" menu.
+const moreItems: NavItem[] = [
   { titleKey: "nav.progress", url: "/progress", icon: Trophy },
   { titleKey: "nav.strategy", url: "/strategy", icon: Crosshair },
   { titleKey: "nav.chess", url: "/chess", icon: Sparkles },
@@ -28,89 +48,68 @@ export function MobileNav() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isGalleryActive = galleryItems.some((item) => location.pathname === item.url);
-
-  const getActiveIndex = () => {
-    if (location.pathname === "/") return 0;
-    if (location.pathname === "/analysis") return 1;
-    if (location.pathname === "/trades") return 2;
-    if (location.pathname === "/portfolio") return 3;
-    return -1;
+  const Tab = ({ item }: { item: NavItem }) => {
+    const isActive = item.end ? location.pathname === item.url : location.pathname.startsWith(item.url);
+    return (
+      <NavLink
+        to={item.url}
+        end={item.end}
+        className={`relative z-10 flex h-full flex-1 flex-col items-center justify-center gap-0.5 rounded-full transition-colors ${
+          isActive ? "text-primary font-medium" : "text-muted-foreground/75"
+        }`}
+        activeClassName="text-primary font-medium"
+      >
+        <item.icon className="h-5 w-5 transition-transform active:scale-90" />
+        <span className="text-[10px] font-medium leading-none">{t(item.titleKey)}</span>
+      </NavLink>
+    );
   };
-
-  const activeIndex = getActiveIndex();
-
-  const navItems = [
-    { titleKey: "nav.board" as TranslationKey, url: "/", icon: LayoutDashboard },
-    { titleKey: "nav.analysis" as TranslationKey, url: "/analysis", icon: BarChart3 },
-    { titleKey: "nav.moveHistory" as TranslationKey, url: "/trades", icon: History },
-    { titleKey: "nav.notation" as TranslationKey, url: "/portfolio", icon: PieChart },
-  ];
 
   return (
     <>
-      <nav className="fixed bottom-4 left-4 right-4 z-50 md:hidden flex items-center justify-between gap-3 max-w-md mx-auto">
-        {/* Navbar Capsule */}
-        <div className="relative flex-1 flex items-center h-16 rounded-full border border-border/30 bg-card/65 dark:bg-card/45 backdrop-blur-md px-1.5 shadow-lg select-none">
-          {/* Sliding Active Indicator Wrapper */}
-          <div
-            className="absolute top-1.5 bottom-1.5 left-0 w-1/4 px-1.5 transition-transform duration-300 ease-out pointer-events-none"
-            style={{
-              transform: `translateX(${activeIndex * 100}%)`,
-              opacity: activeIndex === -1 ? 0 : 1,
-            }}
+      {/* Top-right "More" menu button (mobile only) */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t("nav.more")}
+        className="fixed right-3 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-border/40 bg-card/80 text-foreground shadow-md backdrop-blur-md transition-transform active:scale-95 md:hidden"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Bottom nav: 4 tabs + center FAB = Add Trade */}
+      <nav className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md md:hidden">
+        <div className="relative flex h-16 items-center justify-between rounded-3xl border border-border/30 bg-card/65 px-2 shadow-lg backdrop-blur-md dark:bg-card/45">
+          <Tab item={tabs[0]} />
+          <Tab item={tabs[1]} />
+          <div className="w-14 shrink-0" aria-hidden />
+          <Tab item={tabs[2]} />
+          <Tab item={tabs[3]} />
+
+          {/* Center FAB = Add Trade (dark gradient) */}
+          <button
+            type="button"
+            onClick={() => navigate("/add")}
+            aria-label={t("nav.newMove")}
+            className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black text-primary shadow-lg ring-4 ring-background transition-transform active:scale-95"
           >
-            <div className="w-full h-full rounded-full bg-primary/10 dark:bg-primary/20 border border-primary/15 dark:border-primary/30 shadow-inner" />
-          </div>
-
-          {/* Nav Items */}
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.url;
-            return (
-              <NavLink
-                key={item.titleKey}
-                to={item.url}
-                end={item.url === "/"}
-                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 h-full rounded-full transition-colors ${
-                  isActive ? "text-primary font-medium" : "text-muted-foreground/75"
-                }`}
-                activeClassName="text-primary font-medium"
-              >
-                <item.icon className="h-5 w-5 transition-transform duration-200 active:scale-90" />
-                <span className="text-[10px] font-medium leading-none">{t(item.titleKey)}</span>
-              </NavLink>
-            );
-          })}
+            <Plus className="h-6 w-6" />
+          </button>
         </div>
-
-        {/* FAB Plus Button */}
-        <button
-          onClick={() => setOpen(true)}
-          className={`shrink-0 h-16 w-16 rounded-full flex items-center justify-center shadow-lg border border-white/10 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black text-primary transition-all active:scale-95 duration-300 ${
-            open || isGalleryActive
-              ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-105"
-              : "hover:scale-105"
-          }`}
-        >
-          <Plus className={`h-6 w-6 transition-transform duration-300 ${open ? 'rotate-45' : ''}`} />
-        </button>
       </nav>
 
-      {/* Bottom sheet menu */}
+      {/* More sheet */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="bottom"
-          className="rounded-t-[2rem] border-t border-border/30 bg-background/80 dark:bg-background/90 backdrop-blur-lg px-6 pb-10 pt-4 max-h-[85vh] overflow-y-auto shadow-2xl fixed inset-x-0 bottom-0 max-w-md mx-auto"
+          className="fixed inset-x-0 bottom-0 mx-auto max-h-[85vh] max-w-md overflow-y-auto rounded-t-[2rem] border-t border-border/30 bg-background/80 px-6 pb-10 pt-4 shadow-2xl backdrop-blur-lg dark:bg-background/90"
         >
-          {/* Bottom Sheet Handle Grabber */}
-          <div className="w-12 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-6" />
-
+          <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-muted-foreground/30" />
           <SheetHeader className="mb-6">
             <SheetTitle className="text-center text-xl font-bold tracking-tight">{t("nav.more")}</SheetTitle>
           </SheetHeader>
-
           <div className="grid grid-cols-3 gap-4">
-            {galleryItems.map((item) => {
+            {moreItems.map((item) => {
               const isActive = location.pathname === item.url;
               return (
                 <button
@@ -119,22 +118,22 @@ export function MobileNav() {
                     navigate(item.url);
                     setOpen(false);
                   }}
-                  className={`group flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 gap-2.5 active:scale-95 ${
+                  className={`group flex flex-col items-center justify-center gap-2.5 rounded-2xl border p-4 transition-all duration-300 active:scale-95 ${
                     isActive
-                      ? "bg-primary/10 border-primary/25 text-primary shadow-sm"
-                      : "bg-card/45 hover:bg-card/75 border-border/10 hover:border-border/30 text-muted-foreground hover:text-foreground"
+                      ? "border-primary/25 bg-primary/10 text-primary shadow-sm"
+                      : "border-border/10 bg-card/45 text-muted-foreground hover:border-border/30 hover:bg-card/75 hover:text-foreground"
                   }`}
                 >
-                  <div className={`p-3 rounded-xl transition-all duration-300 ${
-                    isActive
-                      ? 'bg-primary/20 text-primary scale-110'
-                      : 'bg-secondary/40 group-hover:bg-secondary/60 text-muted-foreground group-hover:text-foreground'
-                  }`}>
+                  <div
+                    className={`rounded-xl p-3 transition-all duration-300 ${
+                      isActive
+                        ? "scale-110 bg-primary/20 text-primary"
+                        : "bg-secondary/40 text-muted-foreground group-hover:bg-secondary/60 group-hover:text-foreground"
+                    }`}
+                  >
                     <item.icon className="h-6 w-6" />
                   </div>
-                  <span className="text-xs font-semibold text-center leading-tight transition-colors duration-200">
-                    {t(item.titleKey)}
-                  </span>
+                  <span className="text-center text-xs font-semibold leading-tight">{t(item.titleKey)}</span>
                 </button>
               );
             })}

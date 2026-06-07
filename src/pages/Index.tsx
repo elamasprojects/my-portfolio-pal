@@ -403,8 +403,8 @@ const Index = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header row */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      {/* Header row (pr on mobile clears the floating top-right menu button) */}
+      <div className="flex items-center justify-between flex-wrap gap-2 pr-12 md:pr-0">
         <div>
           <h1 className="text-2xl chess-title">{t("board.title")}</h1>
           <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
