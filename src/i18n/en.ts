@@ -215,7 +215,6 @@ export const en = {
   "addTrade.journalQ1": "Why are you buying this asset, and what experience/track record supports that this is a good decision?",
   "addTrade.journalQ2": "Someone is selling what you are buying. What might they know that you don't, and why do you believe you have the advantage?",
   "addTrade.journalQ3": "If your analysis is wrong, what is the maximum possible loss, how will it affect your portfolio, and is the position properly sized?",
-  "addTrade.journalQ4": "Have you calculated the total entry/exit costs (commissions, taxes) and how much the asset needs to rise to start being profitable?",
   "addTrade.journalQ5": "If the stock drops 50%, how will you react based on past experience? Will you buy more, hold, or panic sell?",
   "addTrade.journalQ6": "Are you relying solely on willpower, or do you have mechanical safeguards (diversification, DCA, a personal investment contract)?",
   "addTrade.completeJournalAndRecord": "Complete Journal & Record",

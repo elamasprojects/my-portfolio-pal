@@ -217,7 +217,6 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.journalQ1": "¿Por qué compras este activo y qué experiencia o historial respalda que esta es una buena decisión?",
   "addTrade.journalQ2": "En toda transacción hay un vendedor. ¿Qué podría saber esa persona que tú no, y por qué crees tener la ventaja?",
   "addTrade.journalQ3": "Si tu análisis es erróneo, ¿cuál es la pérdida máxima posible, cómo afectará a tu portafolio y está la posición debidamente dimensionada?",
-  "addTrade.journalQ4": "¿Has calculado el coste total de entrada/salida (comisiones, impuestos) y cuánto necesita subir el activo para empezar a ser rentable?",
   "addTrade.journalQ5": "Si la acción cae un 50%, ¿cómo reaccionarás basado en tus experiencias pasadas? ¿Comprarás más, mantendrás o venderás en pánico?",
   "addTrade.journalQ6": "¿Te estás fiando únicamente de tu fuerza de voluntad para no entrar en pánico, o tienes salvaguardas mecánicas preestablecidas (diversificación, DCA, contrato personal)?",
   "addTrade.completeJournalAndRecord": "Completar Diario y Registrar",

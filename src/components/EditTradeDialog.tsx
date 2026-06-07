@@ -319,7 +319,7 @@ export function EditTradeDialog({ trade, open, onOpenChange }: EditTradeDialogPr
               </div>
               <div className="space-y-2 text-xs divide-y divide-border/50">
                 {Object.entries(trade.journal_notes as Record<string, string>)
-                  .filter(([key]) => key.startsWith("q"))
+                  .filter(([key]) => key.startsWith("q") && key !== "q4")
                   .map(([key, val]) => {
                     const qNum = key.replace("q", "");
                     const qTranslationKey = `addTrade.journalQ${qNum}`;

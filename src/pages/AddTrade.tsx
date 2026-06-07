@@ -123,7 +123,6 @@ const AddTrade = () => {
     q1: "",
     q2: "",
     q3: "",
-    q4: "",
     q5: "",
     q6: "",
   });
@@ -923,7 +922,6 @@ const AddTrade = () => {
       q1: "",
       q2: "",
       q3: "",
-      q4: "",
       q5: "",
       q6: "",
     });
@@ -2174,18 +2172,6 @@ const AddTrade = () => {
                     className="resize-none"
                   />
                 </div>
-                <div className="space-y-2 animate-in fade-in duration-300">
-                  <Label className="text-sm font-medium leading-relaxed">
-                    {t("addTrade.journalQ4")}
-                  </Label>
-                  <Textarea
-                    placeholder={t("addTrade.journalTypeHere")}
-                    value={journalAnswers.q4}
-                    onChange={(e) => setJournalAnswers(prev => ({ ...prev, q4: e.target.value }))}
-                    rows={3}
-                    className="resize-none"
-                  />
-                </div>
               </>
             )}
 
@@ -2247,11 +2233,19 @@ const AddTrade = () => {
                   type="button"
                   size="sm"
                   onClick={() => {
-                    const qA = journalAnswers[`q${(journalStep - 1) * 2 + 1}`].trim();
-                    const qB = journalAnswers[`q${(journalStep - 1) * 2 + 2}`].trim();
-                    if (!qA || !qB) {
-                      toast.error("Please answer all questions before proceeding.");
-                      return;
+                    if (journalStep === 1) {
+                      const q1 = journalAnswers.q1?.trim();
+                      const q2 = journalAnswers.q2?.trim();
+                      if (!q1 || !q2) {
+                        toast.error("Please answer all questions before proceeding.");
+                        return;
+                      }
+                    } else if (journalStep === 2) {
+                      const q3 = journalAnswers.q3?.trim();
+                      if (!q3) {
+                        toast.error("Please answer all questions before proceeding.");
+                        return;
+                      }
                     }
                     setJournalStep(prev => prev + 1);
                   }}
