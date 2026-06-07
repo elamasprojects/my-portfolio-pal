@@ -219,7 +219,7 @@ export const es: Record<TranslationKey, string> = {
   "addTrade.journalQ3": "Si tu análisis es erróneo, ¿cuál es la pérdida máxima posible, cómo afectará a tu portafolio y está la posición debidamente dimensionada?",
   "addTrade.journalQ5": "Si la acción cae un 50%, ¿cómo reaccionarás basado en tus experiencias pasadas? ¿Comprarás más, mantendrás o venderás en pánico?",
   "addTrade.journalQ6": "¿Te estás fiando únicamente de tu fuerza de voluntad para no entrar en pánico, o tienes salvaguardas mecánicas preestablecidas (diversificación, DCA, contrato personal)?",
-  "addTrade.completeJournalAndRecord": "Completar Diario y Registrar",
+  "addTrade.completeJournalAndRecord": "Guardar y Registrar",
   "addTrade.journalNext": "Siguiente",
   "addTrade.journalBack": "Atrás",
   "addTrade.journalStepIndicator": "Paso {current} de {total}",

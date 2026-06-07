@@ -217,7 +217,7 @@ export const en = {
   "addTrade.journalQ3": "If your analysis is wrong, what is the maximum possible loss, how will it affect your portfolio, and is the position properly sized?",
   "addTrade.journalQ5": "If the stock drops 50%, how will you react based on past experience? Will you buy more, hold, or panic sell?",
   "addTrade.journalQ6": "Are you relying solely on willpower, or do you have mechanical safeguards (diversification, DCA, a personal investment contract)?",
-  "addTrade.completeJournalAndRecord": "Complete Journal & Record",
+  "addTrade.completeJournalAndRecord": "Save & Record",
   "addTrade.journalNext": "Next",
   "addTrade.journalBack": "Back",
   "addTrade.journalStepIndicator": "Step {current} of {total}",

@@ -2274,7 +2274,7 @@ const AddTrade = () => {
                   ) : (
                     <Check className="h-4 w-4 mr-1" />
                   )}
-                  {t("common.confirm")}
+                  {t("addTrade.completeJournalAndRecord")}
                 </Button>
               )}
             </div>
