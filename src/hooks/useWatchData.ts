@@ -5,7 +5,7 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { useProfile } from "@/hooks/useProfile";
 import { computeDailyBreakdown, computeDailyChange, type DailyBreakdownItem } from "@/lib/dailyBreakdown";
-import { makeWatchlist } from "@/lib/watchlist";
+import { useWatchlist } from "@/hooks/useWatchlist";
 
 export interface WatchStockItem {
   symbol: string;
@@ -36,8 +36,8 @@ export function useWatchData(): WatchData {
   const symbols = useMemo(() => holdings.map((h) => h.symbol), [holdings]);
   const { prices, previousCloses, isLoading: pricesLoading } = useMarketPrices(symbols);
 
-  // Watchlist (tickers not owned) with today's % change — live quotes.
-  const watchItems = useMemo(() => makeWatchlist(holdings.map((h) => h.symbol)), [holdings]);
+  // Watchlist (user-curated) with today's % change — live quotes.
+  const { items: watchItems } = useWatchlist();
   const watchSymbols = useMemo(() => watchItems.map((w) => w.symbol), [watchItems]);
   const { prices: wPrices, previousCloses: wPrev } = useMarketPrices(watchSymbols);
   const watchlist = useMemo(

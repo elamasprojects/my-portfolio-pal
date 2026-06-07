@@ -4,7 +4,6 @@ import type { Holding } from "@/hooks/usePortfolio";
 import type { DividendEvent } from "./types";
 
 export { makeAlerts } from "@/lib/alerts";
-export { makeWatchlist } from "@/lib/watchlist";
 
 function hash(s: string): number {
   let h = 0;

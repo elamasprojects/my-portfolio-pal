@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
-import { makeWatchlist } from "@/lib/watchlist";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { useDemo } from "../DemoContext";
 import { WatchFace } from "@/components/WatchFace";
 
@@ -12,7 +12,7 @@ export function WatchScreen() {
     pctChange: b.pctChange,
   }));
 
-  const watchItems = useMemo(() => makeWatchlist(data.holdings.map((h) => h.symbol)), [data.holdings]);
+  const { items: watchItems } = useWatchlist();
   const watchSymbols = useMemo(() => watchItems.map((w) => w.symbol), [watchItems]);
   const { prices, previousCloses } = useMarketPrices(watchSymbols);
   const watchlist = useMemo(

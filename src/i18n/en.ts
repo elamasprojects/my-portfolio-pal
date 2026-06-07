@@ -48,9 +48,16 @@ export const en = {
 
   // Watchlist
   "watchlist.title": "Watchlist",
-  "watchlist.subtitle": "Track tickers you don't own yet — with live quotes.",
+  "watchlist.subtitle": "Track any ticker with live quotes.",
   "watchlist.noQuote": "No quote",
-  "watchlist.prototypeNote": "Quotes are live; the symbol list is a sample (prototype).",
+  "watchlist.add": "Add symbol",
+  "watchlist.addTitle": "Add to watchlist",
+  "watchlist.searchPlaceholder": "Search a ticker or company…",
+  "watchlist.added": "{symbol} added to watchlist",
+  "watchlist.addError": "Couldn't add to watchlist",
+  "watchlist.noResults": "No matches",
+  "watchlist.empty": "Your watchlist is empty. Add a symbol to start tracking it.",
+  "watchlist.remove": "Remove from watchlist",
 
   // Profile dropdown
   "profile.language": "Language",

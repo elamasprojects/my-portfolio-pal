@@ -50,9 +50,16 @@ export const es: Record<TranslationKey, string> = {
 
   // Watchlist
   "watchlist.title": "Lista de Seguimiento",
-  "watchlist.subtitle": "Seguí activos que aún no tenés — con cotizaciones en vivo.",
+  "watchlist.subtitle": "Seguí cualquier activo con cotizaciones en vivo.",
   "watchlist.noQuote": "Sin cotización",
-  "watchlist.prototypeNote": "Las cotizaciones son en vivo; la lista de símbolos es de muestra (prototipo).",
+  "watchlist.add": "Agregar símbolo",
+  "watchlist.addTitle": "Agregar a la lista",
+  "watchlist.searchPlaceholder": "Buscá un símbolo o empresa…",
+  "watchlist.added": "{symbol} agregado a la lista",
+  "watchlist.addError": "No se pudo agregar a la lista",
+  "watchlist.noResults": "Sin resultados",
+  "watchlist.empty": "Tu lista está vacía. Agregá un símbolo para empezar a seguirlo.",
+  "watchlist.remove": "Quitar de la lista",
 
   // Profile dropdown
   "profile.language": "Idioma",
