@@ -560,3 +560,75 @@ export function inferMarket(symbol: string): string {
   if (symbol.endsWith(".SA")) return "B3 (BR)";
   return "NYSE/NASDAQ (US)";
 }
+
+export function useQuickSellTrade() {
+  const { user } = useAuth();
+  const { activeId } = useActivePortfolio();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      symbol,
+      asset_name,
+      asset_type,
+      quantity,
+      price,
+      currency = "USD",
+      mep_rate,
+    }: {
+      symbol: string;
+      asset_name: string;
+      asset_type?: string;
+      quantity: number;
+      price: number;
+      currency?: "USD" | "ARS";
+      mep_rate?: number | null;
+    }) => {
+      if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      const isARS = currency === "ARS" && mep_rate && mep_rate > 0;
+      const pricePerUnit = isARS ? price / mep_rate : price;
+
+      const { data, error } = await supabase
+        .from("trades")
+        .insert({
+          portfolio_id: activeId,
+          user_id: user.id,
+          symbol: symbol.trim().toUpperCase(),
+          asset_name: (asset_name || symbol).trim(),
+          asset_type: (asset_type || "stock") as any,
+          trade_type: "sell",
+          quantity,
+          price_per_unit: pricePerUnit,
+          trade_date: new Date().toISOString(),
+          original_currency: isARS ? "ARS" : "USD",
+          original_price: isARS ? price : null,
+          mep_rate: isARS ? mep_rate : null,
+          commission_pct: 0,
+          commission_amount: 0,
+        } as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      try {
+        await supabase.rpc("rebuild_position" as any, {
+          _user_id: user.id,
+          _portfolio_id: activeId,
+          _symbol: symbol.toUpperCase(),
+        });
+      } catch {
+        /* ignore if RPC fails */
+      }
+
+      return data as Trade;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolios"] });
+    },
+  });
+}
+

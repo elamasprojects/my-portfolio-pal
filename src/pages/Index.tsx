@@ -20,6 +20,10 @@ import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, A
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend, LineChart, Line } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n";
+import { QuickSellDialog } from "@/components/QuickSellDialog";
+import { MobileSwipeableHoldingCard } from "@/components/MobileSwipeableHoldingCard";
+import { ClosedPositionSummaryDialog, ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
+import { Holding } from "@/hooks/usePortfolio";
 
 const CHART_COLORS = [
   "hsl(42, 80%, 55%)",
@@ -40,9 +44,22 @@ const Index = () => {
   const [displayCurrency, setDisplayCurrency] = useState<"USD" | "ARS">("USD");
   const [assetBrokerFilter, setAssetBrokerFilter] = useState<string | null>(null);
   const [dailyExpanded, setDailyExpanded] = useState(false);
+  const [quickSellOpen, setQuickSellOpen] = useState(false);
+  const [selectedHoldingForSell, setSelectedHoldingForSell] = useState<Holding | null>(null);
+  const [sellCurrentPrice, setSellCurrentPrice] = useState<number | null>(null);
+  const [closedSummaryOpen, setClosedSummaryOpen] = useState(false);
+  const [closedSummaryData, setClosedSummaryData] = useState<ClosedPositionSummary | null>(null);
   const navigate = useNavigate();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+
+  const handleOpenQuickSell = (holding: Holding, price?: number | null, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedHoldingForSell(holding);
+    const convertedPrice = price ? cx(price) : (holding.avg_cost ? cx(holding.avg_cost) : null);
+    setSellCurrentPrice(convertedPrice);
+    setQuickSellOpen(true);
+  };
 
   const [currencyInitialized, setCurrencyInitialized] = useState(false);
   if (profile && !currencyInitialized) {
@@ -644,34 +661,16 @@ const Index = () => {
                 /* ── Mobile: Cards ── */
                 <div className="space-y-2">
                   {holdingsWithPnl.map((h) => (
-                    <div
+                    <MobileSwipeableHoldingCard
                       key={h.symbol}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/30 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/asset/${h.symbol}`)}
-                    >
-                      <div className="min-w-0">
-                        <p className="font-mono font-semibold text-primary text-sm">{h.symbol}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {h.net_quantity.toFixed(2)} @ {currencySymbol}{cx(h.avg_cost).toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        {pricesLoading ? (
-                          <Skeleton className="h-5 w-16 ml-auto" />
-                        ) : (
-                          <>
-                            <p className="font-mono text-sm font-semibold">
-                              {h.mktVal !== null ? fmtCompact(cx(h.mktVal)) : fmtCompact(cx(h.total_invested))}
-                            </p>
-                            {h.uPnlPct !== null && (
-                              <p className={`text-[11px] font-mono font-semibold ${h.uPnl! >= 0 ? "text-gain" : "text-loss"}`}>
-                                {h.uPnl! >= 0 ? "+" : ""}{h.uPnlPct.toFixed(1)}%
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
+                      holding={h}
+                      pricesLoading={pricesLoading}
+                      currencySymbol={currencySymbol}
+                      cx={cx}
+                      fmtCompact={fmtCompact}
+                      onNavigate={(sym) => navigate(`/asset/${sym}`)}
+                      onQuickSell={(holding, price) => handleOpenQuickSell(holding, price)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -717,6 +716,7 @@ const Index = () => {
                           )}
                         </div>
                       </TableHead>
+                      <TableHead className="text-right w-16">{t("board.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -733,6 +733,17 @@ const Index = () => {
                         </TableCell>
                         <TableCell className={`text-right font-mono font-semibold ${h.uPnl === null ? "" : h.uPnl >= 0 ? "text-gain" : "text-loss"}`}>
                           {pricesLoading ? <Skeleton className="h-4 w-16 ml-auto" /> : h.uPnlPct !== null ? `${h.uPnlPct >= 0 ? "+" : ""}${h.uPnlPct.toFixed(1)}%` : "—"}
+                        </TableCell>
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title={`${t("board.sell")} ${h.symbol}`}
+                            onClick={(e) => handleOpenQuickSell(h, h.currentPrice, e)}
+                          >
+                            <TrendingDown className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1125,6 +1136,28 @@ const Index = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <QuickSellDialog
+        open={quickSellOpen}
+        onOpenChange={setQuickSellOpen}
+        holding={selectedHoldingForSell}
+        currentPrice={sellCurrentPrice}
+        currencySymbol={currencySymbol}
+        displayCurrency={displayCurrency}
+        mepRate={mepRate}
+        trades={trades}
+        onSuccessClosedSummary={(summary) => {
+          setClosedSummaryData(summary);
+          setClosedSummaryOpen(true);
+        }}
+      />
+
+      <ClosedPositionSummaryDialog
+        open={closedSummaryOpen}
+        onOpenChange={setClosedSummaryOpen}
+        summary={closedSummaryData}
+        currencySymbol={currencySymbol}
+      />
     </div>
   );
 };
