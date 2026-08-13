@@ -47,6 +47,22 @@ export default defineConfig(({ mode }) => ({
             purpose: "any maskable",
           },
         ],
+        share_target: {
+          action: "/finance",
+          method: "POST",
+          enctype: "multipart/form-data",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url",
+            files: [
+              {
+                name: "screenshots",
+                accept: ["image/*", "text/plain"],
+              },
+            ],
+          },
+        },
       },
       workbox: {
         cleanupOutdatedCaches: true,

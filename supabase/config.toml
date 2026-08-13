@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.stock-history]
 verify_jwt = false
+
+[functions.extract-finance-input]
+verify_jwt = false

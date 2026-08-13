@@ -1,0 +1,46 @@
+import { useMemo } from "react";
+import { usePaymentMethods, useTransactions, useCategories } from "@/hooks/useFinance";
+import { useTrades, useActivePortfolio, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
+import { computeUnifiedNetWorth, buildPersonalSankeyData } from "@/lib/financialMath";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
+
+export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date }) {
+  const { paymentMethods, isLoading: pmLoading } = usePaymentMethods();
+  const { transactions, reviewQueue, isLoading: txLoading } = useTransactions();
+  const { categories, isLoading: catLoading } = useCategories();
+  const { portfolio: activePortfolio, isLoading: pfLoading } = useActivePortfolio();
+  const { data: trades = [], isLoading: tradesLoading } = useTrades(activePortfolio?.id);
+
+  const holdings = useMemo(() => computeHoldings(trades), [trades]);
+  const portfolioPerformance = useMemo(() => computePerformance(trades), [trades]);
+
+  const symbols = useMemo(() => holdings.map((h) => h.symbol), [holdings]);
+  const { prices, previousCloses, isLoading: pricesLoading } = useMarketPrices(symbols);
+
+  const netWorthMetrics = useMemo(() => {
+    return computeUnifiedNetWorth(
+      paymentMethods,
+      transactions,
+      holdings,
+      portfolioPerformance,
+      prices
+    );
+  }, [paymentMethods, transactions, holdings, portfolioPerformance, prices]);
+
+  const sankeyData = useMemo(() => {
+    return buildPersonalSankeyData(transactions, categories, filterRange);
+  }, [transactions, categories, filterRange]);
+
+  return {
+    netWorthMetrics,
+    sankeyData,
+    reviewQueue,
+    paymentMethods,
+    transactions,
+    categories,
+    holdings,
+    portfolioPerformance,
+    activePortfolio,
+    isLoading: pmLoading || txLoading || catLoading || pfLoading || tradesLoading || pricesLoading,
+  };
+}
