@@ -21,8 +21,35 @@ import {
   TrendingDown,
   Tag,
   Wallet,
-  Inbox as InboxIcon,
 } from "lucide-react";
+import { Inbox } from "@/components/Inbox";
+import { NavLink } from "@/components/NavLink";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
+import { useLanguage, TranslationKey } from "@/i18n";
+import { useProfile } from "@/hooks/useProfile";
+import { PortfolioSwitcher } from "@/components/PortfolioSwitcher";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  SidebarHeader,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+} from "@/components/ui/basic-dropdown";
 import { useAppMode } from "@/hooks/useAppMode";
 
 const investmentNavItems: { titleKey: TranslationKey; url: string; icon: any }[] = [
