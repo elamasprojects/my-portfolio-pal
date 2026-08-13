@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useUnifiedFinancials } from "@/hooks/useUnifiedFinancials";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Zap,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
@@ -23,12 +24,26 @@ export default function FinanceDashboard() {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState<"this_month" | "last_month" | "all">("this_month");
 
+  const filterRange = useMemo(() => {
+    const now = new Date();
+    if (filterPeriod === "this_month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start };
+    }
+    if (filterPeriod === "last_month") {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      return { start, end };
+    }
+    return undefined;
+  }, [filterPeriod]);
+
   const { profile } = useProfile();
   const { mepRate } = useDolarMEP();
   const displayCurrency = profile?.default_currency === "ARS" ? "ARS" : "USD";
   const { cx, fmtUSD, fmtCompact, currencySymbol } = makeFormatters(displayCurrency, mepRate);
 
-  const { netWorthMetrics, sankeyData, reviewQueue, isLoading } = useUnifiedFinancials();
+  const { netWorthMetrics, sankeyData, reviewQueue, isLoading } = useUnifiedFinancials(filterRange);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24 md:pb-12">
@@ -127,6 +142,36 @@ export default function FinanceDashboard() {
           <p className="text-[11px] text-muted-foreground mt-1 font-mono">
             Líquido: {netWorthMetrics.liquidRunwayMonths}m sin liquidar
           </p>
+        </div>
+      </div>
+
+      {/* Period Selector Tabs for Sankey Chart */}
+      <div className="flex items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-1.5 rounded-full border border-border/40 bg-muted/40 p-1">
+          <Button
+            variant={filterPeriod === "this_month" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs rounded-full px-3 font-medium"
+            onClick={() => setFilterPeriod("this_month")}
+          >
+            Este Mes
+          </Button>
+          <Button
+            variant={filterPeriod === "last_month" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs rounded-full px-3 font-medium"
+            onClick={() => setFilterPeriod("last_month")}
+          >
+            Mes Anterior
+          </Button>
+          <Button
+            variant={filterPeriod === "all" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs rounded-full px-3 font-medium"
+            onClick={() => setFilterPeriod("all")}
+          >
+            Histórico Completo
+          </Button>
         </div>
       </div>
 

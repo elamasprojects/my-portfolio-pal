@@ -28,14 +28,32 @@ import { toast } from "sonner";
 interface OmnibarFinanceProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialText?: string;
+  initialFile?: File | null;
 }
 
-export function OmnibarFinance({ open, onOpenChange }: OmnibarFinanceProps) {
-  const [inputVal, setInputVal] = useState("");
+export function OmnibarFinance({
+  open,
+  onOpenChange,
+  initialText,
+  initialFile,
+}: OmnibarFinanceProps) {
+  const [inputVal, setInputVal] = useState(initialText || "");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(initialFile || null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync initial props when opened
+  useEffect(() => {
+    if (open) {
+      if (initialText) setInputVal(initialText);
+      if (initialFile) {
+        setSelectedFile(initialFile);
+        setPreviewUrl(URL.createObjectURL(initialFile));
+      }
+    }
+  }, [open, initialText, initialFile]);
 
   const { categories } = useCategories();
   const { paymentMethods } = usePaymentMethods();

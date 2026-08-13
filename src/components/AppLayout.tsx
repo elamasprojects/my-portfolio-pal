@@ -10,10 +10,21 @@ import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
 import { Button } from "@/components/ui/button";
 import { Search, Sparkles } from "lucide-react";
 
+import { useShareTargetListener, SharedData } from "@/hooks/useShareTargetListener";
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const { mode } = useAppMode();
   const { mepRate, isLoading: mepLoading } = useDolarMEP();
   const [omnibarOpen, setOmnibarOpen] = useState(false);
+  const [sharedText, setSharedText] = useState<string | undefined>();
+  const [sharedFile, setSharedFile] = useState<File | null>(null);
+
+  // PWA Share Target Listener
+  useShareTargetListener((data: SharedData) => {
+    if (data.text) setSharedText(data.text);
+    if (data.files && data.files.length > 0) setSharedFile(data.files[0]);
+    setOmnibarOpen(true);
+  });
 
   // Global Cmd+K / Ctrl+K listener
   useEffect(() => {
@@ -77,7 +88,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
         )}
 
         {/* Global Omnibar */}
-        <OmnibarFinance open={omnibarOpen} onOpenChange={setOmnibarOpen} />
+        <OmnibarFinance
+          open={omnibarOpen}
+          onOpenChange={(v) => {
+            setOmnibarOpen(v);
+            if (!v) {
+              setSharedText(undefined);
+              setSharedFile(null);
+            }
+          }}
+          initialText={sharedText}
+          initialFile={sharedFile}
+        />
       </div>
     </SidebarProvider>
   );
