@@ -7,7 +7,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Transaction, Category } from "@/types/finance";
+import { Button } from "@/components/ui/button";
+import { Transaction } from "@/types/finance";
 import {
   Search,
   ArrowUpRight,
@@ -16,12 +17,14 @@ import {
   Calendar,
   AlertCircle,
   Building,
-  Tag,
-  Wallet,
-  Coins,
   Receipt,
-  X,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Clock,
+  Check,
 } from "lucide-react";
+
+type SortOption = "expensive" | "cheap" | "newest" | "oldest";
 
 interface SankeyTransactionsModalProps {
   open: boolean;
@@ -51,24 +54,40 @@ export function SankeyTransactionsModal({
   cx,
 }: SankeyTransactionsModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("expensive");
 
-  const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
-    const q = searchQuery.toLowerCase().trim();
-    return transactions.filter((t) => {
-      const matchName = (t.name || "").toLowerCase().includes(q);
-      const matchRaw = (t.raw_merchant || "").toLowerCase().includes(q);
-      const matchNotes = (t.notes || "").toLowerCase().includes(q);
-      const matchAccount = (t.account?.name || t.payment_method?.name || "").toLowerCase().includes(q);
-      const matchCategory = (t.category?.name || "").toLowerCase().includes(q);
-      const matchAmount = (t.amount_usd || 0).toString().includes(q);
-      return matchName || matchRaw || matchNotes || matchAccount || matchCategory || matchAmount;
+  const filteredAndSortedTransactions = useMemo(() => {
+    let result = [...transactions];
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((t) => {
+        const matchName = (t.name || "").toLowerCase().includes(q);
+        const matchRaw = (t.raw_merchant || "").toLowerCase().includes(q);
+        const matchNotes = (t.notes || "").toLowerCase().includes(q);
+        const matchAccount = (t.account?.name || t.payment_method?.name || "").toLowerCase().includes(q);
+        const matchCategory = (t.category?.name || "").toLowerCase().includes(q);
+        const matchAmount = (t.amount_usd || 0).toString().includes(q);
+        return matchName || matchRaw || matchNotes || matchAccount || matchCategory || matchAmount;
+      });
+    }
+
+    result.sort((a, b) => {
+      const amtA = Number(a.amount_usd) || 0;
+      const amtB = Number(b.amount_usd) || 0;
+      if (sortBy === "expensive") return amtB - amtA;
+      if (sortBy === "cheap") return amtA - amtB;
+      if (sortBy === "oldest") return a.transaction_date.localeCompare(b.transaction_date);
+      // default: newest
+      return b.transaction_date.localeCompare(a.transaction_date);
     });
-  }, [transactions, searchQuery]);
+
+    return result;
+  }, [transactions, searchQuery, sortBy]);
 
   const totalFilteredUSD = useMemo(() => {
-    return filteredTransactions.reduce((acc, t) => acc + (Number(t.amount_usd) || 0), 0);
-  }, [filteredTransactions]);
+    return filteredAndSortedTransactions.reduce((acc, t) => acc + (Number(t.amount_usd) || 0), 0);
+  }, [filteredAndSortedTransactions]);
 
   const isIncome = segmentType === "income";
   const isNet = segmentType === "net";
@@ -148,24 +167,85 @@ export function SankeyTransactionsModal({
               />
             </div>
             <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded-md border shrink-0">
-              {filteredTransactions.length}{" "}
-              {filteredTransactions.length === 1 ? "movimiento" : "movimientos"}
+              {filteredAndSortedTransactions.length}{" "}
+              {filteredAndSortedTransactions.length === 1 ? "movimiento" : "movimientos"}
             </span>
+          </div>
+
+          {/* Sort Buttons Toolbar */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[11px] font-mono text-muted-foreground mr-1">Ordenar por:</span>
+            
+            <Button
+              type="button"
+              variant={sortBy === "expensive" ? "default" : "outline"}
+              size="sm"
+              className={`h-7 text-xs rounded-full px-3 font-medium gap-1.5 shadow-sm transition-all ${
+                sortBy === "expensive" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setSortBy("expensive")}
+            >
+              <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+              <span>💰 Más caros</span>
+              {sortBy === "expensive" && <Check className="h-3 w-3 ml-0.5" />}
+            </Button>
+
+            <Button
+              type="button"
+              variant={sortBy === "cheap" ? "default" : "outline"}
+              size="sm"
+              className={`h-7 text-xs rounded-full px-3 font-medium gap-1.5 shadow-sm transition-all ${
+                sortBy === "cheap" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setSortBy("cheap")}
+            >
+              <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+              <span>🪙 Más baratos</span>
+              {sortBy === "cheap" && <Check className="h-3 w-3 ml-0.5" />}
+            </Button>
+
+            <Button
+              type="button"
+              variant={sortBy === "newest" ? "default" : "outline"}
+              size="sm"
+              className={`h-7 text-xs rounded-full px-3 font-medium gap-1.5 shadow-sm transition-all ${
+                sortBy === "newest" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setSortBy("newest")}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>📅 Más recientes</span>
+              {sortBy === "newest" && <Check className="h-3 w-3 ml-0.5" />}
+            </Button>
+
+            <Button
+              type="button"
+              variant={sortBy === "oldest" ? "default" : "outline"}
+              size="sm"
+              className={`h-7 text-xs rounded-full px-3 font-medium gap-1.5 shadow-sm transition-all ${
+                sortBy === "oldest" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setSortBy("oldest")}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span>⏳ Más antiguos</span>
+              {sortBy === "oldest" && <Check className="h-3 w-3 ml-0.5" />}
+            </Button>
           </div>
         </div>
 
         {/* Transactions List Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2.5 divide-y divide-border/20">
-          {filteredTransactions.length === 0 ? (
+          {filteredAndSortedTransactions.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground space-y-1.5">
               <Receipt className="h-8 w-8 mx-auto text-muted-foreground/50" />
               <p className="text-sm font-medium">No se encontraron transacciones</p>
               <p className="text-xs text-muted-foreground/75">
-                Prueba buscando con otro término o limpia el buscador.
+                Prueba buscando con otro término o cambia el criterio de ordenamiento.
               </p>
             </div>
           ) : (
-            filteredTransactions.map((tx) => {
+            filteredAndSortedTransactions.map((tx) => {
               const txAmount = Number(tx.amount_usd) || 0;
               const accountName = tx.account?.name || tx.payment_method?.name || "Cuenta";
               const isTxIncome = tx.type === "income";
@@ -242,7 +322,17 @@ export function SankeyTransactionsModal({
 
         {/* Footer */}
         <div className="p-3 sm:p-4 border-t border-border/40 bg-muted/10 flex items-center justify-between text-xs text-muted-foreground font-mono">
-          <span>Total en vista: {filteredTransactions.length} registros</span>
+          <span>
+            Mostrando {filteredAndSortedTransactions.length} transacciones (Orden:{" "}
+            {sortBy === "expensive"
+              ? "Más caros"
+              : sortBy === "cheap"
+              ? "Más baratos"
+              : sortBy === "newest"
+              ? "Más recientes"
+              : "Más antiguos"}
+            )
+          </span>
           <span className="font-bold text-foreground">
             Suma: {currencySymbol}
             {cx(totalFilteredUSD).toLocaleString(undefined, {
