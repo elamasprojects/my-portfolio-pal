@@ -4,11 +4,11 @@ import { Category } from "@/types/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tag, Plus, Edit2, Check, Sparkles, X } from "lucide-react";
+import { Tag, Plus, Edit2, Check, Sparkles, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CategoriesManager() {
-  const { categories, isLoading, addCategory, updateCategory } = useCategories();
+  const { categories, isLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Partial<Category> | null>(null);
   const [newKeyword, setNewKeyword] = useState("");
@@ -114,14 +114,32 @@ export default function CategoriesManager() {
                 </div>
               </div>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                onClick={() => handleOpenEdit(cat)}
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleOpenEdit(cat)}
+                  title="Editar categoría"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                {!cat.is_system && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar la categoría '${cat.name}'?`)) {
+                        deleteCategory.mutate(cat.id);
+                      }
+                    }}
+                    title="Eliminar categoría"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Keywords Pills */}

@@ -38,12 +38,11 @@ export default function FinanceTimeline() {
       if (t.deleted_at) return false;
       if (selectedType !== "all" && t.type !== selectedType) return false;
       if (search.trim()) {
-        const q = search.toLowerCase();
-        const matchName = t.name.toLowerCase().includes(q);
-        const matchMerchant = t.raw_merchant?.toLowerCase().includes(q);
-        const matchNotes = t.notes?.toLowerCase().includes(q);
-        const matchCat = t.category?.name.toLowerCase().includes(q);
-        const matchPm = t.payment_method?.name.toLowerCase().includes(q);
+        const matchName = t.name ? t.name.toLowerCase().includes(q) : false;
+        const matchMerchant = t.raw_merchant ? t.raw_merchant.toLowerCase().includes(q) : false;
+        const matchNotes = t.notes ? t.notes.toLowerCase().includes(q) : false;
+        const matchCat = t.category?.name ? t.category.name.toLowerCase().includes(q) : false;
+        const matchPm = t.payment_method?.name ? t.payment_method.name.toLowerCase().includes(q) : false;
         if (!matchName && !matchMerchant && !matchNotes && !matchCat && !matchPm) return false;
       }
       return true;

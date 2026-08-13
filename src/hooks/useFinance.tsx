@@ -174,11 +174,32 @@ export function useCategories() {
     },
   });
 
+  const deleteCategory = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("No user");
+      const { error } = await supabase
+        .from("pf_categories" as any)
+        .update({ archived: true })
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pf_categories"] });
+      toast.success("Categoría eliminada");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "No se puede eliminar una categoría del sistema");
+    },
+  });
+
   return {
     categories: query.data || [],
     isLoading: query.isLoading,
     addCategory,
     updateCategory,
+    deleteCategory,
   };
 }
 

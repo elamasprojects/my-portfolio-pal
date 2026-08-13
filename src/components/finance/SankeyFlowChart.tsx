@@ -52,7 +52,7 @@ export function SankeyFlowChart({
     const gap = 12;
 
     // Position Left Nodes
-    const leftAvailableHeight = innerHeight - (incomeNodes.length - 1) * gap;
+    const leftAvailableHeight = Math.max(80, innerHeight - Math.max(0, incomeNodes.length - 1) * gap);
     let currentYLeft = margin.top;
     const nodePositions = new Map<
       string,
@@ -84,7 +84,7 @@ export function SankeyFlowChart({
     });
 
     // Position Right Nodes
-    const rightAvailableHeight = innerHeight - (rightNodes.length - 1) * gap;
+    const rightAvailableHeight = Math.max(80, innerHeight - Math.max(0, rightNodes.length - 1) * gap);
     let currentYRight = margin.top;
     for (const node of rightNodes) {
       const nodeH = Math.max(16, (node.value / totalRightVal) * rightAvailableHeight);
@@ -111,7 +111,8 @@ export function SankeyFlowChart({
     // Left -> Spine
     let spineInY = spineY;
     for (const node of incomeNodes) {
-      const srcPos = nodePositions.get(node.id)!;
+      const srcPos = nodePositions.get(node.id);
+      if (!srcPos) continue;
       const ribbonH = (node.value / totalLeftVal) * spineH;
 
       const x0 = srcPos.x + srcPos.width;
@@ -140,7 +141,8 @@ export function SankeyFlowChart({
     // Spine -> Right
     let spineOutY = spineY;
     for (const node of rightNodes) {
-      const tgtPos = nodePositions.get(node.id)!;
+      const tgtPos = nodePositions.get(node.id);
+      if (!tgtPos) continue;
       const ribbonH = (node.value / totalRightVal) * spineH;
 
       const x0 = spineX + 12;

@@ -33,7 +33,7 @@ export default function FinanceAnalytics() {
 
     for (const tx of transactions) {
       if (tx.deleted_at || tx.type === "income") continue;
-      const monthKey = tx.transaction_date.slice(0, 7); // YYYY-MM
+      const monthKey = tx.transaction_date ? tx.transaction_date.slice(0, 7) : new Date().toISOString().slice(0, 7);
       const catName = tx.category?.name || "Otros";
       const amt = Number(tx.amount_usd) || 0;
 

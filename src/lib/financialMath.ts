@@ -1,6 +1,16 @@
 import { Transaction, SankeyData, SankeyNode, SankeyLink, UnifiedNetWorthMetrics, Category, PaymentMethod } from "@/types/finance";
 import { Holding, PortfolioPerformance } from "@/hooks/usePortfolio";
 
+export function parseTransactionLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  if (dateStr.includes("T")) return new Date(dateStr);
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length === 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0);
+  }
+  return new Date(dateStr);
+}
+
 export function buildPersonalSankeyData(
   transactions: Transaction[],
   categories: Category[],
@@ -8,8 +18,9 @@ export function buildPersonalSankeyData(
 ): SankeyData {
   const filtered = transactions.filter((t) => {
     if (t.deleted_at) return false;
-    if (filterRange?.start && new Date(t.transaction_date) < filterRange.start) return false;
-    if (filterRange?.end && new Date(t.transaction_date) > filterRange.end) return false;
+    const txDate = parseTransactionLocalDate(t.transaction_date);
+    if (filterRange?.start && txDate < filterRange.start) return false;
+    if (filterRange?.end && txDate > filterRange.end) return false;
     return true;
   });
 
@@ -197,7 +208,7 @@ export function computeUnifiedNetWorth(
 
   for (const t of transactions) {
     if (t.deleted_at) continue;
-    const txDate = new Date(t.transaction_date);
+    const txDate = parseTransactionLocalDate(t.transaction_date);
     if (txDate < thirtyDaysAgo) continue;
 
     const amt = Number(t.amount_usd) || 0;

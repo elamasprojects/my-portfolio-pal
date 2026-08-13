@@ -132,8 +132,22 @@ export default function PaymentMethodsManager() {
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   onClick={() => handleOpenEdit(pm)}
+                  title="Editar medio de pago"
                 >
                   <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    if (window.confirm(`¿Eliminar el medio de pago '${pm.name}'?`)) {
+                      deletePaymentMethod.mutate(pm.id);
+                    }
+                  }}
+                  title="Eliminar medio de pago"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
