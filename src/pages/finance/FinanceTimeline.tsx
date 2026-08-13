@@ -38,6 +38,7 @@ export default function FinanceTimeline() {
       if (t.deleted_at) return false;
       if (selectedType !== "all" && t.type !== selectedType) return false;
       if (search.trim()) {
+        const q = search.toLowerCase().trim();
         const matchName = t.name ? t.name.toLowerCase().includes(q) : false;
         const matchMerchant = t.raw_merchant ? t.raw_merchant.toLowerCase().includes(q) : false;
         const matchNotes = t.notes ? t.notes.toLowerCase().includes(q) : false;
@@ -153,7 +154,7 @@ export default function FinanceTimeline() {
                       <span>·</span>
                       <span className="text-primary/80">{tx.category?.name || "Sin categoría"}</span>
                       <span>·</span>
-                      <span>{tx.payment_method?.name || "Medio"}</span>
+                      <span className="text-foreground/90 font-medium">🏦 {tx.account?.name || tx.payment_method?.name || "Cuenta"}</span>
                       {tx.original_currency && tx.original_currency !== "USD" && (
                         <>
                           <span>·</span>

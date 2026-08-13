@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { image, text, userCategories, userPaymentMethods } = await req.json();
+    const { image, text, userCategories, userPaymentMethods, userAccounts } = await req.json();
 
     if (!image && !text) {
       return new Response(JSON.stringify({ error: "No image or text provided" }), {
@@ -30,8 +30,8 @@ serve(async (req) => {
       .map((c: any) => `- ${c.name} (type: ${c.type}, keywords: ${(c.keywords || []).join(", ")})`)
       .join("\n");
 
-    const paymentMethodsContext = (userPaymentMethods || [])
-      .map((pm: any) => `- ${pm.name} (currency: ${pm.currency}, aliases: ${(pm.aliases || []).join(", ")})`)
+    const accountsContext = (userAccounts || userPaymentMethods || [])
+      .map((acc: any) => `- ${acc.name} (currency: ${acc.currency}, patterns: ${(acc.detection_patterns || acc.aliases || []).join(", ")})`)
       .join("\n");
 
     const systemPrompt = `You are a financial transaction extractor for a personal finance system.
@@ -44,13 +44,13 @@ CRITICAL EXTRACTION & EXCLUSION RULES:
 4. MERCADO PAGO RULE: If a receipt says "Dinero disponible: $20.093,31", that is the transaction amount paid, not remaining balance.
 5. MULTI-ITEM PURCHASES: If a purchase has multiple distinct products (e.g., Mercado Libre with 1 Charger and 1 Pillow), extract separate transaction items.
 6. NORMALIZATION: Clean merchant names (e.g. "MERPAGO*TDHUEVOS" -> "TD Huevos", "SUPERM COTO MC 60" -> "Coto", "SumUp *Pepino Pizza" -> "Pepino Pizza").
-7. MULTI-CURRENCY: Detect ARS vs USD vs EUR. Argentine amounts with thousands separators like "35.000" or "35 000" are ARS. DolarApp amounts showing USDc are USD.
+7. MULTI-CURRENCY: Detect ARS vs USD vs EUR vs BRL. Argentine amounts with thousands separators like "35.000" or "35 000" are ARS. DolarApp amounts showing USDc are USD. Pix transactions in Brazil are BRL.
 
 AVAILABLE USER CATEGORIES:
 ${categoriesContext || "Food, House, Travel, Salidas, Entertainment, Tech, Tools & Software, Payments & Loans, Healthcare, UGC Studio Income, AI Freelance Dev, Dividends, Trading P&L, Investment Contribution"}
 
-AVAILABLE USER PAYMENT METHODS:
-${paymentMethodsContext || "DolarApp Global Card, Mercado Pago, Bank ARS, Bank USD, Mercury, Cash"}
+AVAILABLE USER FINANCIAL ACCOUNTS / MEDIOS:
+${accountsContext || "DolarApp, Mercado Pago, Bank USD, Bank ARS, Billetera Efectivo, Binance, Crypto, Payoneer"}
 `;
 
     const userContent: any[] = [];
@@ -100,7 +100,8 @@ ${paymentMethodsContext || "DolarApp Global Card, Mercado Pago, Bank ARS, Bank U
                         amount_usd: { type: "number", description: "Estimated or direct USD amount" },
                         type: { type: "string", enum: ["income", "expense", "transfer", "investment"], description: "Type of movement" },
                         category_name: { type: "string", description: "Best matching category name" },
-                        payment_method_name: { type: "string", description: "Best matching payment method" },
+                        account_name: { type: "string", description: "Best matching financial account (e.g. DolarApp, Mercado Pago, Bank USD, Bank ARS, Billetera Efectivo)" },
+                        payment_method_name: { type: "string", description: "Best matching payment method / account name" },
                         transaction_date: { type: "string", description: "YYYY-MM-DD date of transaction" },
                         confidence: { type: "string", enum: ["high", "medium", "low"], description: "Confidence score" },
                         needs_review: { type: "boolean", description: "True if category or payment method is uncertain" },

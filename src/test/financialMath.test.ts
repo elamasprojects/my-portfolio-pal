@@ -117,30 +117,26 @@ describe("financialMath engine", () => {
   });
 
   it("computes unified net worth including bank cash and stock portfolio holdings", () => {
-    const mockPaymentMethods: PaymentMethod[] = [
+    const mockAccounts: FinancialAccount[] = [
       {
-        id: "pm-1",
+        id: "acc-1",
         user_id: "user-1",
-        name: "DolarApp Global",
+        name: "DolarApp",
         type: "digital_wallet",
         currency: "USD",
         initial_balance: 5000,
         current_balance: 12000,
-        aliases: [],
-        detection_patterns: [],
         is_active: true,
         created_at: "2026-01-01T00:00:00Z",
       },
       {
-        id: "pm-2",
+        id: "acc-2",
         user_id: "user-1",
         name: "Broker Cash (IOL)",
         type: "broker_cash",
         currency: "USD",
         initial_balance: 0,
         current_balance: 3500,
-        aliases: [],
-        detection_patterns: [],
         is_active: true,
         created_at: "2026-01-01T00:00:00Z",
       },
@@ -171,7 +167,7 @@ describe("financialMath engine", () => {
     const mockPrices = new Map<string, number>([["AAPL", 200]]);
 
     const metrics = computeUnifiedNetWorth(
-      mockPaymentMethods,
+      mockAccounts,
       mockTransactions,
       mockHoldings,
       mockPerformance,

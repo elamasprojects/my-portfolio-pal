@@ -1,8 +1,118 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Transaction, Category, PaymentMethod, IngestionSource, ConfidenceLevel } from "@/types/finance";
+import {
+  Transaction,
+  Category,
+  PaymentMethod,
+  FinancialAccount,
+  IngestionSource,
+  ConfidenceLevel,
+} from "@/types/finance";
 import { toast } from "sonner";
+
+export function useFinancialAccounts() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["financial_accounts", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("financial_accounts" as any)
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching financial accounts:", error);
+        throw error;
+      }
+      return (data || []) as unknown as FinancialAccount[];
+    },
+    enabled: !!user,
+  });
+
+  const addAccount = useMutation({
+    mutationFn: async (acc: Partial<FinancialAccount>) => {
+      if (!user) throw new Error("No user");
+      const { data, error } = await supabase
+        .from("financial_accounts" as any)
+        .insert({
+          user_id: user.id,
+          name: acc.name?.trim(),
+          type: acc.type || "digital_wallet",
+          currency: acc.currency || "USD",
+          color: acc.color || "#10b981",
+          icon: acc.icon || "Wallet",
+          aliases: acc.aliases || [],
+          detection_patterns: acc.detection_patterns || [],
+          initial_balance: acc.initial_balance || 0,
+          current_balance: acc.current_balance || acc.initial_balance || 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as unknown as FinancialAccount;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
+      toast.success("Cuenta financiera creada");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Error al crear cuenta");
+    },
+  });
+
+  const updateAccount = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<FinancialAccount> }) => {
+      if (!user) throw new Error("No user");
+      const { data, error } = await supabase
+        .from("financial_accounts" as any)
+        .update(updates)
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as unknown as FinancialAccount;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
+      toast.success("Cuenta financiera actualizada");
+    },
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error("No user");
+      const { error } = await supabase
+        .from("financial_accounts" as any)
+        .update({ is_active: false })
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["payment_methods"] });
+      toast.success("Cuenta financiera eliminada");
+    },
+  });
+
+  return {
+    accounts: query.data || [],
+    isLoading: query.isLoading,
+    addAccount,
+    updateAccount,
+    deleteAccount,
+  };
+}
 
 export function usePaymentMethods() {
   const { user } = useAuth();
@@ -14,71 +124,15 @@ export function usePaymentMethods() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("payment_methods" as any)
-        .select("*")
+        .select("*, account:financial_accounts(*)")
         .eq("user_id", user.id)
         .eq("is_active", true)
-        .order("created_at", { ascending: true });
+        .order("name", { ascending: true });
 
-      if (error) throw error;
-
-      if (data && data.length === 0) {
-        const defaults = [
-          {
-            user_id: user.id,
-            name: "DolarApp Global Card",
-            type: "digital_wallet",
-            currency: "USD",
-            color: "#10b981",
-            icon: "CreditCard",
-            detection_patterns: ["USDc", "DolarApp", "Global Card"],
-            aliases: ["dolarapp", "dolar app", "tarjeta global"],
-            initial_balance: 0,
-            current_balance: 0,
-          },
-          {
-            user_id: user.id,
-            name: "Mercado Pago",
-            type: "digital_wallet",
-            currency: "ARS",
-            color: "#009ee3",
-            icon: "Wallet",
-            detection_patterns: ["MERPAGO*", "Mercado Pago", "Dinero disponible"],
-            aliases: ["mp", "mercadopago"],
-            initial_balance: 0,
-            current_balance: 0,
-          },
-          {
-            user_id: user.id,
-            name: "Bank ARS",
-            type: "bank",
-            currency: "ARS",
-            color: "#3b82f6",
-            icon: "Building",
-            detection_patterns: ["Transferencia", "Débito", "Banco"],
-            aliases: ["banco", "bank", "cuenta ars"],
-            initial_balance: 0,
-            current_balance: 0,
-          },
-          {
-            user_id: user.id,
-            name: "Efectivo",
-            type: "cash",
-            currency: "USD",
-            color: "#84cc16",
-            icon: "Coins",
-            detection_patterns: ["Efectivo", "Cash"],
-            aliases: ["efectivo", "cash"],
-            initial_balance: 0,
-            current_balance: 0,
-          },
-        ];
-        const { data: created } = await supabase
-          .from("payment_methods" as any)
-          .insert(defaults)
-          .select();
-        return (created || []) as unknown as PaymentMethod[];
+      if (error) {
+        console.error("Error fetching payment methods:", error);
+        throw error;
       }
-
       return (data || []) as unknown as PaymentMethod[];
     },
     enabled: !!user,
@@ -91,17 +145,19 @@ export function usePaymentMethods() {
         .from("payment_methods" as any)
         .insert({
           user_id: user.id,
-          name: pm.name,
-          type: pm.type || "digital_wallet",
+          account_id: pm.account_id || null,
+          name: pm.name?.trim(),
+          type: pm.type || "card",
+          instrument_type: pm.instrument_type || "card_debit",
           currency: pm.currency || "USD",
-          color: pm.color || "#10b981",
-          icon: pm.icon || "Wallet",
+          color: pm.color || "#8b5cf6",
+          icon: pm.icon || "CreditCard",
           aliases: pm.aliases || [],
           detection_patterns: pm.detection_patterns || [],
-          initial_balance: pm.initial_balance || 0,
-          current_balance: pm.current_balance || pm.initial_balance || 0,
+          initial_balance: 0,
+          current_balance: 0,
         })
-        .select()
+        .select("*, account:financial_accounts(*)")
         .single();
 
       if (error) throw error;
@@ -124,7 +180,7 @@ export function usePaymentMethods() {
         .update(updates)
         .eq("id", id)
         .eq("user_id", user.id)
-        .select()
+        .select("*, account:financial_accounts(*)")
         .single();
 
       if (error) throw error;
@@ -272,12 +328,17 @@ export function useTransactions() {
       if (!user) return [];
       const { data, error } = await supabase
         .from("transactions" as any)
-        .select("*, category:pf_categories(*), payment_method:payment_methods(*)")
+        .select(
+          "*, category:pf_categories(*), payment_method:payment_methods!transactions_payment_method_id_fkey(*), account:financial_accounts(*)"
+        )
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("transaction_date", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching transactions:", error);
+        throw error;
+      }
       return (data || []) as unknown as Transaction[];
     },
     enabled: !!user,
@@ -291,7 +352,8 @@ export function useTransactions() {
       amount_usd: number;
       transaction_date?: string;
       category_id?: string | null;
-      payment_method_id: string;
+      payment_method_id?: string | null;
+      account_id?: string | null;
       destination_account_id?: string | null;
       original_amount?: number | null;
       original_currency?: string | null;
@@ -316,7 +378,8 @@ export function useTransactions() {
           amount_usd: tx.amount_usd,
           transaction_date: tx.transaction_date || new Date().toISOString().split("T")[0],
           category_id: tx.category_id || null,
-          payment_method_id: tx.payment_method_id,
+          payment_method_id: tx.payment_method_id || null,
+          account_id: tx.account_id || null,
           destination_account_id: tx.destination_account_id || null,
           original_amount: tx.original_amount || null,
           original_currency: tx.original_currency || "USD",
@@ -337,6 +400,7 @@ export function useTransactions() {
     },
     onSuccess: (savedTx) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["payment_methods"] });
       toast.success(`✓ ${savedTx.name} — $${Number(savedTx.amount_usd).toFixed(2)} USD`);
     },
@@ -361,6 +425,7 @@ export function useTransactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["payment_methods"] });
       toast.success("Transacción actualizada");
     },
@@ -379,6 +444,7 @@ export function useTransactions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["payment_methods"] });
       toast.success("Transacción eliminada");
     },

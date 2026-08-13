@@ -55,25 +55,25 @@ export default function FinanceAnalytics() {
     });
   }, [transactions, cx]);
 
-  // 2. Spending by Payment Method Data
-  const paymentMethodBreakdown = useMemo(() => {
-    const pmMap = new Map<string, { name: string; value: number; color: string; count: number }>();
+  // 2. Spending by Financial Account Data
+  const accountSpendingBreakdown = useMemo(() => {
+    const accMap = new Map<string, { name: string; value: number; color: string; count: number }>();
 
     for (const tx of transactions) {
       if (tx.deleted_at || tx.type === "income") continue;
-      const pmName = tx.payment_method?.name || "Efectivo / Otro";
-      const color = tx.payment_method?.color || "#10b981";
+      const accName = tx.account?.name || tx.payment_method?.name || "Efectivo / Otro";
+      const color = tx.account?.color || tx.payment_method?.color || "#10b981";
       const amt = Number(tx.amount_usd) || 0;
 
-      if (!pmMap.has(pmName)) {
-        pmMap.set(pmName, { name: pmName, value: 0, color, count: 0 });
+      if (!accMap.has(accName)) {
+        accMap.set(accName, { name: accName, value: 0, color, count: 0 });
       }
-      const item = pmMap.get(pmName)!;
+      const item = accMap.get(accName)!;
       item.value += amt;
       item.count += 1;
     }
 
-    return Array.from(pmMap.values())
+    return Array.from(accMap.values())
       .map((item) => ({ ...item, displayValue: cx(item.value) }))
       .sort((a, b) => b.value - a.value);
   }, [transactions, cx]);
@@ -150,19 +150,19 @@ export default function FinanceAnalytics() {
         </div>
       </div>
 
-      {/* Spending by Payment Method Grid */}
+      {/* Spending by Financial Account Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Pie Chart */}
         <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
             <PieIcon className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-base text-foreground">
-              Proporción por Medio de Pago
+              Proporción por Cuenta Financiera
             </h2>
           </div>
 
           <div className="h-60 w-full">
-            {paymentMethodBreakdown.length === 0 ? (
+            {accountSpendingBreakdown.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
                 Sin movimientos registrados
               </div>
@@ -170,7 +170,7 @@ export default function FinanceAnalytics() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={paymentMethodBreakdown}
+                    data={accountSpendingBreakdown}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -178,7 +178,7 @@ export default function FinanceAnalytics() {
                     paddingAngle={4}
                     dataKey="displayValue"
                   >
-                    {paymentMethodBreakdown.map((entry, index) => (
+                    {accountSpendingBreakdown.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -191,7 +191,7 @@ export default function FinanceAnalytics() {
           </div>
         </div>
 
-        {/* Table of Payment Methods */}
+        {/* Table of Financial Accounts */}
         <div className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-primary" />
@@ -201,24 +201,24 @@ export default function FinanceAnalytics() {
           </div>
 
           <div className="space-y-2 pt-2">
-            {paymentMethodBreakdown.map((pm, idx) => (
+            {accountSpendingBreakdown.map((acc, idx) => (
               <div
-                key={pm.name}
+                key={acc.name}
                 className="flex items-center justify-between p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 transition-colors"
               >
                 <div className="flex items-center gap-2.5">
                   <div
                     className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: pm.color || COLORS[idx % COLORS.length] }}
+                    style={{ backgroundColor: acc.color || COLORS[idx % COLORS.length] }}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{pm.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{pm.count} transacciones</p>
+                    <p className="text-sm font-semibold text-foreground">{acc.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{acc.count} transacciones</p>
                   </div>
                 </div>
                 <p className="font-mono font-bold text-sm text-foreground">
                   {currencySymbol}
-                  {pm.displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {acc.displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             ))}

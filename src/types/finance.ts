@@ -10,11 +10,33 @@ export type IngestionSource =
   | "manual"
   | "migrated";
 
-export interface PaymentMethod {
+export type AccountType = "bank" | "digital_wallet" | "crypto" | "broker_cash" | "cash_wallet";
+export type InstrumentType = "card_debit" | "card_credit" | "pix" | "qr" | "cash" | "transfer";
+
+export interface FinancialAccount {
   id: string;
   user_id: string;
   name: string;
+  type: AccountType;
+  currency: CurrencyCode;
+  color?: string;
+  icon?: string;
+  aliases?: string[];
+  detection_patterns?: string[];
+  initial_balance: number;
+  current_balance: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PaymentMethod {
+  id: string;
+  user_id: string;
+  account_id?: string | null;
+  name: string;
   type: "bank" | "digital_wallet" | "card" | "broker_cash" | "crypto" | "cash";
+  instrument_type?: InstrumentType;
   currency: CurrencyCode;
   color?: string;
   icon?: string;
@@ -22,10 +44,13 @@ export interface PaymentMethod {
   detection_patterns: string[];
   is_active: boolean;
   broker_id?: string | null;
-  initial_balance: number;
-  current_balance: number;
+  initial_balance?: number;
+  current_balance?: number;
   created_at: string;
   updated_at?: string;
+
+  // Joined relation
+  account?: FinancialAccount | null;
 }
 
 export interface Category {
@@ -52,7 +77,8 @@ export interface Transaction {
   amount_usd: number;
   transaction_date: string;
   category_id?: string | null;
-  payment_method_id: string;
+  payment_method_id?: string | null;
+  account_id?: string | null;
   destination_account_id?: string | null;
 
   // Multi-Currency & FX
@@ -87,6 +113,7 @@ export interface Transaction {
   // Joined fields for UI convenience
   category?: Category | null;
   payment_method?: PaymentMethod | null;
+  account?: FinancialAccount | null;
 }
 
 export interface FxRateCacheItem {

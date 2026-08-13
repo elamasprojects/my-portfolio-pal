@@ -1,4 +1,4 @@
-import { Transaction, SankeyData, SankeyNode, SankeyLink, UnifiedNetWorthMetrics, Category, PaymentMethod } from "@/types/finance";
+import { Transaction, SankeyData, SankeyNode, SankeyLink, UnifiedNetWorthMetrics, Category, PaymentMethod, FinancialAccount } from "@/types/finance";
 import { Holding, PortfolioPerformance } from "@/hooks/usePortfolio";
 
 export function parseTransactionLocalDate(dateStr: string): Date {
@@ -173,7 +173,7 @@ export function buildPersonalSankeyData(
 }
 
 export function computeUnifiedNetWorth(
-  paymentMethods: PaymentMethod[],
+  financialAccounts: FinancialAccount[],
   transactions: Transaction[],
   holdings: Holding[],
   portfolioPerformance: PortfolioPerformance,
@@ -182,13 +182,13 @@ export function computeUnifiedNetWorth(
   let liquidCashUSD = 0;
   let brokerCashUSD = 0;
 
-  for (const pm of paymentMethods) {
-    if (!pm.is_active) continue;
-    const bal = Number(pm.current_balance) || 0;
-    if (pm.type === "broker_cash") {
+  for (const acc of financialAccounts) {
+    if (!acc.is_active) continue;
+    const bal = Number(acc.current_balance) || 0;
+    if (acc.type === "broker_cash") {
       brokerCashUSD += bal;
-    } else if (pm.type !== "card") {
-      liquidCashUSD += bal;
+    } else {
+      liquidCashUSD += Math.max(0, bal);
     }
   }
 

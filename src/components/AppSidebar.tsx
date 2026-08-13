@@ -12,8 +12,6 @@ import {
   Globe,
   Users,
   Settings,
-  PanelLeftClose,
-  PanelLeft,
   Crosshair,
   ShieldCheck,
   Bell,
@@ -21,6 +19,7 @@ import {
   TrendingDown,
   Tag,
   Wallet,
+  Building,
   Inbox as InboxIcon,
 } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
@@ -73,7 +72,7 @@ const financeNavItems = [
   { title: "Timeline", url: "/finance/timeline", icon: History, end: false },
   { title: "Analíticas & Evolución", url: "/finance/analytics", icon: BarChart3, end: false },
   { title: "Categorías", url: "/finance/categories", icon: Tag, end: false },
-  { title: "Medios de Pago", url: "/finance/payment-methods", icon: Wallet, end: false },
+  { title: "Cuentas", url: "/finance/payment-methods", icon: Building, end: false },
   { title: "Cola de Revisión", url: "/finance/review", icon: InboxIcon, end: false },
 ];
 
@@ -91,15 +90,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-2">
-        <button
-          onClick={() => toggleSidebar()}
-          className="flex items-center justify-center w-full rounded-md p-2 hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
-        >
-          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
-      </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="pt-3">
         {mode === "investments" && <PortfolioSwitcher />}
 
         <SidebarGroup>
