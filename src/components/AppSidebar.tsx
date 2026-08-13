@@ -21,6 +21,7 @@ import {
   TrendingDown,
   Tag,
   Wallet,
+  Inbox as InboxIcon,
 } from "lucide-react";
 import { Inbox } from "@/components/Inbox";
 import { NavLink } from "@/components/NavLink";
