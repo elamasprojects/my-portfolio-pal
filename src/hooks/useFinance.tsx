@@ -20,6 +20,65 @@ export function usePaymentMethods() {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+
+      if (data && data.length === 0) {
+        const defaults = [
+          {
+            user_id: user.id,
+            name: "DolarApp Global Card",
+            type: "digital_wallet",
+            currency: "USD",
+            color: "#10b981",
+            icon: "CreditCard",
+            detection_patterns: ["USDc", "DolarApp", "Global Card"],
+            aliases: ["dolarapp", "dolar app", "tarjeta global"],
+            initial_balance: 0,
+            current_balance: 0,
+          },
+          {
+            user_id: user.id,
+            name: "Mercado Pago",
+            type: "digital_wallet",
+            currency: "ARS",
+            color: "#009ee3",
+            icon: "Wallet",
+            detection_patterns: ["MERPAGO*", "Mercado Pago", "Dinero disponible"],
+            aliases: ["mp", "mercadopago"],
+            initial_balance: 0,
+            current_balance: 0,
+          },
+          {
+            user_id: user.id,
+            name: "Bank ARS",
+            type: "bank",
+            currency: "ARS",
+            color: "#3b82f6",
+            icon: "Building",
+            detection_patterns: ["Transferencia", "Débito", "Banco"],
+            aliases: ["banco", "bank", "cuenta ars"],
+            initial_balance: 0,
+            current_balance: 0,
+          },
+          {
+            user_id: user.id,
+            name: "Efectivo",
+            type: "cash",
+            currency: "USD",
+            color: "#84cc16",
+            icon: "Coins",
+            detection_patterns: ["Efectivo", "Cash"],
+            aliases: ["efectivo", "cash"],
+            initial_balance: 0,
+            current_balance: 0,
+          },
+        ];
+        const { data: created } = await supabase
+          .from("payment_methods" as any)
+          .insert(defaults)
+          .select();
+        return (created || []) as unknown as PaymentMethod[];
+      }
+
       return (data || []) as unknown as PaymentMethod[];
     },
     enabled: !!user,
