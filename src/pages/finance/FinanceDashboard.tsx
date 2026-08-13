@@ -48,7 +48,7 @@ export default function FinanceDashboard() {
   const displayCurrency = profile?.default_currency === "ARS" ? "ARS" : "USD";
   const { cx, fmtUSD, fmtCompact, currencySymbol } = makeFormatters(displayCurrency, mepRate);
 
-  const { netWorthMetrics, sankeyData, reviewQueue, isLoading } = useUnifiedFinancials(filterRange);
+  const { netWorthMetrics, sankeyData, transactions, reviewQueue, isLoading } = useUnifiedFinancials(filterRange);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24 md:pb-12">
@@ -191,6 +191,8 @@ export default function FinanceDashboard() {
       {/* Main Sankey Diagram Section */}
       <SankeyFlowChart
         data={sankeyData}
+        transactions={transactions}
+        filterRange={filterRange}
         displayCurrency={displayCurrency}
         currencySymbol={currencySymbol}
         cx={cx}
