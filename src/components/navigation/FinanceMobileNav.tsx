@@ -7,6 +7,7 @@ import {
   Plus,
   Menu,
   Wallet,
+  Building,
   Inbox,
   Settings,
   ShieldCheck,
@@ -31,7 +32,7 @@ const tabs: NavItem[] = [
 ];
 
 const moreItems: NavItem[] = [
-  { title: "Medios de Pago", url: "/finance/payment-methods", icon: Wallet },
+  { title: "Cuentas", url: "/finance/payment-methods", icon: Building },
   { title: "Cola de Revisión", url: "/finance/review", icon: Inbox },
   { title: "Seguridad", url: "/security", icon: ShieldCheck },
   { title: "Configuración", url: "/settings", icon: Settings },

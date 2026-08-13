@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { usePaymentMethods, useTransactions, useCategories } from "@/hooks/useFinance";
+import { useFinancialAccounts, usePaymentMethods, useTransactions, useCategories } from "@/hooks/useFinance";
 import { useTrades, useActivePortfolio, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
 import { computeUnifiedNetWorth, buildPersonalSankeyData } from "@/lib/financialMath";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 
 export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date }) {
+  const { accounts: financialAccounts, isLoading: accLoading } = useFinancialAccounts();
   const { paymentMethods, isLoading: pmLoading } = usePaymentMethods();
   const { transactions, reviewQueue, isLoading: txLoading } = useTransactions();
   const { categories, isLoading: catLoading } = useCategories();
@@ -19,13 +20,13 @@ export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date })
 
   const netWorthMetrics = useMemo(() => {
     return computeUnifiedNetWorth(
-      paymentMethods,
+      financialAccounts,
       transactions,
       holdings,
       portfolioPerformance,
       prices
     );
-  }, [paymentMethods, transactions, holdings, portfolioPerformance, prices]);
+  }, [financialAccounts, transactions, holdings, portfolioPerformance, prices]);
 
   const sankeyData = useMemo(() => {
     return buildPersonalSankeyData(transactions, categories, filterRange);
@@ -35,12 +36,13 @@ export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date })
     netWorthMetrics,
     sankeyData,
     reviewQueue,
+    financialAccounts,
     paymentMethods,
     transactions,
     categories,
     holdings,
     portfolioPerformance,
     activePortfolio,
-    isLoading: pmLoading || txLoading || catLoading || pfLoading || tradesLoading || pricesLoading,
+    isLoading: accLoading || pmLoading || txLoading || catLoading || pfLoading || tradesLoading || pricesLoading,
   };
 }

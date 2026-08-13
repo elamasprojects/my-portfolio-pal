@@ -22,18 +22,23 @@ import { NavLink } from "@/components/NavLink";
 
 export default function FinanceDashboard() {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
-  const [filterPeriod, setFilterPeriod] = useState<"this_month" | "last_month" | "all">("this_month");
+  const [filterPeriod, setFilterPeriod] = useState<"this_month" | "last_month" | "30d" | "all">("all");
 
   const filterRange = useMemo(() => {
     const now = new Date();
     if (filterPeriod === "this_month") {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { start };
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return { start, end };
     }
     if (filterPeriod === "last_month") {
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
       return { start, end };
+    }
+    if (filterPeriod === "30d") {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { start };
     }
     return undefined;
   }, [filterPeriod]);
@@ -149,6 +154,22 @@ export default function FinanceDashboard() {
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex items-center gap-1.5 rounded-full border border-border/40 bg-muted/40 p-1">
           <Button
+            variant={filterPeriod === "all" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs rounded-full px-3 font-medium"
+            onClick={() => setFilterPeriod("all")}
+          >
+            Histórico Completo
+          </Button>
+          <Button
+            variant={filterPeriod === "30d" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs rounded-full px-3 font-medium"
+            onClick={() => setFilterPeriod("30d")}
+          >
+            Últimos 30 días
+          </Button>
+          <Button
             variant={filterPeriod === "this_month" ? "default" : "ghost"}
             size="sm"
             className="h-7 text-xs rounded-full px-3 font-medium"
@@ -163,14 +184,6 @@ export default function FinanceDashboard() {
             onClick={() => setFilterPeriod("last_month")}
           >
             Mes Anterior
-          </Button>
-          <Button
-            variant={filterPeriod === "all" ? "default" : "ghost"}
-            size="sm"
-            className="h-7 text-xs rounded-full px-3 font-medium"
-            onClick={() => setFilterPeriod("all")}
-          >
-            Histórico Completo
           </Button>
         </div>
       </div>

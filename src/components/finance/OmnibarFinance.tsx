@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,14 +13,12 @@ import {
   Send,
   Loader2,
   Sparkles,
-  Receipt,
-  FileText,
-  DollarSign,
-  ArrowRight,
-  TrendingDown,
-  TrendingUp,
+  ClipboardPaste,
+  Image as ImageIcon,
+  Trash2,
+  Plus,
 } from "lucide-react";
-import { useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
+import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
@@ -55,6 +54,37 @@ export function OmnibarFinance({
     }
   }, [open, initialText, initialFile]);
 
+  // 1. Listen for global Paste (Ctrl+V / Cmd+V) when modal is open
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            setSelectedFile(file);
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+            toast.success("✓ Captura pegada desde el portapapeles (Ctrl+V)");
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+    };
+  }, [open]);
+
+  const { accounts } = useFinancialAccounts();
   const { categories } = useCategories();
   const { paymentMethods } = usePaymentMethods();
   const { addTransaction } = useTransactions();
@@ -73,6 +103,53 @@ export function OmnibarFinance({
     setSelectedFile(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+  };
+
+  // 2. 1-Tap Paste Button Handler for Mobile & Desktop
+  const handlePasteFromClipboardButton = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        // Fallback if browser doesn't expose clipboard.read()
+        const text = await navigator.clipboard?.readText?.();
+        if (text?.trim()) {
+          setInputVal((prev) => `${prev} ${text}`.trim());
+          toast.success("Texto pegado desde el portapapeles");
+        } else {
+          toast.info("Usa Ctrl+V para pegar directamente tu captura");
+        }
+        return;
+      }
+
+      const clipboardItems = await navigator.clipboard.read();
+      let foundImage = false;
+
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], `comprobante_${Date.now()}.png`, { type: imageType });
+          setSelectedFile(file);
+          const url = URL.createObjectURL(file);
+          setPreviewUrl(url);
+          foundImage = true;
+          toast.success("✓ Captura pegada desde el portapapeles");
+          break;
+        }
+      }
+
+      if (!foundImage) {
+        const text = await navigator.clipboard.readText();
+        if (text?.trim()) {
+          setInputVal((prev) => `${prev} ${text}`.trim());
+          toast.success("Texto pegado desde el portapapeles");
+        } else {
+          toast.error("No se encontró ninguna imagen en el portapapeles. Copia una captura primero.");
+        }
+      }
+    } catch (err: any) {
+      console.warn("Clipboard read error:", err);
+      toast.info("Presiona Ctrl+V o mantén presionado para pegar la captura");
+    }
   };
 
   const parseAndSubmit = async () => {
@@ -101,6 +178,7 @@ export function OmnibarFinance({
           image: imageBase64 || undefined,
           userCategories: categories,
           userPaymentMethods: paymentMethods,
+          userAccounts: accounts,
         },
       });
 
@@ -110,6 +188,7 @@ export function OmnibarFinance({
 
       if (extractedList.length === 0) {
         // Fallback: simple heuristic regex parse
+        const defaultAcc = accounts[0]?.id;
         const defaultPm = paymentMethods[0]?.id;
         const defaultCat = categories[0]?.id;
 
@@ -119,14 +198,15 @@ export function OmnibarFinance({
         const isARS = !inputVal.toLowerCase().includes("usd") && rawAmount > 500;
         const amountUSD = isARS && mepRate && mepRate > 0 ? rawAmount / mepRate : rawAmount;
 
-        if (rawAmount > 0 && defaultPm) {
+        if (rawAmount > 0) {
           await addTransaction.mutateAsync({
             name: inputVal.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto",
             amount_usd: amountUSD,
             original_amount: rawAmount,
             original_currency: isARS ? "ARS" : "USD",
             fx_rate: isARS ? mepRate : 1,
-            payment_method_id: defaultPm,
+            account_id: defaultAcc || null,
+            payment_method_id: defaultPm || null,
             category_id: defaultCat || null,
             confidence: "medium",
             needs_review: true,
@@ -154,12 +234,27 @@ export function OmnibarFinance({
           );
         }
 
-        // Match payment method
+        // Match account directly or via payment method
+        let matchedAccount = accounts.find(
+          (acc) =>
+            acc.name.toLowerCase() === (item.account_name || "").toLowerCase() ||
+            acc.name.toLowerCase() === (item.payment_method_name || "").toLowerCase() ||
+            (acc.detection_patterns || []).some(
+              (p) =>
+                (item.name || "").toLowerCase().includes(p.toLowerCase()) ||
+                (item.payment_method_name || "").toLowerCase().includes(p.toLowerCase())
+            )
+        );
+
         let matchedPm = paymentMethods.find(
           (pm) => pm.name.toLowerCase() === item.payment_method_name?.toLowerCase()
         );
-        if (!matchedPm) {
-          matchedPm = paymentMethods[0];
+
+        if (!matchedAccount && matchedPm?.account_id) {
+          matchedAccount = accounts.find((a) => a.id === matchedPm!.account_id);
+        }
+        if (!matchedAccount) {
+          matchedAccount = accounts[0];
         }
 
         const isARS = item.currency === "ARS";
@@ -178,7 +273,8 @@ export function OmnibarFinance({
           fx_rate: rate,
           fx_source: isARS ? "dolarapi_mep" : "native_usd",
           category_id: matchedCat?.id || null,
-          payment_method_id: matchedPm?.id || paymentMethods[0]?.id,
+          account_id: matchedAccount?.id || null,
+          payment_method_id: matchedPm?.id || paymentMethods[0]?.id || null,
           confidence: item.confidence || "high",
           needs_review: item.needs_review || !matchedCat,
           source: selectedFile ? "screenshot" : "text",
@@ -200,12 +296,20 @@ export function OmnibarFinance({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card p-4 sm:p-6">
+      <DialogContent className="max-w-md bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-serif text-lg text-primary">
-            <Sparkles className="h-5 w-5 text-amber-500" />
-            <span>Ingesta Rápida de Finanzas</span>
+          <DialogTitle className="flex items-center justify-between font-serif text-lg text-primary">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              <span>Ingesta Rápida de Finanzas</span>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
+              ⌘K / Ctrl+K
+            </span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Ingesta rápida de comprobantes, gastos e ingresos con IA
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
@@ -228,35 +332,59 @@ export function OmnibarFinance({
             <AudioQuickRecorder onRecordedText={(txt) => setInputVal((prev) => `${prev} ${txt}`.trim())} />
           </div>
 
-          {/* Screenshot Drop / Upload Zone */}
+          {/* Screenshot Drop / Upload / Paste Zone */}
           {previewUrl ? (
-            <div className="relative rounded-xl border bg-muted/40 p-2 text-center">
-              <img
-                src={previewUrl}
-                alt="Comprobante"
-                className="max-h-36 mx-auto rounded-lg object-contain shadow-sm"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2 text-xs text-destructive hover:bg-destructive/10"
-                onClick={handleClearFile}
-              >
-                Eliminar imagen
-              </Button>
+            <div className="relative rounded-2xl border bg-muted/40 p-3 text-center space-y-2">
+              <div className="relative inline-block">
+                <img
+                  src={previewUrl}
+                  alt="Comprobante pegado"
+                  className="max-h-40 mx-auto rounded-xl object-contain shadow-md border"
+                />
+                <button
+                  type="button"
+                  onClick={handleClearFile}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground p-1 rounded-full shadow hover:bg-destructive/90 transition-transform active:scale-95"
+                  title="Quitar comprobante"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="text-[11px] text-emerald-400 font-mono font-medium">
+                ✓ Comprobante listo para procesar con IA
+              </p>
             </div>
           ) : (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center hover:bg-accent/20 transition-colors"
-            >
-              <Upload className="mx-auto h-6 w-6 text-muted-foreground" />
-              <p className="mt-1 text-xs font-medium text-foreground">
-                Sube o arrastra una captura de comprobante
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                Mercado Pago, DolarApp, Banco Ciudad, etc.
-              </p>
+            <div className="space-y-2">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="cursor-pointer rounded-2xl border-2 border-dashed border-border/70 bg-muted/15 p-4 text-center hover:bg-muted/30 transition-all group"
+              >
+                <Upload className="mx-auto h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                <p className="mt-1 text-xs font-semibold text-foreground">
+                  Arrastra o sube una captura de comprobante
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                  Mercado Pago, DolarApp, Banco Ciudad, etc.
+                </p>
+              </div>
+
+              {/* 1-Tap Paste from Clipboard button */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePasteFromClipboardButton}
+                  className="w-full h-8 text-xs font-semibold gap-1.5 border-primary/30 bg-primary/5 hover:bg-primary/15 text-primary shadow-sm"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  <span>Pegar captura del Portapapeles</span>
+                  <span className="hidden sm:inline text-[10px] font-mono opacity-75 font-normal">
+                    (o presiona Ctrl+V)
+                  </span>
+                </Button>
+              </div>
             </div>
           )}
 
@@ -299,7 +427,7 @@ export function OmnibarFinance({
 
           {/* Submit Action */}
           <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 shadow-md h-10"
             onClick={parseAndSubmit}
             disabled={isLoading || (!inputVal.trim() && !selectedFile)}
           >

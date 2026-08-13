@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
 import { SankeyData, SankeyNode, SankeyLink } from "@/types/finance";
-import { useLanguage } from "@/i18n";
-import { motion, AnimatePresence } from "motion/react";
 
 interface SankeyFlowChartProps {
   data: SankeyData;
@@ -18,18 +16,11 @@ export function SankeyFlowChart({
 }: SankeyFlowChartProps) {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  const { nodes, links, totalIncome, totalExpenses, netResult, savingsRatePct } = data;
+  const { nodes, totalIncome, totalExpenses, netResult, savingsRatePct } = data;
 
-  // Layout calculation
+  // Dynamic Responsive Layout calculation
   const layout = useMemo(() => {
     if (!nodes || nodes.length === 0) return null;
-
-    const width = 860;
-    const height = 480;
-    const margin = { top: 40, right: 180, bottom: 40, left: 180 };
-
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
 
     const incomeNodes = nodes.filter((n) => n.category === "income");
     const spineNode = nodes.find((n) => n.category === "spine") || {
@@ -45,53 +36,69 @@ export function SankeyFlowChart({
 
     const rightNodes = [...expenseNodes, ...(netNode ? [netNode] : [])];
 
-    // Compute Y positions
-    const totalLeftVal = incomeNodes.reduce((s, n) => s + n.value, 0) || 1;
-    const totalRightVal = rightNodes.reduce((s, n) => s + n.value, 0) || 1;
+    // Dynamic sizing based on number of nodes so labels and bars never overlap or get clipped
+    const numLeft = incomeNodes.length;
+    const numRight = rightNodes.length;
+    const maxCount = Math.max(numLeft, numRight, 6);
+
+    const margin = { top: 50, right: 230, bottom: 60, left: 230 };
+    const width = 960;
+    const innerHeight = Math.max(480, maxCount * 48);
+    const height = innerHeight + margin.top + margin.bottom;
+    const innerWidth = width - margin.left - margin.right;
 
     const gap = 12;
+    const minNodeH = 14;
 
-    // Position Left Nodes
-    const leftAvailableHeight = Math.max(80, innerHeight - Math.max(0, incomeNodes.length - 1) * gap);
-    let currentYLeft = margin.top;
     const nodePositions = new Map<
       string,
       { x: number; y: number; width: number; height: number; node: SankeyNode }
     >();
 
+    // Position Left Nodes (Income)
+    const totalLeftVal = incomeNodes.reduce((s, n) => s + n.value, 0) || 1;
+    const totalGapsLeft = Math.max(0, incomeNodes.length - 1) * gap;
+    const leftUsableHeight = innerHeight - totalGapsLeft;
+    const extraLeftH = Math.max(0, leftUsableHeight - incomeNodes.length * minNodeH);
+
+    let currentYLeft = margin.top;
     for (const node of incomeNodes) {
-      const nodeH = Math.max(16, (node.value / totalLeftVal) * leftAvailableHeight);
+      const nodeH = minNodeH + (node.value / totalLeftVal) * extraLeftH;
       nodePositions.set(node.id, {
-        x: margin.left - 12,
+        x: margin.left - 14,
         y: currentYLeft,
-        width: 12,
+        width: 14,
         height: nodeH,
         node,
       });
       currentYLeft += nodeH + gap;
     }
 
-    // Position Center Spine
-    const spineH = innerHeight * 0.9;
-    const spineX = margin.left + innerWidth / 2 - 6;
-    const spineY = margin.top + innerHeight * 0.05;
+    // Position Center Spine (Cash Collected)
+    const spineH = innerHeight * 0.94;
+    const spineX = margin.left + innerWidth / 2 - 7;
+    const spineY = margin.top + (innerHeight - spineH) / 2;
     nodePositions.set(spineNode.id, {
       x: spineX,
       y: spineY,
-      width: 12,
+      width: 14,
       height: spineH,
       node: spineNode,
     });
 
-    // Position Right Nodes
-    const rightAvailableHeight = Math.max(80, innerHeight - Math.max(0, rightNodes.length - 1) * gap);
+    // Position Right Nodes (Expenses + Net Result)
+    const totalRightVal = rightNodes.reduce((s, n) => s + n.value, 0) || 1;
+    const totalGapsRight = Math.max(0, rightNodes.length - 1) * gap;
+    const rightUsableHeight = innerHeight - totalGapsRight;
+    const extraRightH = Math.max(0, rightUsableHeight - rightNodes.length * minNodeH);
+
     let currentYRight = margin.top;
     for (const node of rightNodes) {
-      const nodeH = Math.max(16, (node.value / totalRightVal) * rightAvailableHeight);
+      const nodeH = minNodeH + (node.value / totalRightVal) * extraRightH;
       nodePositions.set(node.id, {
         x: width - margin.right,
         y: currentYRight,
-        width: 12,
+        width: 14,
         height: nodeH,
         node,
       });
@@ -145,7 +152,7 @@ export function SankeyFlowChart({
       if (!tgtPos) continue;
       const ribbonH = (node.value / totalRightVal) * spineH;
 
-      const x0 = spineX + 12;
+      const x0 = spineX + 14;
       const y0 = spineOutY;
       const y0b = spineOutY + ribbonH;
 
@@ -193,7 +200,7 @@ export function SankeyFlowChart({
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-border/50 bg-[#09090b] p-4 text-white shadow-xl">
+    <div className="relative w-full overflow-hidden rounded-2xl border border-border/50 bg-[#09090b] p-4 sm:p-6 text-white shadow-xl">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div>
@@ -226,16 +233,17 @@ export function SankeyFlowChart({
         </div>
       </div>
 
-      {/* SVG Canvas */}
-      <div className="relative w-full overflow-x-auto pt-2">
+      {/* SVG Canvas with dynamic height */}
+      <div className="relative w-full overflow-x-auto pt-4 pb-2">
         <svg
           viewBox={`0 0 ${layout.width} ${layout.height}`}
-          className="w-full min-w-[700px] h-[440px]"
+          style={{ width: "100%", height: "auto", minWidth: 740 }}
+          className="overflow-visible"
         >
           <defs>
             <linearGradient id="spineGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f8fafc" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.7" />
+              <stop offset="0%" stopColor="#f8fafc" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#cbd5e1" stopOpacity="0.8" />
             </linearGradient>
           </defs>
 
@@ -253,7 +261,7 @@ export function SankeyFlowChart({
                 fill={link.color}
                 fillOpacity={isHighlighted ? 0.45 : 0.08}
                 stroke={link.color}
-                strokeOpacity={isHighlighted ? 0.8 : 0.15}
+                strokeOpacity={isHighlighted ? 0.85 : 0.15}
                 strokeWidth={1}
                 className="transition-all duration-300 cursor-pointer"
                 onMouseEnter={() => setHoveredNodeId(link.source.startsWith("inc_") ? link.source : link.target)}
@@ -285,21 +293,21 @@ export function SankeyFlowChart({
                   className="transition-all duration-200"
                 />
 
-                {/* Text Label */}
+                {/* Text Label - Income (Left) */}
                 {node.category === "income" && (
                   <text
-                    x={x - 10}
+                    x={x - 12}
                     y={y + height / 2}
                     textAnchor="end"
                     dominantBaseline="middle"
-                    className="font-sans"
+                    className="font-sans select-none"
                   >
                     <tspan className="fill-white font-semibold text-[13px] block">
                       {node.name}
                     </tspan>
                     <tspan
-                      x={x - 10}
-                      dy="14"
+                      x={x - 12}
+                      dy="15"
                       className="fill-emerald-400 font-mono text-[11px]"
                     >
                       {currencySymbol}
@@ -309,36 +317,38 @@ export function SankeyFlowChart({
                   </text>
                 )}
 
+                {/* Text Label - Spine (Center) */}
                 {node.category === "spine" && (
                   <text
                     x={x + width / 2}
-                    y={y - 12}
+                    y={y - 14}
                     textAnchor="middle"
-                    className="font-mono text-[11px] font-bold fill-slate-300 tracking-wider"
+                    className="font-mono text-[11px] font-bold fill-slate-200 tracking-wider select-none"
                   >
                     CASH COLLECTED {currencySymbol}
                     {cx(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </text>
                 )}
 
+                {/* Text Label - Expense / Net Result (Right) */}
                 {(node.category === "expense" || node.category === "net") && (
                   <text
-                    x={x + width + 10}
+                    x={x + width + 12}
                     y={y + height / 2}
                     textAnchor="start"
                     dominantBaseline="middle"
-                    className="font-sans"
+                    className="font-sans select-none"
                   >
                     <tspan
                       className={`font-semibold text-[13px] ${
-                        node.category === "net" ? "fill-purple-300" : "fill-white"
+                        node.category === "net" ? "fill-purple-300 font-bold" : "fill-white"
                       }`}
                     >
                       {node.name}
                     </tspan>
                     <tspan
-                      x={x + width + 10}
-                      dy="14"
+                      x={x + width + 12}
+                      dy="15"
                       className={`font-mono text-[11px] ${
                         node.category === "net" ? "fill-purple-400 font-bold" : "fill-rose-400"
                       }`}
