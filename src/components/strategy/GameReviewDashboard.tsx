@@ -247,10 +247,10 @@ export function GameReviewDashboard() {
           <div>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
-              Game Review Retroactivo (Auditoría Contrafáctica)
+              Game Review Retroactivo (Auditoría de Holdeo y Decisiones)
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              Auditoría sobre tus 2 años de historial evaluando cada venta contra <i>No hacer nada</i>, <i>CCL</i> y <i>S&P 500</i>.
+              Auditoría sobre tus 2 años de historial evaluando cada venta contra <i>Holdeo (No hacer nada)</i>, <i>CCL</i> y <i>S&P 500</i>.
             </CardDescription>
           </div>
           <Button
@@ -355,7 +355,7 @@ export function GameReviewDashboard() {
                 Desglose de Decisiones Históricas ({filteredRows.length})
               </CardTitle>
               <CardDescription className="text-xs">
-                Auditoría detallada de cada operación cerrada: ganancia real, contrafáctico si conservabas y edge de trading.
+                Auditoría detallada de cada operación cerrada: ganancia real, holdeo si conservabas y edge de trading.
               </CardDescription>
             </div>
 
@@ -417,7 +417,7 @@ export function GameReviewDashboard() {
                 <TableHead>Evaluación</TableHead>
                 <TableHead className="text-right">Precio Venta</TableHead>
                 <TableHead className="text-right">P&L Realizado (USD / ARS)</TableHead>
-                <TableHead className="text-right">Contrafáctico (Do-Nothing)</TableHead>
+                <TableHead className="text-right">Holdeo (Do-Nothing)</TableHead>
                 <TableHead className="text-right">Edge vs Hold (USD)</TableHead>
               </TableRow>
             </TableHeader>
