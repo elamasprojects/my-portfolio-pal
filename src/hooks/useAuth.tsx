@@ -8,8 +8,8 @@ const DEFAULT_SINGLE_USER: Session = {
   expires_in: 360000,
   refresh_token: "single-user-refresh",
   user: {
-    id: "single-user",
-    email: "user@chess.local",
+    id: "409422f9-ef9d-4818-a756-bfbb5fac6d7f",
+    email: "ezequiellamas@gmail.com",
     app_metadata: {},
     user_metadata: {},
     aud: "authenticated",

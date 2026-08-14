@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useTrades, computeHoldings, computePerformance, Holding, Trade } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, Holding, Trade } from "@/hooks/usePortfolio";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
@@ -12,29 +12,73 @@ import { Badge } from "@/components/ui/badge";
 import { ChessBadge } from "@/components/ui/ChessBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
+import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
   TrendingUp,
-  TrendingDown,
   PieChart as PieChartIcon,
   Search,
   Target,
-  AlertTriangle,
   CheckCircle2,
-  DollarSign,
   LayoutGrid,
   ListFilter,
   Smartphone,
-  ChevronRight,
-  ShieldAlert,
+  Layers,
+  ArrowUpRight,
+  TrendingDown,
 } from "lucide-react";
 
+const CHART_COLORS = [
+  "#3b82f6", // Blue
+  "#10b981", // Emerald
+  "#8b5cf6", // Purple
+  "#f59e0b", // Amber
+  "#ec4899", // Pink
+  "#06b6d4", // Cyan
+  "#f97316", // Orange
+  "#6366f1", // Indigo
+  "#14b8a6", // Teal
+  "#e11d48", // Rose
+];
+
+const RAD = Math.PI / 180;
+const TICKER_MIN_PCT = 0.03; // 3%
+
+const renderSliceLabel = (props: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  outerRadius?: number;
+  percent?: number;
+  name?: string;
+}) => {
+  const { cx, cy, midAngle, outerRadius, percent, name } = props;
+  if (cx == null || cy == null || midAngle == null || outerRadius == null || percent == null) return null;
+  if (percent < TICKER_MIN_PCT) return null;
+  const r = outerRadius + 14;
+  const x = cx + r * Math.cos(-midAngle * RAD);
+  const y = cy + r * Math.sin(-midAngle * RAD);
+  const isLeft = x < cx;
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="currentColor"
+      fontSize={11}
+      fontWeight={700}
+      textAnchor={isLeft ? "end" : "start"}
+      dominantBaseline="central"
+      className="fill-foreground font-mono"
+    >
+      {name}
+    </text>
+  );
+};
+
 export function TableroView() {
-  const isMobile = useIsMobile();
   const navigate = useNavigate();
 
   // Portfolio hooks
@@ -45,7 +89,7 @@ export function TableroView() {
   const symbols = useMemo(() => holdings.map((h) => h.symbol), [holdings]);
   const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(symbols);
 
-  const [activePortfolioTab, setActivePortfolioTab] = useState<"table" | "distribution" | "cards">("table");
+  const [activePortfolioTab, setActivePortfolioTab] = useState<"allocation" | "table" | "cards">("allocation");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
 
@@ -58,7 +102,7 @@ export function TableroView() {
 
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
 
-  // Compute live portfolio metrics (All in USD)
+  // Compute live portfolio metrics (USD Native)
   const portfolioMetrics = useMemo(() => {
     let totalInvestedUSD = 0;
     let currentMarketValueUSD = 0;
@@ -116,6 +160,12 @@ export function TableroView() {
     const totalPnlUSD = currentMarketValueUSD - totalInvestedUSD;
     const totalPnlPct = totalInvestedUSD > 0 ? (totalPnlUSD / totalInvestedUSD) * 100 : 0;
 
+    // Calculate exact weights
+    const enrichedWithWeights = holdingsEnriched.map((h) => ({
+      ...h,
+      weight: currentMarketValueUSD > 0 ? (h.positionMarketValUSD / currentMarketValueUSD) * 100 : 0,
+    })).sort((a, b) => b.positionMarketValUSD - a.positionMarketValUSD);
+
     return {
       totalInvestedUSD,
       currentMarketValueUSD,
@@ -123,7 +173,7 @@ export function TableroView() {
       totalPnlPct,
       totalTargetHits,
       totalInvalidations,
-      holdingsEnriched,
+      holdingsEnriched: enrichedWithWeights,
     };
   }, [holdings, marketPrices, trades, effectiveCclRate]);
 
@@ -142,23 +192,16 @@ export function TableroView() {
     });
   }, [portfolioMetrics.holdingsEnriched, searchTerm, selectedCategoryFilter]);
 
-  // Asset category breakdown for Distribution View
-  const categoryBreakdown = useMemo(() => {
-    const map: Record<string, { count: number; valueUSD: number }> = {};
-    for (const h of portfolioMetrics.holdingsEnriched) {
-      const cat = h.asset_type ? h.asset_type.toUpperCase() : "CEDEARS";
-      if (!map[cat]) map[cat] = { count: 0, valueUSD: 0 };
-      map[cat].count += 1;
-      map[cat].valueUSD += h.positionMarketValUSD;
-    }
+  // Donut Pie data
+  const pieData = useMemo(() => {
+    return portfolioMetrics.holdingsEnriched.map((h) => ({
+      name: h.symbol,
+      value: h.positionMarketValUSD,
+    }));
+  }, [portfolioMetrics.holdingsEnriched]);
 
-    return Object.entries(map).map(([category, data]) => ({
-      category,
-      count: data.count,
-      valueUSD: data.valueUSD,
-      pct: portfolioMetrics.currentMarketValueUSD > 0 ? (data.valueUSD / portfolioMetrics.currentMarketValueUSD) * 100 : 0,
-    })).sort((a, b) => b.valueUSD - a.valueUSD);
-  }, [portfolioMetrics.holdingsEnriched, portfolioMetrics.currentMarketValueUSD]);
+  const topWeight = portfolioMetrics.holdingsEnriched[0]?.weight ?? 0;
+  const assetTypesCount = new Set(portfolioMetrics.holdingsEnriched.map((i) => i.asset_type || "CEDEAR")).size;
 
   const handleOpenQuickSell = (holding: Holding, priceUSD: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -175,7 +218,7 @@ export function TableroView() {
   const isLoading = tradesLoading || pricesLoading;
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6 pb-20">
       {/* 1. DAILY INVESTMENT HERO BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div>
@@ -184,7 +227,7 @@ export function TableroView() {
             Portafolio de Inversiones
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Seguimiento en tiempo real de tus posiciones activas, avance hacia objetivos y alertas de salida.
+            Visualización y gestión táctica de tus posiciones activas, avance a objetivos y composición.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -205,20 +248,7 @@ export function TableroView() {
 
       {/* Top 4 Real-time Investment KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Capital Invertido */}
-        <Card className="bg-card border border-border/70 p-4 space-y-1">
-          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-            Capital Invertido Activo
-          </span>
-          <div className="text-2xl font-black font-mono text-foreground">
-            US$ {portfolioMetrics.totalInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {holdings.length} posiciones abiertas en cartera
-          </p>
-        </Card>
-
-        {/* KPI 2: Valuación Actual de Cartera */}
+        {/* KPI 1: Valuación Total */}
         <Card className="bg-card border border-border/70 p-4 space-y-1">
           <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
             Valuación Total de Cartera
@@ -231,7 +261,20 @@ export function TableroView() {
           </p>
         </Card>
 
-        {/* KPI 3: P&L Total No Realizado */}
+        {/* KPI 2: Capital Invertido */}
+        <Card className="bg-card border border-border/70 p-4 space-y-1">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+            Capital Invertido
+          </span>
+          <div className="text-2xl font-black font-mono text-foreground">
+            US$ {portfolioMetrics.totalInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {holdings.length} posiciones abiertas
+          </p>
+        </Card>
+
+        {/* KPI 3: Retorno Total P&L */}
         <Card className="bg-card border border-border/70 p-4 space-y-1">
           <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
             Retorno Total (P&L)
@@ -247,10 +290,10 @@ export function TableroView() {
               ({portfolioMetrics.totalPnlPct >= 0 ? "+" : ""}{portfolioMetrics.totalPnlPct.toFixed(2)}%)
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground">Ganancia/Pérdida latente en moneda dura</p>
+          <p className="text-[11px] text-muted-foreground">Rendimiento acumulado en moneda dura</p>
         </Card>
 
-        {/* KPI 4: Alertas de Tesis y Decisiones */}
+        {/* KPI 4: Alertas de Tesis */}
         <Card className="bg-card border border-border/70 p-4 space-y-1">
           <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
             Alertas de Salida / Target
@@ -276,22 +319,22 @@ export function TableroView() {
           <p className="text-[11px] text-muted-foreground">
             {portfolioMetrics.totalTargetHits > 0
               ? "🎯 Oportunidad de toma de ganancias"
-              : "Revisión de hipótesis abierta"}
+              : "Revisión de hipótesis activa"}
           </p>
         </Card>
       </div>
 
-      {/* 2. MULTIPLE WAYS TO VIEW PORTFOLIO (VIEW SELECTOR) */}
+      {/* 2. MULTI-VIEW SELECTOR: ALLOCATION (DONUT) | TABLE (TERMINAL) | CARDS */}
       <Card className="bg-card border border-border/80 shadow-md">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <LayoutGrid className="h-5 w-5 text-primary" />
-                Explorador de Posiciones ({filteredHoldings.length})
+                Explorador de Portafolio ({filteredHoldings.length})
               </CardTitle>
               <CardDescription className="text-xs">
-                Múltiples vistas interactivas de tu cartera en dólares con cotizaciones en vivo.
+                Elige tu forma favorita de ver tu cartera: Distribución (Donut), Tabla Terminal o Cards.
               </CardDescription>
             </div>
 
@@ -302,13 +345,13 @@ export function TableroView() {
               className="w-full sm:w-auto"
             >
               <TabsList className="grid grid-cols-3 bg-muted/60 p-1 rounded-xl">
+                <TabsTrigger value="allocation" className="text-xs font-semibold flex items-center gap-1.5">
+                  <PieChartIcon className="h-3.5 w-3.5" />
+                  <span>Distribución</span>
+                </TabsTrigger>
                 <TabsTrigger value="table" className="text-xs font-semibold flex items-center gap-1.5">
                   <ListFilter className="h-3.5 w-3.5" />
                   <span>Tabla PnL</span>
-                </TabsTrigger>
-                <TabsTrigger value="distribution" className="text-xs font-semibold flex items-center gap-1.5">
-                  <PieChartIcon className="h-3.5 w-3.5" />
-                  <span>Distribución</span>
                 </TabsTrigger>
                 <TabsTrigger value="cards" className="text-xs font-semibold flex items-center gap-1.5">
                   <Smartphone className="h-3.5 w-3.5" />
@@ -318,35 +361,125 @@ export function TableroView() {
             </Tabs>
           </div>
 
-          {/* Filter and Search Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-3">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar activo por símbolo (ej. AAPL, BTC, GGAL)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9 text-xs bg-background/80"
-              />
+          {/* Filter and Search Bar for Table & Cards */}
+          {activePortfolioTab !== "allocation" && (
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-3">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar activo por símbolo (ej. AAPL, BTC, GGAL)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs bg-background/80"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                {["all", "cedear", "crypto", "equity", "bond"].map((cat) => (
+                  <Button
+                    key={cat}
+                    variant={selectedCategoryFilter === cat ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    className="h-8 text-xs px-3 rounded-full uppercase text-[10px] font-bold shrink-0"
+                  >
+                    {cat === "all" ? "Todos" : cat}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-              {["all", "cedear", "crypto", "equity", "bond"].map((cat) => (
-                <Button
-                  key={cat}
-                  variant={selectedCategoryFilter === cat ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategoryFilter(cat)}
-                  className="h-8 text-xs px-3 rounded-full uppercase text-[10px] font-bold shrink-0"
-                >
-                  {cat === "all" ? "Todos" : cat}
-                </Button>
-              ))}
-            </div>
-          </div>
+          )}
         </CardHeader>
 
         <CardContent>
-          {/* TAB 1: FULL PNL TABLE */}
+          {/* TAB 1: ALLOCATION DONUT (V4 UI FROM PR #2) */}
+          {activePortfolioTab === "allocation" && (
+            <div className="space-y-6">
+              {/* Donut Hero */}
+              <div className="relative h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="54%"
+                      outerRadius="76%"
+                      paddingAngle={1.5}
+                      isAnimationActive={false}
+                      label={renderSliceLabel}
+                      labelLine={false}
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="hsl(var(--card))" strokeWidth={2} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Total Cartera</p>
+                  <p className="font-mono text-2xl font-black text-foreground">
+                    US$ {portfolioMetrics.currentMarketValueUSD.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{portfolioMetrics.holdingsEnriched.length} posiciones activas</p>
+                </div>
+              </div>
+
+              {/* 3 Metrics Tiles */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-background/60 border border-border/60 text-center">
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">Posiciones</p>
+                  <p className="text-xl font-bold font-mono text-foreground mt-0.5">{portfolioMetrics.holdingsEnriched.length}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-background/60 border border-border/60 text-center">
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">Mayor Ponderación</p>
+                  <p className={`text-xl font-bold font-mono mt-0.5 ${topWeight > 25 ? "text-amber-400" : "text-foreground"}`}>
+                    {topWeight.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-background/60 border border-border/60 text-center">
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold">Tipos de Activos</p>
+                  <p className="text-xl font-bold font-mono text-foreground mt-0.5">{assetTypesCount}</p>
+                </div>
+              </div>
+
+              {/* Weights list with color progress bars */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ponderación por Activo</h3>
+                <div className="space-y-2.5">
+                  {portfolioMetrics.holdingsEnriched.map((h, i) => (
+                    <div key={h.symbol} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                          />
+                          <span className="font-mono font-bold text-foreground">{h.symbol}</span>
+                          <span className="text-xs text-muted-foreground uppercase font-mono">
+                            · US$ {h.positionMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-mono font-bold text-foreground">{h.weight.toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/70 overflow-hidden">
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{
+                            width: `${Math.min(100, h.weight)}%`,
+                            backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: FULL TERMINAL PNL TABLE */}
           {activePortfolioTab === "table" && (
             <div className="overflow-x-auto -mx-2 sm:mx-0">
               <Table>
@@ -358,7 +491,7 @@ export function TableroView() {
                     <TableHead className="text-right">Precio Actual</TableHead>
                     <TableHead className="text-right">Valuación Total</TableHead>
                     <TableHead className="text-right">P&L Latente</TableHead>
-                    <TableHead className="text-center w-[130px]">Avance al Target</TableHead>
+                    <TableHead className="text-center w-[140px]">Avance al Target</TableHead>
                     <TableHead className="text-center">Acción</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -452,68 +585,6 @@ export function TableroView() {
                   )}
                 </TableBody>
               </Table>
-            </div>
-          )}
-
-          {/* TAB 2: DISTRIBUTION & COMPOSITION VIEW */}
-          {activePortfolioTab === "distribution" && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categoryBreakdown.map((cat) => (
-                  <Card key={cat.category} className="bg-background/60 border border-border/70 p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />
-                        {cat.category}
-                      </span>
-                      <Badge variant="secondary" className="font-mono text-xs font-bold">
-                        {cat.pct.toFixed(1)}%
-                      </Badge>
-                    </div>
-                    <div className="text-xl font-black font-mono text-foreground">
-                      US$ {cat.valueUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <Progress value={cat.pct} className="h-2" />
-                    <span className="text-[11px] text-muted-foreground block">
-                      {cat.count} posiciones en esta categoría
-                    </span>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Table of Weights */}
-              <div className="border border-border/70 rounded-xl overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Activo</TableHead>
-                      <TableHead>Categoría</TableHead>
-                      <TableHead className="text-right">Valuación (USD)</TableHead>
-                      <TableHead className="text-right">Ponderación en Portafolio</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHoldings.map((h) => {
-                      const weightPct =
-                        portfolioMetrics.currentMarketValueUSD > 0
-                          ? (h.positionMarketValUSD / portfolioMetrics.currentMarketValueUSD) * 100
-                          : 0;
-                      return (
-                        <TableRow key={h.symbol} className="hover:bg-muted/40">
-                          <TableCell className="font-bold text-foreground">{h.symbol}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground uppercase">{h.asset_type || "activo"}</TableCell>
-                          <TableCell className="text-right font-mono font-bold text-foreground">
-                            US$ {h.positionMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-bold text-primary">
-                            {weightPct.toFixed(2)}%
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
             </div>
           )}
 
