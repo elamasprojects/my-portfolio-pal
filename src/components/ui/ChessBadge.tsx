@@ -43,8 +43,7 @@ interface BadgeStyleConfig {
   bgGradient: string;
   shadowColor: string;
   textColor: string;
-  pillBg: string;
-  pillBorder: string;
+  labelColor: string;
 }
 
 const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
@@ -54,8 +53,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#26c2a3] to-[#16968c]",
     shadowColor: "#0e6962",
     textColor: "#ffffff",
-    pillBg: "bg-[#16968c]/15 text-[#26c2a3] border-[#16968c]/30",
-    pillBorder: "border-[#16968c]/40",
+    labelColor: "text-[#26c2a3]",
   },
   brilliant: {
     glyph: "!!",
@@ -63,8 +61,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#26c2a3] to-[#16968c]",
     shadowColor: "#0e6962",
     textColor: "#ffffff",
-    pillBg: "bg-[#16968c]/15 text-[#26c2a3] border-[#16968c]/30",
-    pillBorder: "border-[#16968c]/40",
+    labelColor: "text-[#26c2a3]",
   },
   gran_jugada: {
     glyph: "!",
@@ -72,8 +69,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#3894e6] to-[#206eb5]",
     shadowColor: "#144f85",
     textColor: "#ffffff",
-    pillBg: "bg-[#206eb5]/15 text-[#3894e6] border-[#206eb5]/30",
-    pillBorder: "border-[#206eb5]/40",
+    labelColor: "text-[#3894e6]",
   },
   great: {
     glyph: "!",
@@ -81,8 +77,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#3894e6] to-[#206eb5]",
     shadowColor: "#144f85",
     textColor: "#ffffff",
-    pillBg: "bg-[#206eb5]/15 text-[#3894e6] border-[#206eb5]/30",
-    pillBorder: "border-[#206eb5]/40",
+    labelColor: "text-[#3894e6]",
   },
   correcta: {
     glyph: "✓",
@@ -90,8 +85,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#96bc4b] to-[#81a63c]",
     shadowColor: "#5c7929",
     textColor: "#ffffff",
-    pillBg: "bg-[#81a63c]/15 text-[#96bc4b] border-[#81a63c]/30",
-    pillBorder: "border-[#81a63c]/40",
+    labelColor: "text-[#96bc4b]",
   },
   best: {
     glyph: "★",
@@ -99,8 +93,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#96bc4b] to-[#81a63c]",
     shadowColor: "#5c7929",
     textColor: "#ffffff",
-    pillBg: "bg-[#81a63c]/15 text-[#96bc4b] border-[#81a63c]/30",
-    pillBorder: "border-[#81a63c]/40",
+    labelColor: "text-[#96bc4b]",
   },
   buena: {
     glyph: "✓",
@@ -108,8 +101,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#a8cf54] to-[#95bb4a]",
     shadowColor: "#6c8834",
     textColor: "#ffffff",
-    pillBg: "bg-[#95bb4a]/15 text-[#a8cf54] border-[#95bb4a]/30",
-    pillBorder: "border-[#95bb4a]/40",
+    labelColor: "text-[#a8cf54]",
   },
   good: {
     glyph: "✓",
@@ -117,8 +109,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#a8cf54] to-[#95bb4a]",
     shadowColor: "#6c8834",
     textColor: "#ffffff",
-    pillBg: "bg-[#95bb4a]/15 text-[#a8cf54] border-[#95bb4a]/30",
-    pillBorder: "border-[#95bb4a]/40",
+    labelColor: "text-[#a8cf54]",
   },
   imprecision: {
     glyph: "?!",
@@ -126,8 +117,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f5c767] to-[#e5a93c]",
     shadowColor: "#ab7a22",
     textColor: "#ffffff",
-    pillBg: "bg-[#e5a93c]/15 text-[#f5c767] border-[#e5a93c]/30",
-    pillBorder: "border-[#e5a93c]/40",
+    labelColor: "text-[#f5c767]",
   },
   "imprecisión": {
     glyph: "?!",
@@ -135,8 +125,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f5c767] to-[#e5a93c]",
     shadowColor: "#ab7a22",
     textColor: "#ffffff",
-    pillBg: "bg-[#e5a93c]/15 text-[#f5c767] border-[#e5a93c]/30",
-    pillBorder: "border-[#e5a93c]/40",
+    labelColor: "text-[#f5c767]",
   },
   inaccuracy: {
     glyph: "?!",
@@ -144,8 +133,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f5c767] to-[#e5a93c]",
     shadowColor: "#ab7a22",
     textColor: "#ffffff",
-    pillBg: "bg-[#e5a93c]/15 text-[#f5c767] border-[#e5a93c]/30",
-    pillBorder: "border-[#e5a93c]/40",
+    labelColor: "text-[#f5c767]",
   },
   error: {
     glyph: "?",
@@ -153,8 +141,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f09338] to-[#db7718]",
     shadowColor: "#a3530a",
     textColor: "#ffffff",
-    pillBg: "bg-[#db7718]/15 text-[#f09338] border-[#db7718]/30",
-    pillBorder: "border-[#db7718]/40",
+    labelColor: "text-[#f09338]",
   },
   mistake: {
     glyph: "?",
@@ -162,8 +149,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f09338] to-[#db7718]",
     shadowColor: "#a3530a",
     textColor: "#ffffff",
-    pillBg: "bg-[#db7718]/15 text-[#f09338] border-[#db7718]/30",
-    pillBorder: "border-[#db7718]/40",
+    labelColor: "text-[#f09338]",
   },
   blunder: {
     glyph: "??",
@@ -171,8 +157,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#fa4f39] to-[#dc331e]",
     shadowColor: "#9c1d0d",
     textColor: "#ffffff",
-    pillBg: "bg-[#dc331e]/15 text-[#fa4f39] border-[#dc331e]/30",
-    pillBorder: "border-[#dc331e]/40",
+    labelColor: "text-[#fa4f39]",
   },
   libro: {
     glyph: "📖",
@@ -180,8 +165,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#c4935b] to-[#a8743a]",
     shadowColor: "#754e20",
     textColor: "#ffffff",
-    pillBg: "bg-[#a8743a]/15 text-[#c4935b] border-[#a8743a]/30",
-    pillBorder: "border-[#a8743a]/40",
+    labelColor: "text-[#c4935b]",
   },
   book: {
     glyph: "📖",
@@ -189,8 +173,7 @@ const EVALUATION_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#c4935b] to-[#a8743a]",
     shadowColor: "#754e20",
     textColor: "#ffffff",
-    pillBg: "bg-[#a8743a]/15 text-[#c4935b] border-[#a8743a]/30",
-    pillBorder: "border-[#a8743a]/40",
+    labelColor: "text-[#c4935b]",
   },
 };
 
@@ -201,8 +184,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#26c2a3] to-[#16968c]",
     shadowColor: "#0e6962",
     textColor: "#ffffff",
-    pillBg: "bg-[#16968c]/15 text-[#26c2a3] border-[#16968c]/30",
-    pillBorder: "border-[#16968c]/40",
+    labelColor: "text-[#26c2a3]",
   },
   sell: {
     glyph: "!",
@@ -210,8 +192,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#f5c767] to-[#e5a93c]",
     shadowColor: "#ab7a22",
     textColor: "#ffffff",
-    pillBg: "bg-[#e5a93c]/15 text-[#f5c767] border-[#e5a93c]/30",
-    pillBorder: "border-[#e5a93c]/40",
+    labelColor: "text-[#f5c767]",
   },
   income: {
     glyph: "✓",
@@ -219,8 +200,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#96bc4b] to-[#81a63c]",
     shadowColor: "#5c7929",
     textColor: "#ffffff",
-    pillBg: "bg-[#81a63c]/15 text-[#96bc4b] border-[#81a63c]/30",
-    pillBorder: "border-[#81a63c]/40",
+    labelColor: "text-[#96bc4b]",
   },
   expense: {
     glyph: "♟",
@@ -228,8 +208,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#fa4f39] to-[#dc331e]",
     shadowColor: "#9c1d0d",
     textColor: "#ffffff",
-    pillBg: "bg-[#dc331e]/15 text-[#fa4f39] border-[#dc331e]/30",
-    pillBorder: "border-[#dc331e]/40",
+    labelColor: "text-[#fa4f39]",
   },
   dividend: {
     glyph: "★",
@@ -237,8 +216,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#b257ec] to-[#9333ea]",
     shadowColor: "#671eb0",
     textColor: "#ffffff",
-    pillBg: "bg-[#9333ea]/15 text-[#b257ec] border-[#9333ea]/30",
-    pillBorder: "border-[#9333ea]/40",
+    labelColor: "text-[#c084fc]",
   },
   transfer: {
     glyph: "⇄",
@@ -246,8 +224,7 @@ const EVENT_CONFIGS: Record<string, BadgeStyleConfig> = {
     bgGradient: "from-[#64748b] to-[#475569]",
     shadowColor: "#273240",
     textColor: "#ffffff",
-    pillBg: "bg-[#475569]/15 text-[#94a3b8] border-[#475569]/30",
-    pillBorder: "border-[#475569]/40",
+    labelColor: "text-[#94a3b8]",
   },
 };
 
@@ -268,8 +245,7 @@ export function ChessBadge({
     bgGradient: "from-[#475569] to-[#334155]",
     shadowColor: "#1e293b",
     textColor: "#ffffff",
-    pillBg: "bg-muted/40 text-foreground border-border/40",
-    pillBorder: "border-border/40",
+    labelColor: "text-foreground",
   };
 
   if (evaluation) {
@@ -294,11 +270,18 @@ export function ChessBadge({
     lg: "w-8 h-8 text-sm",
   };
 
-  const pillTextSizes = {
-    xs: "text-[10px] py-0.5 px-1.5 gap-1",
-    sm: "text-xs py-0.5 px-2 gap-1.5",
-    md: "text-xs py-1 px-2.5 gap-2",
-    lg: "text-sm py-1.5 px-3 gap-2.5",
+  const labelSizes = {
+    xs: "text-[10px]",
+    sm: "text-xs",
+    md: "text-sm",
+    lg: "text-base",
+  };
+
+  const gapSizes = {
+    xs: "gap-1.5",
+    sm: "gap-2",
+    md: "gap-2.5",
+    lg: "gap-3",
   };
 
   // Pure 3D Circle Token (Exact Chess.com Style)
@@ -311,9 +294,9 @@ export function ChessBadge({
         circleSizes[size]
       )}
       style={{
-        boxShadow: `0 2px 0 0 ${config.shadowColor}, 0 3px 4px rgba(0,0,0,0.35)`,
+        boxShadow: `0 2px 0 0 ${config.shadowColor}, 0 2px 4px rgba(0,0,0,0.35)`,
         color: config.textColor,
-        textShadow: "0 1px 1px rgba(0,0,0,0.45)",
+        textShadow: "0 1px 1px rgba(0,0,0,0.5)",
       }}
     >
       <span className="relative -top-[0.5px] tracking-tighter leading-none">
@@ -334,19 +317,24 @@ export function ChessBadge({
     );
   }
 
-  // Pill badge with Chess.com 3D token + stylish label
+  // Clean, frameless layout: Circular 3D token + bold colored text label (No pill container/background)
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border font-semibold select-none shadow-sm transition-all",
-        config.pillBg,
-        pillTextSizes[size],
+        "inline-flex items-center select-none py-0.5",
+        gapSizes[size],
         className
       )}
       {...props}
     >
       {renderCircleToken()}
-      <span className="font-bold tracking-wide uppercase text-[10px] leading-none">
+      <span
+        className={cn(
+          "font-black tracking-wider uppercase leading-none select-none",
+          config.labelColor,
+          labelSizes[size]
+        )}
+      >
         {displayLabel}
       </span>
     </div>
