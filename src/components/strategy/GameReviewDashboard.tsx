@@ -36,8 +36,13 @@ interface AuditedTradeRow {
   sellPriceUSD: number;
   avgBuyPriceUSD: number;
   currentHoldPriceUSD: number;
-  netCostUSD: number;
+  realizedPnlUSD: number;
+  realizedPnlARS: number;
   doNothingUSD: number;
+  doNothingARS: number;
+  edgeVsHoldUSD: number;
+  edgeVsHoldARS: number;
+  netCostUSD: number;
 }
 
 export function GameReviewDashboard() {
@@ -59,11 +64,12 @@ export function GameReviewDashboard() {
     totalNetCostUSD: 0,
     categoryEdgeUSD: {},
   });
+  const [totalEdgeVsHoldUSD, setTotalEdgeVsHoldUSD] = useState<number>(0);
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<string>("all");
 
   // Map closed trades (sells)
   const closedTrades = useMemo(() => {
-    return trades.filter((t) => t.trade_type === "sell" || (t as any).status === "closed");
+    return trades.filter((t) => t.trade_type === "sell");
   }, [trades]);
 
   // Compute audits
@@ -81,6 +87,7 @@ export function GameReviewDashboard() {
             totalNetCostUSD: 0,
             categoryEdgeUSD: {},
           });
+          setTotalEdgeVsHoldUSD(0);
         }
         return;
       }
@@ -142,6 +149,8 @@ export function GameReviewDashboard() {
       });
 
       const rows: AuditedTradeRow[] = [];
+      let sumEdgeVsHoldUSD = 0;
+
       for (let i = 0; i < closedTrades.length; i++) {
         const inp = mappedInputs[i];
         const audit = await auditClosedTrade(inp);
@@ -149,7 +158,15 @@ export function GameReviewDashboard() {
         const sellPriceUSD = inp.sellPriceARS / rate;
         const avgBuyPriceUSD = inp.buyPriceARS / rate;
         const currentHoldPriceUSD = (inp.holdingPriceAtSellDateARS || inp.sellPriceARS) / rate;
-        const doNothingUSD = (audit.doNothingReturnARS || 0) / rate;
+
+        const realizedPnlUSD = (sellPriceUSD - avgBuyPriceUSD) * inp.quantity;
+        const realizedPnlARS = (inp.sellPriceARS - inp.buyPriceARS) * inp.quantity;
+        const doNothingUSD = (currentHoldPriceUSD - avgBuyPriceUSD) * inp.quantity;
+        const doNothingARS = ((inp.holdingPriceAtSellDateARS || inp.sellPriceARS) - inp.buyPriceARS) * inp.quantity;
+        const edgeVsHoldUSD = (sellPriceUSD - currentHoldPriceUSD) * inp.quantity;
+        const edgeVsHoldARS = (inp.sellPriceARS - (inp.holdingPriceAtSellDateARS || inp.sellPriceARS)) * inp.quantity;
+
+        sumEdgeVsHoldUSD += edgeVsHoldUSD;
 
         rows.push({
           trade: closedTrades[i],
@@ -158,8 +175,13 @@ export function GameReviewDashboard() {
           sellPriceUSD,
           avgBuyPriceUSD,
           currentHoldPriceUSD,
-          netCostUSD: audit.netCostOfTradingUSD,
+          realizedPnlUSD,
+          realizedPnlARS,
           doNothingUSD,
+          doNothingARS,
+          edgeVsHoldUSD,
+          edgeVsHoldARS,
+          netCostUSD: audit.netCostOfTradingUSD,
         });
       }
 
@@ -168,6 +190,7 @@ export function GameReviewDashboard() {
       if (isMounted) {
         setAuditedRows(rows);
         setAggregateMetrics(metrics);
+        setTotalEdgeVsHoldUSD(sumEdgeVsHoldUSD);
       }
     }
 
@@ -265,25 +288,25 @@ export function GameReviewDashboard() {
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-                  Costo Operar vs Hold
+                  Costo / Edge vs Hold
                 </span>
-                <ChessBadge evaluation={aggregateMetrics.totalNetCostUSD <= 0 ? "brillante" : "error"} circleOnly size="xs" />
+                <ChessBadge evaluation={totalEdgeVsHoldUSD >= 0 ? "brillante" : "blunder"} circleOnly size="xs" />
               </div>
               <div
                 className={`text-2xl font-black ${
-                  aggregateMetrics.totalNetCostUSD <= 0 ? "text-emerald-400" : "text-rose-400"
+                  totalEdgeVsHoldUSD >= 0 ? "text-emerald-400" : "text-rose-400"
                 }`}
               >
-                {aggregateMetrics.totalNetCostUSD <= 0 ? "+" : "-"}US${" "}
-                {Math.abs(aggregateMetrics.totalNetCostUSD).toLocaleString("en-US", {
+                {totalEdgeVsHoldUSD >= 0 ? "+" : "-"}US${" "}
+                {Math.abs(totalEdgeVsHoldUSD).toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {aggregateMetrics.totalNetCostUSD <= 0
-                  ? "Edge positivo por operar"
-                  : "Dinero perdido vs No Tocar Nada"}
+                {totalEdgeVsHoldUSD >= 0
+                  ? "Ganancia extra generada por operar vs Hold"
+                  : "Costo de oportunidad vs No Tocar Nada"}
               </p>
             </div>
 
@@ -332,7 +355,7 @@ export function GameReviewDashboard() {
                 Desglose de Decisiones Históricas ({filteredRows.length})
               </CardTitle>
               <CardDescription className="text-xs">
-                Auditoría detallada de cada operación cerrada con su contrafáctico.
+                Auditoría detallada de cada operación cerrada: ganancia real, contrafáctico si conservabas y edge de trading.
               </CardDescription>
             </div>
 
@@ -391,11 +414,11 @@ export function GameReviewDashboard() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Activo / Símbolo</TableHead>
-                <TableHead>Clasificación</TableHead>
-                <TableHead className="text-right">Precio Venta (USD / ARS)</TableHead>
+                <TableHead>Evaluación</TableHead>
+                <TableHead className="text-right">Precio Venta</TableHead>
+                <TableHead className="text-right">P&L Realizado (USD / ARS)</TableHead>
                 <TableHead className="text-right">Contrafáctico (Do-Nothing)</TableHead>
-                <TableHead className="text-right">vs CCL / SPY</TableHead>
-                <TableHead className="text-right">Costo / Ganancia Neta (USD)</TableHead>
+                <TableHead className="text-right">Edge vs Hold (USD)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -408,8 +431,9 @@ export function GameReviewDashboard() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRows.map(({ trade, input, audit, sellPriceUSD, doNothingUSD, netCostUSD }) => {
-                  const isPositiveGain = netCostUSD <= 0;
+                filteredRows.map(({ trade, input, audit, sellPriceUSD, avgBuyPriceUSD, currentHoldPriceUSD, realizedPnlUSD, realizedPnlARS, doNothingUSD, doNothingARS, edgeVsHoldUSD, edgeVsHoldARS }) => {
+                  const isGain = realizedPnlUSD >= 0;
+                  const isPositiveEdge = edgeVsHoldUSD >= 0;
                   return (
                     <TableRow key={trade.id} className="hover:bg-muted/40">
                       <TableCell className="font-bold text-foreground">
@@ -430,6 +454,16 @@ export function GameReviewDashboard() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
+                        <span className={`font-bold ${isGain ? "text-emerald-400" : "text-rose-400"}`}>
+                          {isGain ? "+" : ""}US${" "}
+                          {realizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block font-sans">
+                          {realizedPnlARS >= 0 ? "+" : ""}${" "}
+                          {realizedPnlARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
                         <span
                           className={
                             doNothingUSD >= 0 ? "text-emerald-400 font-semibold" : "text-destructive font-semibold"
@@ -442,23 +476,20 @@ export function GameReviewDashboard() {
                           })}
                         </span>
                         <span className="text-[10px] text-muted-foreground block font-sans">
-                          {audit.doNothingReturnARS >= 0 ? "+" : ""}${" "}
-                          {audit.doNothingReturnARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+                          {doNothingARS >= 0 ? "+" : ""}${" "}
+                          {doNothingARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                        <div>
-                          <span>CCL: {audit.benchmarkReturns.cclReturn >= 0 ? "+" : ""}{audit.benchmarkReturns.cclReturn.toFixed(1)}%</span>
-                          <span className="block text-[10px]">SPY: {audit.benchmarkReturns.spyReturn >= 0 ? "+" : ""}{audit.benchmarkReturns.spyReturn.toFixed(1)}%</span>
-                        </div>
-                      </TableCell>
                       <TableCell className="text-right font-mono text-sm font-bold">
-                        <span className={isPositiveGain ? "text-emerald-400" : "text-rose-400"}>
-                          {isPositiveGain ? "+" : "-"}US${" "}
-                          {Math.abs(netCostUSD).toLocaleString("en-US", {
+                        <span className={isPositiveEdge ? "text-emerald-400" : "text-rose-400"}>
+                          {isPositiveEdge ? "+" : ""}US${" "}
+                          {edgeVsHoldUSD.toLocaleString("en-US", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block font-sans font-normal">
+                          {isPositiveEdge ? "Alpha por vender" : "Costo de oportunidad"}
                         </span>
                       </TableCell>
                     </TableRow>
