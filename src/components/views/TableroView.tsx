@@ -524,7 +524,7 @@ export function TableroView() {
                           )}
                           {gainDisplayMode === "real_ipc" && (
                             <span className={isPositive ? "text-primary font-semibold" : "text-destructive font-semibold"}>
-                              {isPositive ? "+" : ""}$ {(pnlARS * 0.95).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ({pnlPct.toFixed(1)}%)
+                              {isPositive ? "+" : ""}$ {(pnlARS * (netWorth3Col.nominalARS > 0 ? netWorth3Col.realVsIPC / netWorth3Col.nominalARS : 1)).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ({pnlPct.toFixed(1)}%)
                             </span>
                           )}
                           {gainDisplayMode === "usd_ccl" && (

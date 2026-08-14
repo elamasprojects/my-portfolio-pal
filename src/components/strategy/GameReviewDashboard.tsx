@@ -126,10 +126,16 @@ export function GameReviewDashboard() {
   // Filtered rows
   const filteredRows = useMemo(() => {
     if (selectedOutcomeFilter === "all") return auditedRows;
-    return auditedRows.filter((r) => r.audit.outcomeClassification === selectedOutcomeFilter);
+    return auditedRows.filter((r) => {
+      const cls = r.audit.outcomeClassification;
+      if (selectedOutcomeFilter === "Imprecisión" || selectedOutcomeFilter === "Imprecision") {
+        return cls === "Imprecisión" || cls === "Imprecision";
+      }
+      return cls === selectedOutcomeFilter;
+    });
   }, [auditedRows, selectedOutcomeFilter]);
 
-  const getOutcomeBadge = (outcome: TradeOutcome) => {
+  const getOutcomeBadge = (outcome: TradeOutcome | string) => {
     switch (outcome) {
       case "Brillante":
         return (
@@ -146,6 +152,7 @@ export function GameReviewDashboard() {
           </Badge>
         );
       case "Imprecisión":
+      case "Imprecision":
         return (
           <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs font-bold gap-1">
             <AlertTriangle className="h-3 w-3" />
@@ -157,6 +164,12 @@ export function GameReviewDashboard() {
           <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs font-bold gap-1">
             <AlertOctagon className="h-3 w-3" />
             Blunder
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="text-xs font-bold">
+            {outcome}
           </Badge>
         );
     }
