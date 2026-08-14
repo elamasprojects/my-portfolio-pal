@@ -2,6 +2,21 @@ import { useEffect, useState, createContext, useContext, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+const DEFAULT_SINGLE_USER: Session = {
+  access_token: "single-user-token",
+  token_type: "bearer",
+  expires_in: 360000,
+  refresh_token: "single-user-refresh",
+  user: {
+    id: "single-user",
+    email: "user@chess.local",
+    app_metadata: {},
+    user_metadata: {},
+    aud: "authenticated",
+    created_at: new Date().toISOString(),
+  },
+};
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -10,34 +25,53 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({
-  session: null,
-  user: null,
-  loading: true,
+  session: DEFAULT_SINGLE_USER,
+  user: DEFAULT_SINGLE_USER.user,
+  loading: false,
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(DEFAULT_SINGLE_USER);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (isMounted) {
+        if (currentSession) {
+          setSession(currentSession);
+        } else {
+          setSession(DEFAULT_SINGLE_USER);
+        }
         setLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setSession(DEFAULT_SINGLE_USER);
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, currentSession) => {
+        if (isMounted) {
+          setSession(currentSession || DEFAULT_SINGLE_USER);
+          setLoading(false);
+        }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
   };
 
   return (

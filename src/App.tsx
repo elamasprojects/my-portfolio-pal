@@ -4,46 +4,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-import { LanguageProvider } from "@/i18n";
-import { AppModeProvider } from "@/hooks/useAppMode";
-import { AppLayout } from "@/components/AppLayout";
+import AppLayout from "@/components/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
-import { WatchRedirect } from "@/components/WatchRedirect";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import AddTradeHub from "./pages/AddTradeHub";
-import TradeLog from "./pages/TradeLog";
-import AssetDetail from "./pages/AssetDetail";
-import AnalysisHub from "./pages/AnalysisHub";
-import ProgressHub from "./pages/ProgressHub";
-import Portfolio from "./pages/Portfolio";
-import Chess from "./pages/Chess";
-import Settings from "./pages/Settings";
-import Strategy from "./pages/Strategy";
-import Players from "./pages/Players";
-import PlayerProfile from "./pages/PlayerProfile";
-import SharedExport from "./pages/SharedExport";
-import Landing from "./pages/Landing";
-import Install from "./pages/Install";
-import NotFound from "./pages/NotFound";
-import ToolsLayout from "./components/ToolsLayout";
-import Tools from "./pages/Tools";
-import RiskProfile from "./pages/RiskProfile";
-import CompoundCalculator from "./pages/CompoundCalculator";
-import DCASimulator from "./pages/DCASimulator";
-import Security from "./pages/Security";
-import DemoApp from "./pages/demo/DemoApp";
-import Watch from "./pages/Watch";
-import Alerts from "./pages/Alerts";
-import Watchlist from "./pages/Watchlist";
 
-// Personal Finance Pages
-import FinanceDashboard from "./pages/finance/FinanceDashboard";
-import FinanceTimeline from "./pages/finance/FinanceTimeline";
-import FinanceAnalytics from "./pages/finance/FinanceAnalytics";
-import CategoriesManager from "./pages/finance/CategoriesManager";
-import PaymentMethodsManager from "./pages/finance/PaymentMethodsManager";
-import ReviewQueuePage from "./pages/finance/ReviewQueuePage";
+// Core Pages / Views
+import Auth from "./pages/Auth";
+import Index from "./pages/Index";
+import TradeLog from "./pages/TradeLog";
+import Strategy from "./pages/Strategy";
 
 const queryClient = new QueryClient();
 
@@ -58,72 +26,62 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <LanguageProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AppModeProvider>
-              <WatchRedirect />
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/landing" element={<Landing />} />
-                <Route path="/install" element={<Install />} />
-                <Route path="/share/:id" element={<SharedExport />} />
-                <Route path="/tools" element={<ToolsLayout />}>
-                  <Route index element={<Tools />} />
-                  <Route path="risk-profile" element={<RiskProfile />} />
-                  <Route path="compound" element={<CompoundCalculator />} />
-                  <Route path="dca" element={<DCASimulator />} />
-                </Route>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            {/* Public Authentication Route */}
+            <Route path="/auth" element={<Auth />} />
 
-                {/* Investments Routes */}
-                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                <Route path="/add" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
-                <Route path="/add/import" element={<ProtectedRoute><AddTradeHub /></ProtectedRoute>} />
-                <Route path="/trades" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
-                <Route path="/analysis" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
-                <Route path="/analysis/timeline" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
-                <Route path="/analysis/report" element={<ProtectedRoute><AnalysisHub /></ProtectedRoute>} />
-                <Route path="/progress" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
-                <Route path="/progress/discipline" element={<ProtectedRoute><ProgressHub /></ProtectedRoute>} />
-                <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-                <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
-                <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
-                <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/security" element={<ProtectedRoute><Security /></ProtectedRoute>} />
-                <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
-                <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
-                <Route path="/players" element={<ProtectedRoute><Players /></ProtectedRoute>} />
-                <Route path="/player/:username" element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} />
+            {/* The 3 Primary Chess Routes */}
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/movements" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
+            <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
 
-                {/* Personal Finance Routes */}
-                <Route path="/finance" element={<ProtectedRoute><FinanceDashboard /></ProtectedRoute>} />
-                <Route path="/finance/timeline" element={<ProtectedRoute><FinanceTimeline /></ProtectedRoute>} />
-                <Route path="/finance/analytics" element={<ProtectedRoute><FinanceAnalytics /></ProtectedRoute>} />
-                <Route path="/finance/categories" element={<ProtectedRoute><CategoriesManager /></ProtectedRoute>} />
-                <Route path="/finance/payment-methods" element={<ProtectedRoute><PaymentMethodsManager /></ProtectedRoute>} />
-                <Route path="/finance/review" element={<ProtectedRoute><ReviewQueuePage /></ProtectedRoute>} />
+            {/* Graceful Legacy Path Redirects -> Tablero (/) */}
+            <Route path="/players" element={<Navigate to="/" replace />} />
+            <Route path="/player/:username" element={<Navigate to="/" replace />} />
+            <Route path="/security" element={<Navigate to="/" replace />} />
+            <Route path="/progress" element={<Navigate to="/" replace />} />
+            <Route path="/analysis" element={<Navigate to="/" replace />} />
+            <Route path="/analysis/*" element={<Navigate to="/" replace />} />
+            <Route path="/portfolio" element={<Navigate to="/" replace />} />
+            <Route path="/chess" element={<Navigate to="/" replace />} />
+            <Route path="/settings" element={<Navigate to="/" replace />} />
+            <Route path="/demo" element={<Navigate to="/" replace />} />
+            <Route path="/watch" element={<Navigate to="/" replace />} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
+            <Route path="/install" element={<Navigate to="/" replace />} />
+            <Route path="/tools" element={<Navigate to="/" replace />} />
+            <Route path="/tools/*" element={<Navigate to="/" replace />} />
 
-                {/* Mobile redesign prototype (Design Lab) */}
-                <Route path="/demo" element={<DemoApp />} />
-                <Route path="/watch" element={<Watch />} />
+            {/* Graceful Legacy Path Redirects -> Movimientos (/movements) */}
+            <Route path="/trades" element={<Navigate to="/movements" replace />} />
+            <Route path="/add" element={<Navigate to="/movements" replace />} />
+            <Route path="/add/*" element={<Navigate to="/movements" replace />} />
+            <Route path="/finance" element={<Navigate to="/movements" replace />} />
+            <Route path="/finance/*" element={<Navigate to="/movements" replace />} />
 
-                {/* Legacy redirects */}
-                <Route path="/export" element={<Navigate to="/portfolio" replace />} />
-                <Route path="/import" element={<Navigate to="/add/import" replace />} />
-                <Route path="/performance" element={<Navigate to="/analysis" replace />} />
-                <Route path="/timeline" element={<Navigate to="/analysis/timeline" replace />} />
-                <Route path="/report" element={<Navigate to="/analysis/report" replace />} />
-                <Route path="/achievements" element={<Navigate to="/progress" replace />} />
-                <Route path="/discipline" element={<Navigate to="/progress/discipline" replace />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AppModeProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </LanguageProvider>
+            {/* Graceful Legacy Path Redirects -> Estrategia (/strategy) */}
+            <Route path="/watchlist" element={<Navigate to="/strategy" replace />} />
+            <Route path="/alerts" element={<Navigate to="/strategy" replace />} />
+            <Route path="/progress/discipline" element={<Navigate to="/strategy" replace />} />
+
+            {/* Historical Legacy Aliases */}
+            <Route path="/export" element={<Navigate to="/" replace />} />
+            <Route path="/import" element={<Navigate to="/movements" replace />} />
+            <Route path="/performance" element={<Navigate to="/" replace />} />
+            <Route path="/timeline" element={<Navigate to="/movements" replace />} />
+            <Route path="/report" element={<Navigate to="/" replace />} />
+            <Route path="/achievements" element={<Navigate to="/" replace />} />
+            <Route path="/discipline" element={<Navigate to="/strategy" replace />} />
+
+            {/* Fallback Catch-All Redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

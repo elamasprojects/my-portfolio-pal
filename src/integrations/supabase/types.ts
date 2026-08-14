@@ -35,6 +35,33 @@ export type Database = {
         }
         Relationships: []
       }
+      backups: {
+        Row: {
+          created_at: string
+          export_data: Json
+          id: string
+          is_verified: boolean
+          retention_weeks: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          export_data: Json
+          id?: string
+          is_verified?: boolean
+          retention_weeks?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          export_data?: Json
+          id?: string
+          is_verified?: boolean
+          retention_weeks?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       brokers: {
         Row: {
           category: string
@@ -110,6 +137,113 @@ export type Database = {
           status?: Database["public"]["Enums"]["follow_status"]
           target_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      fx_rates: {
+        Row: {
+          ccl_rate: number
+          created_at: string
+          id: string
+          mep_rate: number | null
+          oficial_rate: number | null
+          rate_date: string
+          source: string
+        }
+        Insert: {
+          ccl_rate: number
+          created_at?: string
+          id?: string
+          mep_rate?: number | null
+          oficial_rate?: number | null
+          rate_date: string
+          source?: string
+        }
+        Update: {
+          ccl_rate?: number
+          created_at?: string
+          id?: string
+          mep_rate?: number | null
+          oficial_rate?: number | null
+          rate_date?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      game_reviews: {
+        Row: {
+          audited_at: string
+          ccl_return: number | null
+          created_at: string
+          do_nothing_return_ars: number | null
+          fixed_deposit_return: number | null
+          id: string
+          net_cost_usd: number | null
+          outcome_classification: string
+          spy_return: number | null
+          trade_id: string
+          user_id: string | null
+        }
+        Insert: {
+          audited_at?: string
+          ccl_return?: number | null
+          created_at?: string
+          do_nothing_return_ars?: number | null
+          fixed_deposit_return?: number | null
+          id?: string
+          net_cost_usd?: number | null
+          outcome_classification?: string
+          spy_return?: number | null
+          trade_id: string
+          user_id?: string | null
+        }
+        Update: {
+          audited_at?: string
+          ccl_return?: number | null
+          created_at?: string
+          do_nothing_return_ars?: number | null
+          fixed_deposit_return?: number | null
+          id?: string
+          net_cost_usd?: number | null
+          outcome_classification?: string
+          spy_return?: number | null
+          trade_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_reviews_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: true
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      inflation_index: {
+        Row: {
+          created_at: string
+          id: string
+          index_value: number
+          month: string
+          monthly_rate: number | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          index_value: number
+          month: string
+          monthly_rate?: number | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          index_value?: number
+          month?: string
+          monthly_rate?: number | null
+          source?: string
         }
         Relationships: []
       }
@@ -424,6 +558,11 @@ export type Database = {
           total_amount: number | null
           trade_date: string
           trade_type: Database["public"]["Enums"]["trade_type"]
+          entry_thesis: string | null
+          invalidation_condition: string | null
+          is_planned_exit: boolean | null
+          target_price_ars: number | null
+          unplanned_rationale: string | null
           user_id: string
         }
         Insert: {
@@ -433,7 +572,10 @@ export type Database = {
           commission_amount?: number
           commission_pct?: number
           created_at?: string
+          entry_thesis?: string | null
           id?: string
+          invalidation_condition?: string | null
+          is_planned_exit?: boolean | null
           journal_notes?: Json | null
           mep_rate?: number | null
           notes?: string | null
@@ -444,9 +586,11 @@ export type Database = {
           quantity: number
           strategy_id?: string | null
           symbol: string
+          target_price_ars?: number | null
           total_amount?: number | null
           trade_date?: string
           trade_type?: Database["public"]["Enums"]["trade_type"]
+          unplanned_rationale?: string | null
           user_id: string
         }
         Update: {
@@ -456,7 +600,10 @@ export type Database = {
           commission_amount?: number
           commission_pct?: number
           created_at?: string
+          entry_thesis?: string | null
           id?: string
+          invalidation_condition?: string | null
+          is_planned_exit?: boolean | null
           journal_notes?: Json | null
           mep_rate?: number | null
           notes?: string | null
@@ -467,9 +614,11 @@ export type Database = {
           quantity?: number
           strategy_id?: string | null
           symbol?: string
+          target_price_ars?: number | null
           total_amount?: number | null
           trade_date?: string
           trade_type?: Database["public"]["Enums"]["trade_type"]
+          unplanned_rationale?: string | null
           user_id?: string
         }
         Relationships: [

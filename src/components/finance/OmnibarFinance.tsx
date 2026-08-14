@@ -448,3 +448,36 @@ export function OmnibarFinance({
     </Dialog>
   );
 }
+
+/**
+ * Natural Language Parser for Omnibar Finance Input (R1)
+ */
+export function parseOmnibarInput(input: string): { amountARS: number; category: string; cleanText: string } {
+  // Strip emojis and unescaped quotes
+  const cleanText = input.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}'"]/gu, '').trim();
+
+  // Extract monetary amount: matches $15.500,50 or $15500.50 or 4500
+  const match = cleanText.match(/\$?\s*([\d\.,]+)/);
+  let amountARS = 0;
+  if (match) {
+    let rawNum = match[1];
+    if (rawNum.includes('.') && rawNum.includes(',')) {
+      // Argentine format 15.500,50 -> 15500.50
+      rawNum = rawNum.replace(/\./g, '').replace(',', '.');
+    } else if (rawNum.includes(',') && !rawNum.includes('.')) {
+      rawNum = rawNum.replace(',', '.');
+    }
+    amountARS = parseFloat(rawNum) || 0;
+  }
+
+  let category = 'Otros';
+  const lower = cleanText.toLowerCase();
+  if (lower.includes('supermercado') || lower.includes('coto') || lower.includes('comida') || lower.includes('almuerzo')) {
+    category = 'Comida';
+  } else if (lower.includes('paypal') || lower.includes('servicio')) {
+    category = 'Servicios';
+  }
+
+  return { amountARS, category, cleanText };
+}
+
