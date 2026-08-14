@@ -345,10 +345,11 @@ export function MovimientosView() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch gap-2">
-            <div className="relative flex-1">
+          <div className="space-y-3">
+            {/* Spacious Input Box */}
+            <div className="relative">
               <Input
-                placeholder="Ingresa un gasto o movimiento... (ej: Coto 45.000 o Nafta $12000)"
+                placeholder="Ingresa un gasto o movimiento... (ej: Coto 45.000, Uber 15 usd, Alquiler 250000)"
                 value={omnibarText}
                 onChange={(e) => setOmnibarText(e.target.value)}
                 onKeyDown={(e) => {
@@ -357,58 +358,70 @@ export function MovimientosView() {
                     handleSubmitOmnibar();
                   }
                 }}
-                className="pr-20 bg-background/80 border-border/80 text-sm font-medium"
+                className="h-12 text-sm font-medium px-4 bg-background/90 border-border/80 rounded-xl shadow-inner"
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={handlePasteFromClipboard}
-                  title="Pegar del portapapeles"
-                >
-                  <ClipboardPaste className="h-4 w-4" />
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setSelectedFile(f);
-                      setPreviewUrl(URL.createObjectURL(f));
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Subir captura"
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <AudioQuickRecorder
-                onTranscriptReady={(transcript) => {
-                  setOmnibarText((prev) => `${prev} ${transcript}`.trim());
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setSelectedFile(f);
+                    setPreviewUrl(URL.createObjectURL(f));
+                  }
                 }}
               />
+            </div>
+
+            {/* Prominent External Action Buttons Bar */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 pt-1">
+              <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
+                {/* 1. Voice Dictation Button */}
+                <AudioQuickRecorder
+                  onTranscriptReady={(transcript) => {
+                    setOmnibarText((prev) => `${prev} ${transcript}`.trim());
+                  }}
+                />
+
+                {/* 2. Paste from Clipboard */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePasteFromClipboard}
+                  className="h-10 text-xs font-semibold px-3 rounded-xl border-border/70 bg-background/60 hover:bg-muted gap-1.5 flex-1 sm:flex-initial"
+                >
+                  <ClipboardPaste className="h-4 w-4 text-primary" />
+                  <span>Pegar</span>
+                </Button>
+
+                {/* 3. Upload Receipt */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-10 text-xs font-semibold px-3 rounded-xl border-border/70 bg-background/60 hover:bg-muted gap-1.5 flex-1 sm:flex-initial"
+                >
+                  <Upload className="h-4 w-4 text-primary" />
+                  <span>Subir Captura</span>
+                </Button>
+              </div>
+
+              {/* 4. Primary Register Button */}
               <Button
                 onClick={() => handleSubmitOmnibar()}
-                disabled={isSubmitting}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4"
+                disabled={isSubmitting || (!omnibarText.trim() && !selectedFile)}
+                className="h-10 text-xs font-bold px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md gap-2 col-span-2 sm:col-span-1 w-full sm:w-auto"
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 mr-1.5" />}
-                Registrar
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                <span>Registrar Movimiento</span>
               </Button>
             </div>
           </div>

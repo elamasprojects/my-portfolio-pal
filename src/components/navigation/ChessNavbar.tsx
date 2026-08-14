@@ -1,9 +1,10 @@
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
+  TrendingUp,
   ArrowLeftRight,
   Target,
+  Landmark,
   Search,
   LogOut,
 } from "lucide-react";
@@ -26,9 +27,10 @@ interface ChessNavbarProps {
 }
 
 const navItems = [
-  { label: "Tablero", url: "/", icon: LayoutDashboard, exact: true },
-  { label: "Movimientos", url: "/movements", icon: ArrowLeftRight, exact: false },
+  { label: "Portafolio", url: "/", icon: TrendingUp, exact: true },
   { label: "Estrategia", url: "/strategy", icon: Target, exact: false },
+  { label: "Movimientos", url: "/movements", icon: ArrowLeftRight, exact: false },
+  { label: "Patrimonio", url: "/patrimonio", icon: Landmark, exact: false },
 ];
 
 export function ChessNavbar({ onOpenOmnibar }: ChessNavbarProps) {

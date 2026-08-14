@@ -1,12 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
-import { useUnifiedFinancials } from "@/hooks/useUnifiedFinancials";
-import { useTrades, computeHoldings, computePerformance, computeCash, Holding, Trade } from "@/hooks/usePortfolio";
+import { useState, useMemo } from "react";
+import { useTrades, computeHoldings, computePerformance, Holding, Trade } from "@/hooks/usePortfolio";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
-import { calculateRealReturns, calculateRealReturnsBatch } from "@/lib/realReturns";
-import { RealReturnColumns } from "@/types/realReturns";
-import { makeFormatters } from "@/lib/format";
-import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
 import { MobileSwipeableHoldingCard } from "@/components/MobileSwipeableHoldingCard";
 import { ClosedPositionSummaryDialog, ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
@@ -16,32 +11,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ChessBadge } from "@/components/ui/ChessBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
   PieChart as PieChartIcon,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
-  ShieldCheck,
-  Zap,
-  Activity,
-  Layers,
-  ArrowRightLeft,
-  Percent,
+  Search,
+  Target,
+  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  LayoutGrid,
+  ListFilter,
+  Smartphone,
+  ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
 
 export function TableroView() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  // Financial & market data hooks
-  const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
+  // Portfolio hooks
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
   const { venta: mepRate = 1200 } = useDolarMEP();
 
@@ -49,106 +45,125 @@ export function TableroView() {
   const symbols = useMemo(() => holdings.map((h) => h.symbol), [holdings]);
   const { prices: marketPrices, isLoading: pricesLoading } = useMarketPrices(symbols);
 
-  // Formatting helpers
-  const { fmt, cx } = makeFormatters("USD", mepRate);
+  const [activePortfolioTab, setActivePortfolioTab] = useState<"table" | "distribution" | "cards">("table");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
 
-  // Quick sell & closed position states
+  // Quick sell & closed summary dialogs
   const [quickSellOpen, setQuickSellOpen] = useState(false);
   const [selectedHoldingForSell, setSelectedHoldingForSell] = useState<Holding | null>(null);
   const [sellCurrentPrice, setSellCurrentPrice] = useState<number | null>(null);
   const [closedSummaryOpen, setClosedSummaryOpen] = useState(false);
   const [closedSummaryData, setClosedSummaryData] = useState<ClosedPositionSummary | null>(null);
 
-  // Active Holdings Gain Column Toggle: 'nominal' | 'real_ipc' | 'usd_ccl'
-  const [gainDisplayMode, setGainDisplayMode] = useState<"nominal" | "real_ipc" | "usd_ccl">("nominal");
-
-  // 1. Calculate Net Worth in 3 Columns
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
-  const netWorthUSD = netWorthMetrics.netWorthUSD || 0;
-  const netWorthARS = netWorthUSD * effectiveCclRate;
 
-  const [netWorth3Col, setNetWorth3Col] = useState<RealReturnColumns>({
-    nominalARS: netWorthARS,
-    realVsIPC: netWorthARS,
-    usdVsCCL: netWorthUSD,
-  });
+  // Compute live portfolio metrics (All in USD)
+  const portfolioMetrics = useMemo(() => {
+    let totalInvestedUSD = 0;
+    let currentMarketValueUSD = 0;
+    let totalTargetHits = 0;
+    let totalInvalidations = 0;
 
-  // 2. Capital Conversion Rate 3-Column saved capital calculation
-  const monthlyInflowUSD = netWorthMetrics.monthlyBrokerInflowUSD || 0;
-  const monthlyInflowARS = monthlyInflowUSD * effectiveCclRate;
-  const [capitalSaved3Col, setCapitalSaved3Col] = useState<RealReturnColumns>({
-    nominalARS: monthlyInflowARS,
-    realVsIPC: monthlyInflowARS,
-    usdVsCCL: monthlyInflowUSD,
-  });
+    const holdingsEnriched = holdings.map((h) => {
+      const livePriceUSD = marketPrices.get(h.symbol.toUpperCase()) || h.avg_cost;
+      const positionCostUSD = h.avg_cost * h.net_quantity;
+      const positionMarketValUSD = livePriceUSD * h.net_quantity;
+      const unrealizedPnlUSD = positionMarketValUSD - positionCostUSD;
+      const unrealizedPnlPct = positionCostUSD > 0 ? (unrealizedPnlUSD / positionCostUSD) * 100 : 0;
 
-  // 3. 3-Column Real Returns Batch P&L
-  const [realReturnsTableData, setRealReturnsTableData] = useState<
-    { category: string; nominalARS: number; realVsIPC: number; usdVsCCL: number }[]
-  >([]);
+      totalInvestedUSD += positionCostUSD;
+      currentMarketValueUSD += positionMarketValUSD;
 
-  useEffect(() => {
-    let isMounted = true;
-    async function load3ColMetrics() {
-      const todayIso = new Date().toISOString().split("T")[0];
-      const monthStartIso = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-      const yearStartIso = `${new Date().getFullYear()}-01-01`;
+      // Match thesis for target & invalidation
+      const symbolTrades = trades.filter((t) => t.symbol === h.symbol && t.trade_type === "buy");
+      const latestBuy = symbolTrades[symbolTrades.length - 1];
+      const targetPriceUSD = latestBuy?.target_price_ars
+        ? (latestBuy.target_price_ars > 1000 ? latestBuy.target_price_ars / effectiveCclRate : latestBuy.target_price_ars)
+        : 0;
+      const invalidationPriceUSD = (latestBuy as any)?.invalidation_price_ars
+        ? ((latestBuy as any).invalidation_price_ars > 1000 ? (latestBuy as any).invalidation_price_ars / effectiveCclRate : (latestBuy as any).invalidation_price_ars)
+        : (latestBuy?.avg_cost ? latestBuy.avg_cost * 0.85 : 0);
 
-      // Net Worth 3-column calculation
-      const nwRes = await calculateRealReturns({
-        amountARS: netWorthARS,
-        startDate: monthStartIso,
-        endDate: todayIso,
-      });
+      const isTargetHit = targetPriceUSD > 0 && livePriceUSD >= targetPriceUSD;
+      const isInvalidationHit = (invalidationPriceUSD > 0 && livePriceUSD <= invalidationPriceUSD) || unrealizedPnlPct <= -15;
 
-      // Capital saved 3-column calculation
-      const capRes = await calculateRealReturns({
-        amountARS: monthlyInflowARS,
-        startDate: monthStartIso,
-        endDate: todayIso,
-      });
+      if (isTargetHit) totalTargetHits++;
+      if (isInvalidationHit && !isTargetHit) totalInvalidations++;
 
-      // Batch P&L calculation for asset categories & portfolio breakdown
-      const assetCategories = [
-        { key: "total", label: "Patrimonio Total", usd: netWorthMetrics.netWorthUSD },
-        { key: "portfolio", label: "Portafolio Inversiones", usd: netWorthMetrics.portfolioMarketValueUSD },
-        { key: "liquid", label: "Efectivo Líquido", usd: netWorthMetrics.liquidCashUSD },
-        { key: "broker", label: "Efectivo Broker", usd: netWorthMetrics.brokerCashUSD },
-      ];
-
-      const batchParams = assetCategories.map((item) => ({
-        amountARS: item.usd * effectiveCclRate,
-        startDate: yearStartIso,
-        endDate: todayIso,
-      }));
-
-      const batchResults = await calculateRealReturnsBatch(batchParams);
-
-      if (isMounted) {
-        setNetWorth3Col(nwRes);
-        setCapitalSaved3Col(capRes);
-        setRealReturnsTableData(
-          assetCategories.map((item, idx) => ({
-            category: item.label,
-            nominalARS: batchResults[idx].nominalARS,
-            realVsIPC: batchResults[idx].realVsIPC,
-            usdVsCCL: batchResults[idx].usdVsCCL,
-          }))
-        );
+      let targetProgressPct = 0;
+      if (targetPriceUSD > 0 && livePriceUSD > 0) {
+        targetProgressPct = Math.min(100, Math.max(0, (livePriceUSD / targetPriceUSD) * 100));
       }
+
+      return {
+        ...h,
+        livePriceUSD,
+        positionCostUSD,
+        positionMarketValUSD,
+        unrealizedPnlUSD,
+        unrealizedPnlPct,
+        targetPriceUSD,
+        invalidationPriceUSD,
+        isTargetHit,
+        isInvalidationHit,
+        targetProgressPct,
+        entryThesis: latestBuy?.entry_thesis,
+        invalidationCondition: latestBuy?.invalidation_condition,
+      };
+    });
+
+    const totalPnlUSD = currentMarketValueUSD - totalInvestedUSD;
+    const totalPnlPct = totalInvestedUSD > 0 ? (totalPnlUSD / totalInvestedUSD) * 100 : 0;
+
+    return {
+      totalInvestedUSD,
+      currentMarketValueUSD,
+      totalPnlUSD,
+      totalPnlPct,
+      totalTargetHits,
+      totalInvalidations,
+      holdingsEnriched,
+    };
+  }, [holdings, marketPrices, trades, effectiveCclRate]);
+
+  // Filtered holdings
+  const filteredHoldings = useMemo(() => {
+    return portfolioMetrics.holdingsEnriched.filter((h) => {
+      const matchesSearch =
+        h.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (h.asset_type && h.asset_type.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesCat =
+        selectedCategoryFilter === "all" ||
+        (h.asset_type && h.asset_type.toLowerCase() === selectedCategoryFilter.toLowerCase());
+
+      return matchesSearch && matchesCat;
+    });
+  }, [portfolioMetrics.holdingsEnriched, searchTerm, selectedCategoryFilter]);
+
+  // Asset category breakdown for Distribution View
+  const categoryBreakdown = useMemo(() => {
+    const map: Record<string, { count: number; valueUSD: number }> = {};
+    for (const h of portfolioMetrics.holdingsEnriched) {
+      const cat = h.asset_type ? h.asset_type.toUpperCase() : "CEDEARS";
+      if (!map[cat]) map[cat] = { count: 0, valueUSD: 0 };
+      map[cat].count += 1;
+      map[cat].valueUSD += h.positionMarketValUSD;
     }
 
-    load3ColMetrics();
-    return () => {
-      isMounted = false;
-    };
-  }, [netWorthARS, monthlyInflowARS, effectiveCclRate, netWorthMetrics]);
+    return Object.entries(map).map(([category, data]) => ({
+      category,
+      count: data.count,
+      valueUSD: data.valueUSD,
+      pct: portfolioMetrics.currentMarketValueUSD > 0 ? (data.valueUSD / portfolioMetrics.currentMarketValueUSD) * 100 : 0,
+    })).sort((a, b) => b.valueUSD - a.valueUSD);
+  }, [portfolioMetrics.holdingsEnriched, portfolioMetrics.currentMarketValueUSD]);
 
-  const handleOpenQuickSell = (holding: Holding, price?: number | null, e?: React.MouseEvent) => {
+  const handleOpenQuickSell = (holding: Holding, priceUSD: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setSelectedHoldingForSell(holding);
-    const convertedPrice = price ? cx(price) : holding.avg_cost ? cx(holding.avg_cost) : null;
-    setSellCurrentPrice(convertedPrice);
+    setSellCurrentPrice(priceUSD);
     setQuickSellOpen(true);
   };
 
@@ -157,429 +172,374 @@ export function TableroView() {
     setClosedSummaryOpen(true);
   };
 
-  const isLoading = unifiedLoading || tradesLoading || pricesLoading;
+  const isLoading = tradesLoading || pricesLoading;
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* HEADER SECTION */}
+    <div className="space-y-6 pb-16">
+      {/* 1. DAILY INVESTMENT HERO BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary" />
-            Tablero General
+            <TrendingUp className="h-6 w-6 text-primary" />
+            Portafolio de Inversiones
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Visión unificada de patrimonio, retorno real de capital en 3 columnas y flujo de caja.
+            Seguimiento en tiempo real de tus posiciones activas, avance hacia objetivos y alertas de salida.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 text-primary bg-primary/10">
-            Dólar CCL/MEP: ${effectiveCclRate.toLocaleString("es-AR")}
+          <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 text-primary bg-primary/10 font-mono">
+            MEP: ${effectiveCclRate.toLocaleString("es-AR")}
           </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/strategy")}
+            className="text-xs font-semibold gap-1.5 border-border/60"
+          >
+            <Target className="h-3.5 w-3.5 text-primary" />
+            Ver Tesis ({portfolioMetrics.holdingsEnriched.length})
+          </Button>
         </div>
       </div>
 
-      {/* 1. NET WORTH BANNER (3 SIMULTANEOUS COLUMNS) */}
-      <Card className="bg-card/90 border border-border/80 shadow-md relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-          <Wallet className="h-44 w-44 text-primary" />
-        </div>
+      {/* Top 4 Real-time Investment KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Capital Invertido */}
+        <Card className="bg-card border border-border/70 p-4 space-y-1">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+            Capital Invertido Activo
+          </span>
+          <div className="text-2xl font-black font-mono text-foreground">
+            US$ {portfolioMetrics.totalInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {holdings.length} posiciones abiertas en cartera
+          </p>
+        </Card>
+
+        {/* KPI 2: Valuación Actual de Cartera */}
+        <Card className="bg-card border border-border/70 p-4 space-y-1">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+            Valuación Total de Cartera
+          </span>
+          <div className="text-2xl font-black font-mono text-foreground">
+            US$ {portfolioMetrics.currentMarketValueUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <p className="text-[11px] text-muted-foreground font-mono">
+            ≈ ${(portfolioMetrics.currentMarketValueUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+          </p>
+        </Card>
+
+        {/* KPI 3: P&L Total No Realizado */}
+        <Card className="bg-card border border-border/70 p-4 space-y-1">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+            Retorno Total (P&L)
+          </span>
+          <div
+            className={`text-2xl font-black font-mono ${
+              portfolioMetrics.totalPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {portfolioMetrics.totalPnlUSD >= 0 ? "+" : ""}US${" "}
+            {portfolioMetrics.totalPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className="text-sm ml-1.5 font-bold">
+              ({portfolioMetrics.totalPnlPct >= 0 ? "+" : ""}{portfolioMetrics.totalPnlPct.toFixed(2)}%)
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">Ganancia/Pérdida latente en moneda dura</p>
+        </Card>
+
+        {/* KPI 4: Alertas de Tesis y Decisiones */}
+        <Card className="bg-card border border-border/70 p-4 space-y-1">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+            Alertas de Salida / Target
+          </span>
+          <div className="flex items-center gap-3 pt-0.5">
+            {portfolioMetrics.totalTargetHits > 0 ? (
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-lg">
+                <ChessBadge evaluation="brillante" circleOnly size="sm" />
+                <span>{portfolioMetrics.totalTargetHits} en Target</span>
+              </div>
+            ) : portfolioMetrics.totalInvalidations > 0 ? (
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-lg">
+                <ChessBadge evaluation="imprecision" circleOnly size="sm" />
+                <span>{portfolioMetrics.totalInvalidations} en Invalidación</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground text-sm font-semibold">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <span>Posiciones en curso</span>
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {portfolioMetrics.totalTargetHits > 0
+              ? "🎯 Oportunidad de toma de ganancias"
+              : "Revisión de hipótesis abierta"}
+          </p>
+        </Card>
+      </div>
+
+      {/* 2. MULTIPLE WAYS TO VIEW PORTFOLIO (VIEW SELECTOR) */}
+      <Card className="bg-card border border-border/80 shadow-md">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-            <span>Patrimonio Neto Unificado (Net Worth)</span>
-            <Badge variant="secondary" className="text-[10px] font-semibold">
-              3 Columnas Simultáneas
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <LayoutGrid className="h-5 w-5 text-primary" />
+                Explorador de Posiciones ({filteredHoldings.length})
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Múltiples vistas interactivas de tu cartera en dólares con cotizaciones en vivo.
+              </CardDescription>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
-              {/* Column 1: Nominal ARS */}
-              <div className="p-4 rounded-lg bg-background/60 border border-border/60">
-                <span className="text-xs text-muted-foreground font-medium block mb-1">
-                  1. Nominal ARS
-                </span>
-                <div className="text-2xl font-bold text-foreground">
-                  $ {netWorth3Col.nominalARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                </div>
-                <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Valor facial acumulado en Pesos
-                </span>
+
+            {/* View Mode Switcher */}
+            <Tabs
+              value={activePortfolioTab}
+              onValueChange={(val: any) => setActivePortfolioTab(val)}
+              className="w-full sm:w-auto"
+            >
+              <TabsList className="grid grid-cols-3 bg-muted/60 p-1 rounded-xl">
+                <TabsTrigger value="table" className="text-xs font-semibold flex items-center gap-1.5">
+                  <ListFilter className="h-3.5 w-3.5" />
+                  <span>Tabla PnL</span>
+                </TabsTrigger>
+                <TabsTrigger value="distribution" className="text-xs font-semibold flex items-center gap-1.5">
+                  <PieChartIcon className="h-3.5 w-3.5" />
+                  <span>Distribución</span>
+                </TabsTrigger>
+                <TabsTrigger value="cards" className="text-xs font-semibold flex items-center gap-1.5">
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Cards Mobile</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Filter and Search Bar */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-3">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar activo por símbolo (ej. AAPL, BTC, GGAL)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9 text-xs bg-background/80"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+              {["all", "cedear", "crypto", "equity", "bond"].map((cat) => (
+                <Button
+                  key={cat}
+                  variant={selectedCategoryFilter === cat ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategoryFilter(cat)}
+                  className="h-8 text-xs px-3 rounded-full uppercase text-[10px] font-bold shrink-0"
+                >
+                  {cat === "all" ? "Todos" : cat}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {/* TAB 1: FULL PNL TABLE */}
+          {activePortfolioTab === "table" && (
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent text-xs">
+                    <TableHead>Activo / Símbolo</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
+                    <TableHead className="text-right">Precio Compra</TableHead>
+                    <TableHead className="text-right">Precio Actual</TableHead>
+                    <TableHead className="text-right">Valuación Total</TableHead>
+                    <TableHead className="text-right">P&L Latente</TableHead>
+                    <TableHead className="text-center w-[130px]">Avance al Target</TableHead>
+                    <TableHead className="text-center">Acción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
+                        Cargando precios en vivo...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredHoldings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
+                        No se encontraron posiciones activas con los filtros aplicados.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredHoldings.map((h) => {
+                      const isGain = h.unrealizedPnlUSD >= 0;
+                      return (
+                        <TableRow key={h.symbol} className="hover:bg-muted/40 text-sm">
+                          <TableCell className="font-bold text-foreground">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base">{h.symbol}</span>
+                              <Badge variant="outline" className="text-[10px] uppercase">
+                                {h.asset_type || "activo"}
+                              </Badge>
+                              {h.isTargetHit && (
+                                <ChessBadge evaluation="brillante" label="Target Alcanzado" size="xs" />
+                              )}
+                              {h.isInvalidationHit && !h.isTargetHit && (
+                                <ChessBadge evaluation="imprecision" label="Invalidación" size="xs" />
+                              )}
+                            </div>
+                            {h.entryThesis && (
+                              <span className="text-[10px] text-muted-foreground block truncate max-w-[220px] font-normal">
+                                {h.entryThesis}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            {h.net_quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            US$ {h.avg_cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-foreground">
+                            US$ {h.livePriceUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold">
+                            US$ {h.positionMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            <span className={`font-bold block ${isGain ? "text-emerald-400" : "text-rose-400"}`}>
+                              {isGain ? "+" : ""}US${" "}
+                              {h.unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className={`text-[10px] block ${isGain ? "text-emerald-400/80" : "text-rose-400/80"}`}>
+                              {isGain ? "+" : ""}{h.unrealizedPnlPct.toFixed(2)}%
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="space-y-1">
+                              <Progress value={h.targetProgressPct} className="h-1.5" />
+                              <span className="text-[10px] text-muted-foreground font-mono block">
+                                {h.targetPriceUSD > 0
+                                  ? `${h.targetProgressPct.toFixed(0)}% (Target US$ ${h.targetPriceUSD.toFixed(2)})`
+                                  : "Sin Target"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant={h.isTargetHit ? "default" : "outline"}
+                              size="sm"
+                              className={`h-7 text-xs px-2.5 font-semibold ${
+                                h.isTargetHit
+                                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                                  : h.isInvalidationHit
+                                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                                  : "border-border/60"
+                              }`}
+                              onClick={(e) => handleOpenQuickSell(h, h.livePriceUSD, e)}
+                            >
+                              {h.isTargetHit ? "✓ Salida Planificada" : h.isInvalidationHit ? "⚠️ Salir (Stop)" : "Vender"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* TAB 2: DISTRIBUTION & COMPOSITION VIEW */}
+          {activePortfolioTab === "distribution" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categoryBreakdown.map((cat) => (
+                  <Card key={cat.category} className="bg-background/60 border border-border/70 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />
+                        {cat.category}
+                      </span>
+                      <Badge variant="secondary" className="font-mono text-xs font-bold">
+                        {cat.pct.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <div className="text-xl font-black font-mono text-foreground">
+                      US$ {cat.valueUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <Progress value={cat.pct} className="h-2" />
+                    <span className="text-[11px] text-muted-foreground block">
+                      {cat.count} posiciones en esta categoría
+                    </span>
+                  </Card>
+                ))}
               </div>
 
-              {/* Column 2: Real vs IPC Deflated */}
-              <div className="p-4 rounded-lg bg-background/60 border border-primary/30 bg-primary/5">
-                <span className="text-xs text-primary font-medium block mb-1 flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  2. Real vs IPC (Deflatado ARS)
-                </span>
-                <div className="text-2xl font-bold text-primary">
-                  $ {netWorth3Col.realVsIPC.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                </div>
-                <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Poder de compra ajustado por inflación INDEC
-                </span>
-              </div>
-
-              {/* Column 3: USD vs CCL */}
-              <div className="p-4 rounded-lg bg-background/60 border border-emerald-500/30 bg-emerald-500/5">
-                <span className="text-xs text-emerald-400 font-medium block mb-1 flex items-center gap-1">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  3. USD vs CCL (Real USD)
-                </span>
-                <div className="text-2xl font-bold text-emerald-400">
-                  US$ {netWorth3Col.usdVsCCL.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Valuación libre en dólares de mercado
-                </span>
+              {/* Table of Weights */}
+              <div className="border border-border/70 rounded-xl overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Activo</TableHead>
+                      <TableHead>Categoría</TableHead>
+                      <TableHead className="text-right">Valuación (USD)</TableHead>
+                      <TableHead className="text-right">Ponderación en Portafolio</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHoldings.map((h) => {
+                      const weightPct =
+                        portfolioMetrics.currentMarketValueUSD > 0
+                          ? (h.positionMarketValUSD / portfolioMetrics.currentMarketValueUSD) * 100
+                          : 0;
+                      return (
+                        <TableRow key={h.symbol} className="hover:bg-muted/40">
+                          <TableCell className="font-bold text-foreground">{h.symbol}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground uppercase">{h.asset_type || "activo"}</TableCell>
+                          <TableCell className="text-right font-mono font-bold text-foreground">
+                            US$ {h.positionMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          </TableCell>
+                          <TableCell className="text-right font-mono font-bold text-primary">
+                            {weightPct.toFixed(2)}%
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}
 
-          {/* Sub-breakdown of liquid vs broker cash vs portfolio */}
-          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border/40 text-xs text-muted-foreground">
-            <div>
-              <span className="block font-medium text-foreground">Efectivo Líquido</span>
-              <span>US$ {netWorthMetrics.liquidCashUSD?.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-            </div>
-            <div>
-              <span className="block font-medium text-foreground">Efectivo Broker</span>
-              <span>US$ {netWorthMetrics.brokerCashUSD?.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-            </div>
-            <div>
-              <span className="block font-medium text-foreground">Portafolio Activos</span>
-              <span>US$ {netWorthMetrics.portfolioMarketValueUSD?.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 2. CAPITAL CONVERSION RATE TILE */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-1 bg-card border border-border/80 flex flex-col justify-between">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <Percent className="h-4 w-4 text-primary" />
-              Tasa de Conversión de Capital
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="text-4xl font-extrabold text-foreground tracking-tight">
-                {netWorthMetrics.investmentRatePct || 0}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Porcentaje de ingresos del período destinado a inversiones en activos.
-              </p>
-            </div>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-border/40">
-                <span className="text-muted-foreground">Ingresos del Período:</span>
-                <span className="font-medium text-foreground">US$ {netWorthMetrics.monthlyIncomeUSD?.toLocaleString("en-US")}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-border/40">
-                <span className="text-muted-foreground">Capital Invertido:</span>
-                <span className="font-medium text-emerald-400">US$ {netWorthMetrics.monthlyBrokerInflowUSD?.toLocaleString("en-US")}</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-muted-foreground">Tasa de Ahorro Total:</span>
-                <span className="font-medium text-foreground">{netWorthMetrics.savingsRatePct || 0}%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 3-COLUMN CAPITAL BREAKDOWN TILE */}
-        <Card className="md:col-span-2 bg-card border border-border/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
-              Desglose de Capital Guardado (3 Columnas)
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Monto invertido en el período ajustado por inflación IPC y dólar CCL
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="p-3 rounded-md bg-secondary/50 border border-border/60">
-                <span className="text-xs text-muted-foreground font-medium block">Nominal ARS</span>
-                <span className="text-lg font-bold text-foreground block mt-1">
-                  $ {capitalSaved3Col.nominalARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-              <div className="p-3 rounded-md bg-primary/10 border border-primary/20">
-                <span className="text-xs text-primary font-medium block">Real vs IPC</span>
-                <span className="text-lg font-bold text-primary block mt-1">
-                  $ {capitalSaved3Col.realVsIPC.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-              <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20">
-                <span className="text-xs text-emerald-400 font-medium block">USD vs CCL</span>
-                <span className="text-lg font-bold text-emerald-400 block mt-1">
-                  US$ {capitalSaved3Col.usdVsCCL.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. 3-COLUMN REAL RETURNS TABLE & P&L */}
-      <Card className="bg-card border border-border/80">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Tabla de Retornos Reales y P&L (3 Columnas)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Calculado mediante <code className="text-primary font-mono text-[11px]">calculateRealReturnsBatch</code> para comparación directa de poder adquisitivo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[200px]">Concepto / Componente</TableHead>
-                <TableHead className="text-right">1. Nominal ARS</TableHead>
-                <TableHead className="text-right text-primary">2. Real vs IPC (Deflatado)</TableHead>
-                <TableHead className="text-right text-emerald-400">3. USD vs CCL (Real USD)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {realReturnsTableData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground text-xs">
-                    Cargando retornos en 3 columnas...
-                  </TableCell>
-                </TableRow>
-              ) : (
-                realReturnsTableData.map((row, i) => (
-                  <TableRow key={i} className="hover:bg-muted/40">
-                    <TableCell className="font-medium text-foreground text-sm">
-                      {row.category}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      $ {row.nominalARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-primary font-semibold">
-                      $ {row.realVsIPC.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-emerald-400 font-semibold">
-                      US$ {row.usdVsCCL.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* 4. ACTIVE HOLDINGS / POSITIONS TABLE WITH 3-COLUMN GAIN TOGGLE */}
-      <Card className="bg-card border border-border/80">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Zap className="h-5 w-5 text-amber-400" />
-              Posiciones Activas en Cartera
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Tenencias actuales con cotización de mercado en tiempo real y selector de ganancia en 3 columnas.
-            </CardDescription>
-          </div>
-
-          {/* 3-Column Gain Toggle */}
-          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
-            <span className="text-xs text-muted-foreground px-2 font-medium">Ganancia:</span>
-            <Button
-              variant={gainDisplayMode === "nominal" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setGainDisplayMode("nominal")}
-              className="text-xs h-7 px-2.5"
-            >
-              Nominal
-            </Button>
-            <Button
-              variant={gainDisplayMode === "real_ipc" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setGainDisplayMode("real_ipc")}
-              className="text-xs h-7 px-2.5"
-            >
-              IPC Deflatado
-            </Button>
-            <Button
-              variant={gainDisplayMode === "usd_ccl" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setGainDisplayMode("usd_ccl")}
-              className="text-xs h-7 px-2.5"
-            >
-              USD CCL
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isMobile ? (
+          {/* TAB 3: MOBILE CARDS VIEW */}
+          {activePortfolioTab === "cards" && (
             <div className="space-y-3">
-              {holdings.map((h) => {
-                const livePrice = marketPrices.get(h.symbol.toUpperCase());
-                return (
+              {filteredHoldings.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">No hay posiciones activas.</p>
+              ) : (
+                filteredHoldings.map((h) => (
                   <MobileSwipeableHoldingCard
                     key={h.symbol}
                     holding={h}
-                    currentPrice={livePrice}
-                    displayCurrency="USD"
+                    currentPrice={h.livePriceUSD}
                     currencySymbol="US$"
-                    cx={cx}
-                    fmt={fmt}
-                    onOpenQuickSell={(holding, price, e) => handleOpenQuickSell(holding, price, e)}
+                    displayCurrency="USD"
+                    onQuickSell={(holding, price) => handleOpenQuickSell(holding, price || h.livePriceUSD)}
                   />
-                );
-              })}
+                ))
+              )}
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Símbolo / Activo</TableHead>
-                  <TableHead className="text-right">Cantidad</TableHead>
-                  <TableHead className="text-right">Precio Promedio</TableHead>
-                  <TableHead className="text-right">Precio Actual</TableHead>
-                  <TableHead className="text-right">Valor Mercado (USD)</TableHead>
-                  <TableHead className="text-right">
-                    Ganancia ({gainDisplayMode === "nominal" ? "Nominal ARS" : gainDisplayMode === "real_ipc" ? "Real vs IPC" : "USD CCL"})
-                  </TableHead>
-                  <TableHead className="text-center">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {holdings.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
-                      No hay posiciones activas registradas en el portafolio.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  holdings.map((h) => {
-                    const price = marketPrices.get(h.symbol.toUpperCase());
-                    const currentPrice = price || h.avg_cost;
-                    const marketVal = currentPrice * h.net_quantity;
-                    const pnlUSD = (currentPrice - h.avg_cost) * h.net_quantity;
-                    const pnlARS = pnlUSD * effectiveCclRate;
-                    const pnlPct = h.total_invested > 0 ? (pnlUSD / h.total_invested) * 100 : 0;
-                    const isPositive = pnlUSD >= 0;
-
-                    const matchingBuyTrade = trades.find((t) => t.symbol === h.symbol && (t.trade_type === "buy" || !t.trade_type));
-                    const currentPriceARS = currentPrice * effectiveCclRate;
-                    const targetPriceARS = matchingBuyTrade?.target_price_ars;
-                    const invalidationPriceARS = matchingBuyTrade?.invalidation_price_ars;
-                    const isTargetHit = Boolean(targetPriceARS && targetPriceARS > 0 && currentPriceARS >= targetPriceARS);
-                    const isInvalidationHit = Boolean(
-                      (invalidationPriceARS && invalidationPriceARS > 0 && currentPriceARS <= invalidationPriceARS) ||
-                      (currentPriceARS < h.avg_cost * effectiveCclRate * 0.85)
-                    );
-
-                    return (
-                      <TableRow key={h.symbol} className="hover:bg-muted/40">
-                        <TableCell className="font-semibold text-foreground">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span>{h.symbol}</span>
-                            <Badge variant="outline" className="text-[10px] uppercase">
-                              {h.asset_type || "asset"}
-                            </Badge>
-                            {isTargetHit && (
-                              <ChessBadge evaluation="brillante" label="Target Alcanzado" size="xs" />
-                            )}
-                            {isInvalidationHit && !isTargetHit && (
-                              <ChessBadge evaluation="imprecision" label="Invalidación" size="xs" />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">{h.net_quantity}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          US$ {h.avg_cost.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold">
-                          US$ {currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          US$ {marketVal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {gainDisplayMode === "nominal" && (
-                            <span className={isPositive ? "text-emerald-400 font-semibold" : "text-destructive font-semibold"}>
-                              {isPositive ? "+" : ""}$ {pnlARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ({pnlPct.toFixed(1)}%)
-                            </span>
-                          )}
-                          {gainDisplayMode === "real_ipc" && (
-                            <span className={isPositive ? "text-primary font-semibold" : "text-destructive font-semibold"}>
-                              {isPositive ? "+" : ""}$ {(pnlARS * (netWorth3Col.nominalARS > 0 ? netWorth3Col.realVsIPC / netWorth3Col.nominalARS : 1)).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ({pnlPct.toFixed(1)}%)
-                            </span>
-                          )}
-                          {gainDisplayMode === "usd_ccl" && (
-                            <span className={isPositive ? "text-emerald-400 font-semibold" : "text-destructive font-semibold"}>
-                              {isPositive ? "+" : ""}US$ {pnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })} ({pnlPct.toFixed(1)}%)
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-7 text-xs px-2.5 bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/30"
-                            onClick={(e) => handleOpenQuickSell(h, currentPrice, e)}
-                          >
-                            <TrendingDown className="h-3.5 w-3.5 mr-1" />
-                            Vender
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* 5. PERIOD SANKEY FLOW DIAGRAM */}
-      <Card className="bg-card border border-border/80">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5 text-primary" />
-            Flujo Financiero del Período (Diagrama Sankey)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Visualización unificada de fuentes de ingreso, canalización hacia gastos y asignación de capital a inversión.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-2">
-          {sankeyData.nodes.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-border/60 rounded-lg text-muted-foreground text-sm">
-              No hay movimientos financieros suficientes en el período para construir el diagrama de Sankey.
-            </div>
-          ) : (
-            <SankeyFlowChart
-              data={sankeyData}
-              transactions={transactions}
-              displayCurrency="USD"
-              currencySymbol="US$"
-              cx={(val) => val}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* QUICK SELL DIALOG INTEGRATION */}
+      {/* QUICK SELL DIALOG */}
       <QuickSellDialog
         open={quickSellOpen}
         onOpenChange={setQuickSellOpen}
@@ -587,16 +547,18 @@ export function TableroView() {
         currentPrice={sellCurrentPrice}
         currencySymbol="US$"
         displayCurrency="USD"
-        mepRate={mepRate}
+        mepRate={effectiveCclRate}
         trades={trades}
-        onSuccessClosedSummary={handleQuickSellSuccess}
+        onSuccess={handleQuickSellSuccess}
       />
 
-      {/* CLOSED POSITION SUMMARY DIALOG */}
+      {/* CLOSED POSITION SUMMARY CELEBRATION MODAL */}
       <ClosedPositionSummaryDialog
         open={closedSummaryOpen}
         onOpenChange={setClosedSummaryOpen}
         summary={closedSummaryData}
+        currencySymbol="US$"
+        displayCurrency="USD"
       />
     </div>
   );

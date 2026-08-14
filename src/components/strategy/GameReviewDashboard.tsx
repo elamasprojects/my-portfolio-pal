@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   BarChart3,
+  ArrowUpDown,
 } from "lucide-react";
 
 interface AuditedTradeRow {
@@ -66,6 +67,8 @@ export function GameReviewDashboard() {
   });
   const [totalEdgeVsHoldUSD, setTotalEdgeVsHoldUSD] = useState<number>(0);
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"edge" | "pnl" | "date">("edge");
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
 
   // Map closed trades (sells)
   const closedTrades = useMemo(() => {
@@ -215,17 +218,31 @@ export function GameReviewDashboard() {
     }
   };
 
-  // Filtered rows
+  // Filtered & Sorted rows
   const filteredRows = useMemo(() => {
-    if (selectedOutcomeFilter === "all") return auditedRows;
-    return auditedRows.filter((r) => {
-      const cls = r.audit.outcomeClassification;
-      if (selectedOutcomeFilter === "Imprecisión" || selectedOutcomeFilter === "Imprecision") {
-        return cls === "Imprecisión" || cls === "Imprecision";
+    let list = auditedRows;
+    if (selectedOutcomeFilter !== "all") {
+      list = list.filter((r) => {
+        const cls = r.audit.outcomeClassification;
+        if (selectedOutcomeFilter === "Imprecisión" || selectedOutcomeFilter === "Imprecision") {
+          return cls === "Imprecisión" || cls === "Imprecision";
+        }
+        return cls === selectedOutcomeFilter;
+      });
+    }
+
+    return [...list].sort((a, b) => {
+      let diff = 0;
+      if (sortBy === "edge") {
+        diff = a.edgeVsHoldUSD - b.edgeVsHoldUSD;
+      } else if (sortBy === "pnl") {
+        diff = a.realizedPnlUSD - b.realizedPnlUSD;
+      } else {
+        diff = new Date(a.input.sellDate || 0).getTime() - new Date(b.input.sellDate || 0).getTime();
       }
-      return cls === selectedOutcomeFilter;
+      return sortDirection === "desc" ? -diff : diff;
     });
-  }, [auditedRows, selectedOutcomeFilter]);
+  }, [auditedRows, selectedOutcomeFilter, sortBy, sortDirection]);
 
   const getOutcomeBadge = (outcome: TradeOutcome | string) => {
     return <ChessBadge evaluation={outcome} size="sm" />;
@@ -406,6 +423,49 @@ export function GameReviewDashboard() {
                 <span>Blunder</span>
               </Button>
             </div>
+          </div>
+
+          {/* Sort Controls Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 mt-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mr-1">
+                <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+                Ordenar por:
+              </span>
+              <Button
+                variant={sortBy === "edge" ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-2.5 font-semibold"
+                onClick={() => setSortBy("edge")}
+              >
+                Edge vs Hold
+              </Button>
+              <Button
+                variant={sortBy === "pnl" ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-2.5 font-semibold"
+                onClick={() => setSortBy("pnl")}
+              >
+                P&L Realizado
+              </Button>
+              <Button
+                variant={sortBy === "date" ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-2.5 font-semibold"
+                onClick={() => setSortBy("date")}
+              >
+                Fecha de Venta
+              </Button>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2 text-primary font-bold hover:bg-primary/10"
+              onClick={() => setSortDirection(sortDirection === "desc" ? "asc" : "desc")}
+            >
+              {sortDirection === "desc" ? "↓ Mayor a Menor" : "↑ Menor a Mayor"}
+            </Button>
           </div>
         </CardHeader>
 

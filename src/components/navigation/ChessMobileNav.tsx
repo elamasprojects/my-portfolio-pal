@@ -1,15 +1,16 @@
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, ArrowLeftRight, Target, Plus } from "lucide-react";
+import { TrendingUp, ArrowLeftRight, Target, Landmark, Plus } from "lucide-react";
 
 interface ChessMobileNavProps {
   onOpenOmnibar: () => void;
 }
 
 const tabs = [
-  { label: "Tablero", url: "/", icon: LayoutDashboard, exact: true },
-  { label: "Movimientos", url: "/movements", icon: ArrowLeftRight, exact: false },
+  { label: "Portafolio", url: "/", icon: TrendingUp, exact: true },
   { label: "Estrategia", url: "/strategy", icon: Target, exact: false },
+  { label: "Movimientos", url: "/movements", icon: ArrowLeftRight, exact: false },
+  { label: "Patrimonio", url: "/patrimonio", icon: Landmark, exact: false },
 ];
 
 export function ChessMobileNav({ onOpenOmnibar }: ChessMobileNavProps) {
