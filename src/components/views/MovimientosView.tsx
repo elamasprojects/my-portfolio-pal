@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ChessBadge } from "@/components/ui/ChessBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -581,9 +582,7 @@ export function MovimientosView() {
                         </TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{item.date}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-[10px] uppercase font-bold py-0.5 px-2 ${badgeClass}`}>
-                            {item.type}
-                          </Badge>
+                          <ChessBadge eventType={item.type} size="sm" />
                         </TableCell>
                         <TableCell className="font-semibold text-foreground text-sm">{item.title}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{item.subtitle || "—"}</TableCell>

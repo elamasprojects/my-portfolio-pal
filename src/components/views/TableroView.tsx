@@ -14,6 +14,7 @@ import { ClosedPositionSummaryDialog, ClosedPositionSummary } from "@/components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ChessBadge } from "@/components/ui/ChessBadge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -495,14 +496,10 @@ export function TableroView() {
                               {h.asset_type || "asset"}
                             </Badge>
                             {isTargetHit && (
-                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
-                                🎯 Target Alcanzado
-                              </Badge>
+                              <ChessBadge evaluation="brillante" label="Target Alcanzado" size="xs" />
                             )}
                             {isInvalidationHit && !isTargetHit && (
-                              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
-                                ⚠️ Invalidación
-                              </Badge>
+                              <ChessBadge evaluation="imprecision" label="Invalidación" size="xs" />
                             )}
                           </div>
                         </TableCell>

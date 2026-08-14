@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ChessBadge } from "@/components/ui/ChessBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/i18n";
 import confetti from "canvas-confetti";
@@ -170,6 +171,22 @@ export function ClosedPositionSummaryDialog({
                 maximumFractionDigits: 2,
               })}
             </p>
+          </div>
+
+          {/* Chess.com Move Evaluation Badge */}
+          <div className="flex justify-center">
+            <ChessBadge
+              evaluation={
+                summary.returnPct >= 20
+                  ? "brillante"
+                  : summary.returnPct > 0
+                  ? "correcta"
+                  : summary.returnPct > -10
+                  ? "imprecision"
+                  : "blunder"
+              }
+              size="md"
+            />
           </div>
 
           {/* Achievement Badges */}

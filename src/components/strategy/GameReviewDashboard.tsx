@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ChessBadge } from "@/components/ui/ChessBadge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -204,43 +205,7 @@ export function GameReviewDashboard() {
   }, [auditedRows, selectedOutcomeFilter]);
 
   const getOutcomeBadge = (outcome: TradeOutcome | string) => {
-    switch (outcome) {
-      case "Brillante":
-        return (
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs font-bold gap-1">
-            <Sparkles className="h-3 w-3" />
-            Brillante
-          </Badge>
-        );
-      case "Correcta":
-        return (
-          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs font-bold gap-1">
-            <CheckCircle2 className="h-3 w-3" />
-            Correcta
-          </Badge>
-        );
-      case "Imprecisión":
-      case "Imprecision":
-        return (
-          <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs font-bold gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Imprecisión
-          </Badge>
-        );
-      case "Blunder":
-        return (
-          <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 text-xs font-bold gap-1">
-            <AlertOctagon className="h-3 w-3" />
-            Blunder
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="text-xs font-bold">
-            {outcome}
-          </Badge>
-        );
-    }
+    return <ChessBadge evaluation={outcome} size="sm" />;
   };
 
   // Best Category Name
@@ -282,9 +247,12 @@ export function GameReviewDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {/* KPI 1: Blunder Rate */}
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-                Tasa de Blunders
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+                  Tasa de Blunders
+                </span>
+                <ChessBadge evaluation="blunder" circleOnly size="xs" />
+              </div>
               <div className="text-2xl font-black text-rose-400">
                 {aggregateMetrics.blunderRatePercent.toFixed(1)}%
               </div>
@@ -295,9 +263,12 @@ export function GameReviewDashboard() {
 
             {/* KPI 2: Net Cost of Trading */}
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-                Costo Operar vs Hold
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+                  Costo Operar vs Hold
+                </span>
+                <ChessBadge evaluation={aggregateMetrics.totalNetCostUSD <= 0 ? "brillante" : "error"} circleOnly size="xs" />
+              </div>
               <div
                 className={`text-2xl font-black ${
                   aggregateMetrics.totalNetCostUSD <= 0 ? "text-emerald-400" : "text-rose-400"
@@ -318,9 +289,12 @@ export function GameReviewDashboard() {
 
             {/* KPI 3: Benchmark Alpha vs CCL */}
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-                Alpha vs Dólar CCL
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+                  Alpha vs Dólar CCL
+                </span>
+                <ChessBadge evaluation="gran_jugada" circleOnly size="xs" />
+              </div>
               <div className="text-2xl font-black text-emerald-400">
                 +4.2%
               </div>
@@ -331,9 +305,12 @@ export function GameReviewDashboard() {
 
             {/* KPI 4: Best Performing Category Edge */}
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
-                Edge por Categoría
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">
+                  Edge por Categoría
+                </span>
+                <ChessBadge evaluation="correcta" circleOnly size="xs" />
+              </div>
               <div className="text-xl font-bold text-foreground truncate">
                 {bestCategory}
               </div>
@@ -372,34 +349,38 @@ export function GameReviewDashboard() {
               <Button
                 variant={selectedOutcomeFilter === "Brillante" ? "default" : "ghost"}
                 size="sm"
-                className="h-7 text-xs px-2.5 text-emerald-400"
+                className="h-7 text-xs px-2.5 flex items-center gap-1.5"
                 onClick={() => setSelectedOutcomeFilter("Brillante")}
               >
-                Brillante
+                <ChessBadge evaluation="brillante" circleOnly size="xs" />
+                <span>Brillante</span>
               </Button>
               <Button
                 variant={selectedOutcomeFilter === "Correcta" ? "default" : "ghost"}
                 size="sm"
-                className="h-7 text-xs px-2.5 text-primary"
+                className="h-7 text-xs px-2.5 flex items-center gap-1.5"
                 onClick={() => setSelectedOutcomeFilter("Correcta")}
               >
-                Correcta
+                <ChessBadge evaluation="correcta" circleOnly size="xs" />
+                <span>Correcta</span>
               </Button>
               <Button
                 variant={selectedOutcomeFilter === "Imprecisión" ? "default" : "ghost"}
                 size="sm"
-                className="h-7 text-xs px-2.5 text-amber-400"
+                className="h-7 text-xs px-2.5 flex items-center gap-1.5"
                 onClick={() => setSelectedOutcomeFilter("Imprecisión")}
               >
-                Imprecisión
+                <ChessBadge evaluation="imprecision" circleOnly size="xs" />
+                <span>Imprecisión</span>
               </Button>
               <Button
                 variant={selectedOutcomeFilter === "Blunder" ? "default" : "ghost"}
                 size="sm"
-                className="h-7 text-xs px-2.5 text-rose-400"
+                className="h-7 text-xs px-2.5 flex items-center gap-1.5"
                 onClick={() => setSelectedOutcomeFilter("Blunder")}
               >
-                Blunder
+                <ChessBadge evaluation="blunder" circleOnly size="xs" />
+                <span>Blunder</span>
               </Button>
             </div>
           </div>
