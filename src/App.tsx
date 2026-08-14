@@ -37,8 +37,10 @@ const App = () => (
 
             {/* The 4 Core Navigation Routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
             <Route path="/movements" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
+            <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/patrimonio" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
 
             {/* Graceful Legacy Path Redirects -> Tablero (/) */}

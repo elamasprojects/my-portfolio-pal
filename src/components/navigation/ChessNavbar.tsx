@@ -27,10 +27,10 @@ interface ChessNavbarProps {
 }
 
 const navItems = [
-  { label: "Portafolio", url: "/", icon: TrendingUp, exact: true },
+  { label: "Inversiones", url: "/", icon: TrendingUp, exact: true },
   { label: "Estrategia", url: "/strategy", icon: Target, exact: false },
   { label: "Movimientos", url: "/movements", icon: ArrowLeftRight, exact: false },
-  { label: "Patrimonio", url: "/patrimonio", icon: Landmark, exact: false },
+  { label: "Finanzas", url: "/finance", icon: Landmark, exact: false },
 ];
 
 export function ChessNavbar({ onOpenOmnibar }: ChessNavbarProps) {

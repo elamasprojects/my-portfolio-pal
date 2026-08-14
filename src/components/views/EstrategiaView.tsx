@@ -3,8 +3,9 @@ import { InvestmentRulesDashboard } from "@/components/strategy/InvestmentRulesD
 import { OpenTradeThesesDashboard } from "@/components/strategy/OpenTradeThesesDashboard";
 import { CandidateWatchlistDashboard } from "@/components/strategy/CandidateWatchlistDashboard";
 import { GameReviewDashboard } from "@/components/strategy/GameReviewDashboard";
+import { PerformanceMetricsDashboard } from "@/components/strategy/PerformanceMetricsDashboard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Target, Scale, Eye, Award, Compass } from "lucide-react";
+import { Target, Scale, Eye, Award, Compass, BarChart3 } from "lucide-react";
 
 export function EstrategiaView() {
   return (
@@ -16,7 +17,7 @@ export function EstrategiaView() {
           Estrategia & Disciplina de Inversión
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Reglas operativas declaradas, auditoría de tesis pre-trade, Game Review retroactivo y alertas.
+          Reglas operativas, auditoría de tesis pre-trade, Game Review retroactivo y métricas de rendimiento.
         </p>
       </div>
 
@@ -25,14 +26,18 @@ export function EstrategiaView() {
 
       {/* MAIN STRATEGY TABS */}
       <Tabs defaultValue="gamereview" className="space-y-6">
-        <TabsList className="bg-muted/60 p-1 border border-border/60">
+        <TabsList className="bg-muted/60 p-1 border border-border/60 flex-wrap h-auto">
           <TabsTrigger value="gamereview" className="text-xs font-semibold flex items-center gap-1.5">
             <Award className="h-3.5 w-3.5 text-primary" />
-            Game Review Retroactivo
+            Game Review
           </TabsTrigger>
           <TabsTrigger value="theses" className="text-xs font-semibold flex items-center gap-1.5">
             <Target className="h-3.5 w-3.5" />
             Tesis Abiertas
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="text-xs font-semibold flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Métricas de Rendimiento
           </TabsTrigger>
           <TabsTrigger value="rules" className="text-xs font-semibold flex items-center gap-1.5">
             <Scale className="h-3.5 w-3.5" />
@@ -40,7 +45,7 @@ export function EstrategiaView() {
           </TabsTrigger>
           <TabsTrigger value="watchlist" className="text-xs font-semibold flex items-center gap-1.5">
             <Eye className="h-3.5 w-3.5" />
-            Watchlist Candidatas
+            Watchlist
           </TabsTrigger>
         </TabsList>
 
@@ -50,6 +55,10 @@ export function EstrategiaView() {
 
         <TabsContent value="theses" className="space-y-6">
           <OpenTradeThesesDashboard />
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-6">
+          <PerformanceMetricsDashboard />
         </TabsContent>
 
         <TabsContent value="rules" className="space-y-6">
