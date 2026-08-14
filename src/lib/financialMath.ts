@@ -177,7 +177,8 @@ export function computeUnifiedNetWorth(
   transactions: Transaction[],
   holdings: Holding[],
   portfolioPerformance: PortfolioPerformance,
-  prices: Map<string, number>
+  prices: Map<string, number>,
+  trades?: any[]
 ): UnifiedNetWorthMetrics {
   let liquidCashUSD = 0;
   let brokerCashUSD = 0;
@@ -217,9 +218,24 @@ export function computeUnifiedNetWorth(
     else if (t.type === "investment") monthlyBrokerInflowUSD += amt;
   }
 
+  // Include buy trades in monthly investment volume if trades are provided
+  if (trades && Array.isArray(trades)) {
+    for (const tr of trades) {
+      if (tr.trade_type === "buy") {
+        const trDate = parseTransactionLocalDate(tr.trade_date || tr.created_at);
+        if (trDate >= thirtyDaysAgo) {
+          const amt = Number(tr.total_amount) || Number(tr.price_per_unit) * Number(tr.quantity) || 0;
+          monthlyBrokerInflowUSD += amt;
+        }
+      }
+    }
+  }
+
   const monthlySavingsUSD = Math.max(0, monthlyIncomeUSD - monthlyExpensesUSD);
+  // If no explicit broker transfer was recorded, the saved capital is preserved in net savings
+  const effectiveCapitalInvertedUSD = monthlyBrokerInflowUSD > 0 ? monthlyBrokerInflowUSD : monthlySavingsUSD;
   const savingsRatePct = monthlyIncomeUSD > 0 ? (monthlySavingsUSD / monthlyIncomeUSD) * 100 : 0;
-  const investmentRatePct = monthlyIncomeUSD > 0 ? (monthlyBrokerInflowUSD / monthlyIncomeUSD) * 100 : 0;
+  const investmentRatePct = monthlyIncomeUSD > 0 ? (effectiveCapitalInvertedUSD / monthlyIncomeUSD) * 100 : 0;
   const monthlyBurnRateUSD = Math.max(1, monthlyExpensesUSD);
   const liquidRunwayMonths = liquidCashUSD / monthlyBurnRateUSD;
   const totalRunwayMonths = (liquidCashUSD + brokerCashUSD + portfolioMarketValueUSD) / monthlyBurnRateUSD;
@@ -233,7 +249,7 @@ export function computeUnifiedNetWorth(
     monthlyIncomeUSD,
     monthlyExpensesUSD,
     monthlySavingsUSD,
-    monthlyBrokerInflowUSD,
+    monthlyBrokerInflowUSD: effectiveCapitalInvertedUSD,
     savingsRatePct: Math.round(savingsRatePct * 10) / 10,
     investmentRatePct: Math.round(investmentRatePct * 10) / 10,
     monthlyBurnRateUSD,

@@ -24,9 +24,10 @@ export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date })
       transactions,
       holdings,
       portfolioPerformance,
-      prices
+      prices,
+      trades
     );
-  }, [financialAccounts, transactions, holdings, portfolioPerformance, prices]);
+  }, [financialAccounts, transactions, holdings, portfolioPerformance, prices, trades]);
 
   const sankeyData = useMemo(() => {
     return buildPersonalSankeyData(transactions, categories, filterRange);

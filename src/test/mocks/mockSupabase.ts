@@ -110,6 +110,17 @@ export function createMockSupabaseClient(initialData: Partial<MockSupabaseStore>
         return Promise.resolve(result);
       },
 
+      upsert(rowOrRows: any, _options?: any) {
+        const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
+        const newEntries = rows.map((r, idx) => ({
+          id: r.id || `mock-${tableName}-${Date.now()}-${idx}`,
+          created_at: r.created_at || new Date().toISOString(),
+          ...r,
+        }));
+        store[tableName].push(...newEntries);
+        return Promise.resolve({ data: newEntries, error: null });
+      },
+
       insert(rowOrRows: any) {
         const rows = Array.isArray(rowOrRows) ? rowOrRows : [rowOrRows];
         const newEntries = rows.map((r, idx) => ({
