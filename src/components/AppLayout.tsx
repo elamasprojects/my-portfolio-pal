@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <ChessNavbar onOpenOmnibar={() => setOmnibarOpen(true)} />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 mx-auto w-full max-w-7xl p-4 md:p-6 pb-24 md:pb-8">
+      <main className="flex-1 mx-auto w-full max-w-7xl p-4 md:p-6 pb-32 md:pb-8">
         {children}
       </main>
 
