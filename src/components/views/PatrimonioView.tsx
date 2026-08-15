@@ -6,7 +6,6 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Wallet,
   Landmark,
@@ -15,8 +14,6 @@ import {
   Banknote,
   TrendingUp,
   Layers,
-  ArrowUpRight,
-  ShieldCheck,
   Building2,
   DollarSign,
 } from "lucide-react";
@@ -34,11 +31,13 @@ export function PatrimonioView() {
     return accounts.filter((a) => a.is_active);
   }, [accounts]);
 
-  // Compute breakdown segments
+  // Broker Assets: Open Stocks Market Value + Dynamic Uninvested Cash in Broker
   const portfolioInvestedUSD = netWorthMetrics.portfolioMarketValueUSD || 0;
-  const portfolioInvestedARS = portfolioInvestedUSD * effectiveCclRate;
+  const brokerCashUSD = netWorthMetrics.brokerCashUSD || 0;
+  const totalBrokerUSD = portfolioInvestedUSD + brokerCashUSD;
+  const totalBrokerARS = totalBrokerUSD * effectiveCclRate;
 
-  // Split liquid accounts by currency
+  // Split liquid bank accounts & wallets by currency
   const { usdAccountsUSD, arsAccountsARS, arsAccountsUSD } = useMemo(() => {
     let usdSum = 0;
     let arsSum = 0;
@@ -57,12 +56,12 @@ export function PatrimonioView() {
     };
   }, [activeAccounts, effectiveCclRate]);
 
-  // Total consolidated Net Worth
-  const totalNetWorthUSD = portfolioInvestedUSD + usdAccountsUSD + arsAccountsUSD;
+  // Total consolidated Net Worth (Total Broker Assets + USD Liquid + ARS Liquid)
+  const totalNetWorthUSD = totalBrokerUSD + usdAccountsUSD + arsAccountsUSD;
   const totalNetWorthARS = totalNetWorthUSD * effectiveCclRate;
 
   // Weights
-  const portfolioWeightPct = totalNetWorthUSD > 0 ? (portfolioInvestedUSD / totalNetWorthUSD) * 100 : 0;
+  const portfolioWeightPct = totalNetWorthUSD > 0 ? (totalBrokerUSD / totalNetWorthUSD) * 100 : 0;
   const usdLiquidWeightPct = totalNetWorthUSD > 0 ? (usdAccountsUSD / totalNetWorthUSD) * 100 : 0;
   const arsLiquidWeightPct = totalNetWorthUSD > 0 ? (arsAccountsUSD / totalNetWorthUSD) * 100 : 0;
 
@@ -128,7 +127,7 @@ export function PatrimonioView() {
               <div
                 style={{ width: `${portfolioWeightPct}%` }}
                 className="bg-primary rounded-l-full h-full transition-all"
-                title={`Inversiones: ${portfolioWeightPct.toFixed(1)}%`}
+                title={`Inversiones & Broker: ${portfolioWeightPct.toFixed(1)}%`}
               />
               <div
                 style={{ width: `${usdLiquidWeightPct}%` }}
@@ -145,15 +144,15 @@ export function PatrimonioView() {
         </CardContent>
       </Card>
 
-      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES: INVERTIDO, LÍQUIDO USD, LÍQUIDO ARS) */}
+      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES: INVERSIONES/BROKER, LÍQUIDO USD, LÍQUIDO ARS) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Bloque 1: Invertido en Brokers */}
+        {/* Bloque 1: Inversiones & Cuentas Broker */}
         <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
           <CardContent className="p-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4" />
-                Invertido (Brokers)
+                Inversiones & Broker
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
                 {portfolioWeightPct.toFixed(1)}%
@@ -161,15 +160,22 @@ export function PatrimonioView() {
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {totalBrokerUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {portfolioInvestedARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {totalBrokerARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
               </p>
             </div>
-            <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-              ARQ · IEB+ · Interactive Brokers
-            </p>
+            <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40 font-mono space-y-0.5">
+              <div className="flex justify-between">
+                <span>Activos en Cartera:</span>
+                <span className="font-bold text-foreground">US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cash Comitente:</span>
+                <span className="font-bold text-emerald-400">US$ {brokerCashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -239,7 +245,7 @@ export function PatrimonioView() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card: Brokers / Inversiones */}
+          {/* Card: Brokers / Inversiones (con Activos y Cash Comitente) */}
           <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -255,10 +261,10 @@ export function PatrimonioView() {
               </div>
               <div className="text-right font-mono">
                 <div className="text-base font-black text-foreground">
-                  US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  US$ {totalBrokerUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-[11px] text-muted-foreground block">
-                  $ {portfolioInvestedARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                  $ {totalBrokerARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
                 </span>
               </div>
             </CardContent>
