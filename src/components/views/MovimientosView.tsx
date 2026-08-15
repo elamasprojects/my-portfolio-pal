@@ -313,6 +313,25 @@ export function MovimientosView() {
     link.click();
   };
 
+  // Format date as Day/Month (DD/MM)
+  const formatDayMonth = (dateStr: string) => {
+    if (!dateStr) return "—";
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, , mm, dd] = match;
+      return `${dd}/${mm}`;
+    }
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      return `${day}/${month}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-8 pb-12">
       {/* HEADER SECTION */}
@@ -564,8 +583,8 @@ export function MovimientosView() {
                   <TableHead className="w-[110px]">Fecha</TableHead>
                   <TableHead className="w-[130px]">Tipo</TableHead>
                   <TableHead>Descripción / Activo</TableHead>
-                  <TableHead>Categoría / Subtítulo</TableHead>
                   <TableHead className="text-right">Monto (USD)</TableHead>
+                  <TableHead>Categoría / Subtítulo</TableHead>
                   <TableHead className="text-center">Estado / Revisión</TableHead>
                 </TableRow>
               </TableHeader>
@@ -580,28 +599,20 @@ export function MovimientosView() {
                   filteredEvents.map((item) => {
                     const isSelected = selectedIds.has(item.id);
 
-                    // Badge formatting by event type
-                    let badgeClass = "bg-secondary text-secondary-foreground";
-                    if (item.type === "expense") badgeClass = "bg-destructive/10 text-destructive border-destructive/20";
-                    else if (item.type === "income") badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-                    else if (item.type === "buy") badgeClass = "bg-primary/10 text-primary border-primary/20";
-                    else if (item.type === "sell") badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                    else if (item.type === "dividend") badgeClass = "bg-purple-500/10 text-purple-400 border-purple-500/20";
-
                     return (
                       <TableRow key={item.id} className={item.needsReview ? "bg-amber-500/5 hover:bg-amber-500/10" : "hover:bg-muted/40"}>
                         <TableCell>
                           <Checkbox checked={isSelected} onCheckedChange={() => toggleSelectId(item.id)} />
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{item.date}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{formatDayMonth(item.date)}</TableCell>
                         <TableCell>
                           <ChessBadge eventType={item.type} size="sm" />
                         </TableCell>
                         <TableCell className="font-semibold text-foreground text-sm">{item.title}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{item.subtitle || "—"}</TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold">
                           US$ {item.amountUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{item.subtitle || "—"}</TableCell>
                         <TableCell className="text-center">
                           {item.needsReview ? (
                             <Button
