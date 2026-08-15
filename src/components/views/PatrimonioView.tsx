@@ -22,6 +22,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+// Helpers: Strict Integer Rounding Down (Math.floor) without decimals
+const formatUSD = (val: number) => Math.floor(val || 0).toLocaleString("en-US");
+const formatARS = (val: number) => Math.floor(val || 0).toLocaleString("es-AR");
+
 export function PatrimonioView() {
   const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
   const { accounts = [], isLoading: accountsLoading } = useFinancialAccounts();
@@ -249,12 +253,12 @@ export function PatrimonioView() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 text-primary bg-primary/10 font-mono">
-            Dólar CCL/MEP: ${effectiveCclRate.toLocaleString("es-AR")}
+            Dólar CCL/MEP: ${formatARS(effectiveCclRate)}
           </Badge>
         </div>
       </div>
 
-      {/* 2. HERO PRINCIPAL: PATRIMONIO TOTAL CONSOLIDADO (USD ARRIBA, PESOS EN GRIS ABAJO) */}
+      {/* 2. HERO PRINCIPAL: PATRIMONIO TOTAL CONSOLIDADO (SIN DECIMALES) */}
       <Card className="bg-card border border-border/80 shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 pointer-events-none opacity-5">
           <Wallet className="h-64 w-64 text-foreground" />
@@ -269,10 +273,10 @@ export function PatrimonioView() {
         <CardContent className="space-y-4">
           <div>
             <div className="text-4xl sm:text-5xl font-black font-mono text-emerald-400 tracking-tight">
-              US$ {totalNetWorthUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              US$ {formatUSD(totalNetWorthUSD)}
             </div>
             <p className="text-base sm:text-lg font-mono text-muted-foreground font-semibold mt-1">
-              $ {totalNetWorthARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+              $ {formatARS(totalNetWorthARS)} ARS
             </p>
           </div>
 
@@ -286,24 +290,24 @@ export function PatrimonioView() {
               <div
                 style={{ width: `${brokerWeightPct}%` }}
                 className="bg-primary rounded-l-full h-full transition-all"
-                title={`Brokers & Inversiones: ${brokerWeightPct.toFixed(1)}%`}
+                title={`Brokers & Inversiones: ${Math.floor(brokerWeightPct)}%`}
               />
               <div
                 style={{ width: `${liquidUsdWeightPct}%` }}
                 className="bg-emerald-400 h-full transition-all"
-                title={`Bancos / Billeteras USD: ${liquidUsdWeightPct.toFixed(1)}%`}
+                title={`Bancos / Billeteras USD: ${Math.floor(liquidUsdWeightPct)}%`}
               />
               <div
                 style={{ width: `${liquidArsWeightPct}%` }}
                 className="bg-sky-400 rounded-r-full h-full transition-all"
-                title={`Bancos ARS: ${liquidArsWeightPct.toFixed(1)}%`}
+                title={`Bancos ARS: ${Math.floor(liquidArsWeightPct)}%`}
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES: BROKERS, LÍQUIDO USD, LÍQUIDO ARS) */}
+      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES SIN DECIMALES) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Bloque 1: Inversiones & Brokers */}
         <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
@@ -314,25 +318,25 @@ export function PatrimonioView() {
                 Inversiones & Brokers
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
-                {brokerWeightPct.toFixed(1)}%
+                {Math.floor(brokerWeightPct)}%
               </Badge>
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {totalBrokerUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {formatUSD(totalBrokerUSD)}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {totalBrokerARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {formatARS(totalBrokerARS)} ARS
               </p>
             </div>
             <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40 font-mono space-y-0.5">
               <div className="flex justify-between">
                 <span>Activos en Cartera:</span>
-                <span className="font-bold text-foreground">US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                <span className="font-bold text-foreground">US$ {formatUSD(portfolioInvestedUSD)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Cash Líquido en Brokers:</span>
-                <span className="font-bold text-emerald-400">US$ {totalBrokerCashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                <span className="font-bold text-emerald-400">US$ {formatUSD(totalBrokerCashUSD)}</span>
               </div>
             </div>
           </CardContent>
@@ -347,15 +351,15 @@ export function PatrimonioView() {
                 Bancos & Billeteras USD
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                {liquidUsdWeightPct.toFixed(1)}%
+                {Math.floor(liquidUsdWeightPct)}%
               </Badge>
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {totalLiquidUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {formatUSD(totalLiquidUSD)}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {(totalLiquidUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {formatARS(totalLiquidUSD * effectiveCclRate)} ARS
               </p>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
@@ -373,15 +377,15 @@ export function PatrimonioView() {
                 Bancos & Billeteras ARS
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-400 border-sky-500/20">
-                {liquidArsWeightPct.toFixed(1)}%
+                {Math.floor(liquidArsWeightPct)}%
               </Badge>
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {totalLiquidARS_inUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {formatUSD(totalLiquidARS_inUSD)}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {totalLiquidARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {formatARS(totalLiquidARS)} ARS
               </p>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
@@ -399,7 +403,7 @@ export function PatrimonioView() {
             Desglose por Cuenta Financiera ({activeAccounts.length + 1})
           </h2>
           <span className="text-xs font-mono text-muted-foreground">
-            Total Patrimonio: US$ {totalNetWorthUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            Total Patrimonio: US$ {formatUSD(totalNetWorthUSD)}
           </span>
         </div>
 
@@ -430,10 +434,10 @@ export function PatrimonioView() {
               </div>
               <div className="text-right font-mono">
                 <div className="text-base font-black text-foreground">
-                  US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  US$ {formatUSD(portfolioInvestedUSD)}
                 </div>
                 <span className="text-[11px] text-muted-foreground block">
-                  $ {(portfolioInvestedUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                  $ {formatARS(portfolioInvestedUSD * effectiveCclRate)} ARS
                 </span>
               </div>
             </CardContent>
@@ -462,10 +466,10 @@ export function PatrimonioView() {
                   </div>
                   <div className="text-right font-mono">
                     <div className="text-base font-bold text-foreground">
-                      US$ {balUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      US$ {formatUSD(balUSD)}
                     </div>
                     <span className="text-[11px] text-muted-foreground block">
-                      $ {balARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                      $ {formatARS(balARS)} ARS
                     </span>
                   </div>
                 </CardContent>
@@ -474,7 +478,7 @@ export function PatrimonioView() {
           })}
         </div>
 
-        {/* 5. INLINE ACCORDION: DESGLOSE PRECISO POR BROKER */}
+        {/* 5. INLINE ACCORDION: DESGLOSE PRECISO POR BROKER (SIN DECIMALES) */}
         {isPortfolioExpanded && (
           <div className="rounded-2xl bg-card border border-primary/50 p-4 sm:p-5 shadow-xl space-y-4 transition-all duration-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
@@ -488,7 +492,7 @@ export function PatrimonioView() {
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/10">
-                Total Portfolio: US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                Total Portfolio: US$ {formatUSD(portfolioInvestedUSD)}
               </Badge>
             </div>
 
@@ -508,15 +512,15 @@ export function PatrimonioView() {
                           </Badge>
                         </div>
                         <span className="text-[11px] text-muted-foreground font-mono">
-                          Efectivo Comitente: US$ {b.cashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          Efectivo Comitente: US$ {formatUSD(b.cashUSD)}
                         </span>
                       </div>
                       <div className="text-right font-mono">
                         <span className="text-sm font-black text-foreground block">
-                          US$ {b.totalMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          US$ {formatUSD(b.totalMarketValUSD)}
                         </span>
                         <span className={`text-[11px] font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {b.unrealizedPnlUSD >= 0 ? "+" : ""}US$ {b.unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{b.unrealizedPnlPct.toFixed(1)}%)
+                          {b.unrealizedPnlUSD >= 0 ? "+US$" : "-US$"} {formatUSD(Math.abs(b.unrealizedPnlUSD))} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{Math.floor(b.unrealizedPnlPct)}%)
                         </span>
                       </div>
                     </CardHeader>
@@ -533,34 +537,37 @@ export function PatrimonioView() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {b.holdings.map((h) => (
-                            <TableRow key={`${b.brokerName}_${h.symbol}`} className="hover:bg-muted/30 text-xs">
-                              <TableCell className="font-bold font-mono">
-                                <span>{h.symbol}</span>
-                                <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
-                                  {h.assetName}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right font-mono font-medium">
-                                {h.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-muted-foreground">
-                                US$ {h.avgCostUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell className="text-right font-mono font-bold text-foreground">
-                                US$ {h.livePriceUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell className="text-right font-mono font-bold">
-                                US$ {h.marketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell className={`text-right font-mono font-bold ${h.pnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {h.pnlUSD >= 0 ? "+" : ""}US$ {h.pnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                <span className="block text-[10px] opacity-80">
-                                  {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(1)}%
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {b.holdings.map((h) => {
+                            const isPnlPositive = h.pnlUSD >= 0;
+                            return (
+                              <TableRow key={`${b.brokerName}_${h.symbol}`} className="hover:bg-muted/30 text-xs">
+                                <TableCell className="font-bold font-mono">
+                                  <span>{h.symbol}</span>
+                                  <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
+                                    {h.assetName}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-medium">
+                                  {Number.isInteger(h.quantity) ? h.quantity.toString() : h.quantity.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-muted-foreground">
+                                  US$ {h.avgCostUSD < 1 ? h.avgCostUSD.toFixed(3) : formatUSD(h.avgCostUSD)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-bold text-foreground">
+                                  US$ {h.livePriceUSD < 1 ? h.livePriceUSD.toFixed(3) : formatUSD(h.livePriceUSD)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-bold">
+                                  US$ {formatUSD(h.marketValUSD)}
+                                </TableCell>
+                                <TableCell className={`text-right font-mono font-bold ${isPnlPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                                  {isPnlPositive ? "+US$" : "-US$"} {formatUSD(Math.abs(h.pnlUSD))}
+                                  <span className="block text-[10px] opacity-80">
+                                    {isPnlPositive ? "+" : ""}{Math.floor(h.pnlPct)}%
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </CardContent>
