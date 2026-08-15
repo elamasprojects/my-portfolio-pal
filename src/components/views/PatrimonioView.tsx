@@ -16,6 +16,7 @@ import {
   Layers,
   Building2,
   DollarSign,
+  ShieldCheck,
 } from "lucide-react";
 
 export function PatrimonioView() {
@@ -31,39 +32,61 @@ export function PatrimonioView() {
     return accounts.filter((a) => a.is_active);
   }, [accounts]);
 
-  // Broker Assets: Open Stocks Market Value + Dynamic Uninvested Cash in Broker
+  // Open stocks / CEDEARs active market valuation
   const portfolioInvestedUSD = netWorthMetrics.portfolioMarketValueUSD || 0;
-  const brokerCashUSD = netWorthMetrics.brokerCashUSD || 0;
-  const totalBrokerUSD = portfolioInvestedUSD + brokerCashUSD;
-  const totalBrokerARS = totalBrokerUSD * effectiveCclRate;
 
-  // Split liquid bank accounts & wallets by currency
-  const { usdAccountsUSD, arsAccountsARS, arsAccountsUSD } = useMemo(() => {
-    let usdSum = 0;
-    let arsSum = 0;
+  // Separate Broker Cash vs Liquid Bank Accounts & Wallets
+  const { brokerAccounts, liquidBankAccounts, totalBrokerCashUSD, totalLiquidUSD, totalLiquidARS } = useMemo(() => {
+    const brokers: typeof activeAccounts = [];
+    const banks: typeof activeAccounts = [];
+    let bCashUSD = 0;
+    let lUSD = 0;
+    let lARS = 0;
+
     for (const acc of activeAccounts) {
       const bal = Number(acc.current_balance || 0);
-      if (acc.currency === "ARS") {
-        arsSum += bal;
+      const isBroker =
+        acc.type === "broker_cash" ||
+        acc.name.toLowerCase().includes("broker") ||
+        acc.name.toLowerCase().includes("arq") ||
+        acc.name.toLowerCase().includes("ieb") ||
+        acc.name.toLowerCase().includes("ibkr");
+
+      if (isBroker) {
+        brokers.push(acc);
+        bCashUSD += acc.currency === "ARS" ? bal / effectiveCclRate : bal;
       } else {
-        usdSum += bal;
+        banks.push(acc);
+        if (acc.currency === "ARS") {
+          lARS += bal;
+        } else {
+          lUSD += bal;
+        }
       }
     }
+
     return {
-      usdAccountsUSD: usdSum,
-      arsAccountsARS: arsSum,
-      arsAccountsUSD: arsSum / effectiveCclRate,
+      brokerAccounts: brokers,
+      liquidBankAccounts: banks,
+      totalBrokerCashUSD: bCashUSD,
+      totalLiquidUSD: lUSD,
+      totalLiquidARS: lARS,
     };
   }, [activeAccounts, effectiveCclRate]);
 
-  // Total consolidated Net Worth (Total Broker Assets + USD Liquid + ARS Liquid)
-  const totalNetWorthUSD = totalBrokerUSD + usdAccountsUSD + arsAccountsUSD;
+  // Combined Broker Assets (Active Stock Portfolio + Liquid Broker Cash)
+  const totalBrokerUSD = portfolioInvestedUSD + totalBrokerCashUSD;
+  const totalBrokerARS = totalBrokerUSD * effectiveCclRate;
+
+  // Total Consolidated Net Worth
+  const totalLiquidARS_inUSD = totalLiquidARS / effectiveCclRate;
+  const totalNetWorthUSD = totalBrokerUSD + totalLiquidUSD + totalLiquidARS_inUSD;
   const totalNetWorthARS = totalNetWorthUSD * effectiveCclRate;
 
-  // Weights
-  const portfolioWeightPct = totalNetWorthUSD > 0 ? (totalBrokerUSD / totalNetWorthUSD) * 100 : 0;
-  const usdLiquidWeightPct = totalNetWorthUSD > 0 ? (usdAccountsUSD / totalNetWorthUSD) * 100 : 0;
-  const arsLiquidWeightPct = totalNetWorthUSD > 0 ? (arsAccountsUSD / totalNetWorthUSD) * 100 : 0;
+  // Percentage Weights
+  const brokerWeightPct = totalNetWorthUSD > 0 ? (totalBrokerUSD / totalNetWorthUSD) * 100 : 0;
+  const liquidUsdWeightPct = totalNetWorthUSD > 0 ? (totalLiquidUSD / totalNetWorthUSD) * 100 : 0;
+  const liquidArsWeightPct = totalNetWorthUSD > 0 ? (totalLiquidARS_inUSD / totalNetWorthUSD) * 100 : 0;
 
   // Account Icons helper
   const getAccountIcon = (type: string, name: string) => {
@@ -72,6 +95,7 @@ export function PatrimonioView() {
     if (n.includes("mercury") || n.includes("bank") || n.includes("brubank")) return <Building2 className="h-5 w-5 text-sky-400" />;
     if (n.includes("efectivo") || n.includes("cash")) return <Banknote className="h-5 w-5 text-emerald-400" />;
     if (n.includes("dolarapp") || n.includes("wallet")) return <Wallet className="h-5 w-5 text-purple-400" />;
+    if (n.includes("broker") || n.includes("arq") || n.includes("ieb") || n.includes("ibkr")) return <TrendingUp className="h-5 w-5 text-primary" />;
     return <CreditCard className="h-5 w-5 text-primary" />;
   };
 
@@ -85,7 +109,7 @@ export function PatrimonioView() {
             Patrimonio & Cuentas
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Valuación total consolidada, composición de activos y desglose por cuenta financiera.
+            Valuación total consolidada, composición de activos y saldos verificados por cuenta.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -120,42 +144,42 @@ export function PatrimonioView() {
           {/* Consolidated Allocation Progress Bar */}
           <div className="space-y-2 pt-2">
             <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-              <span>Composición de tu Capital</span>
+              <span>Composición del Patrimonio</span>
               <span>100% Asignado</span>
             </div>
             <div className="h-3 w-full rounded-full bg-muted/60 flex overflow-hidden p-0.5 gap-0.5">
               <div
-                style={{ width: `${portfolioWeightPct}%` }}
+                style={{ width: `${brokerWeightPct}%` }}
                 className="bg-primary rounded-l-full h-full transition-all"
-                title={`Inversiones & Broker: ${portfolioWeightPct.toFixed(1)}%`}
+                title={`Brokers & Inversiones: ${brokerWeightPct.toFixed(1)}%`}
               />
               <div
-                style={{ width: `${usdLiquidWeightPct}%` }}
+                style={{ width: `${liquidUsdWeightPct}%` }}
                 className="bg-emerald-400 h-full transition-all"
-                title={`USD Líquido: ${usdLiquidWeightPct.toFixed(1)}%`}
+                title={`Bancos / Billeteras USD: ${liquidUsdWeightPct.toFixed(1)}%`}
               />
               <div
-                style={{ width: `${arsLiquidWeightPct}%` }}
+                style={{ width: `${liquidArsWeightPct}%` }}
                 className="bg-sky-400 rounded-r-full h-full transition-all"
-                title={`ARS Líquido: ${arsLiquidWeightPct.toFixed(1)}%`}
+                title={`Bancos ARS: ${liquidArsWeightPct.toFixed(1)}%`}
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES: INVERSIONES/BROKER, LÍQUIDO USD, LÍQUIDO ARS) */}
+      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES: BROKERS, LÍQUIDO USD, LÍQUIDO ARS) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Bloque 1: Inversiones & Cuentas Broker */}
+        {/* Bloque 1: Inversiones & Brokers */}
         <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
           <CardContent className="p-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4" />
-                Inversiones & Broker
+                Inversiones & Brokers
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
-                {portfolioWeightPct.toFixed(1)}%
+                {brokerWeightPct.toFixed(1)}%
               </Badge>
             </div>
             <div className="pt-1">
@@ -172,8 +196,8 @@ export function PatrimonioView() {
                 <span className="font-bold text-foreground">US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
-                <span>Cash Comitente:</span>
-                <span className="font-bold text-emerald-400">US$ {brokerCashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                <span>Cash en Brokers (ARQ/IBKR/IEB):</span>
+                <span className="font-bold text-emerald-400">US$ {totalBrokerCashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </CardContent>
@@ -185,22 +209,22 @@ export function PatrimonioView() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                 <DollarSign className="h-4 w-4" />
-                Líquido en Dólares
+                Bancos & Billeteras USD
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                {usdLiquidWeightPct.toFixed(1)}%
+                {liquidUsdWeightPct.toFixed(1)}%
               </Badge>
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {usdAccountsUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {totalLiquidUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {(usdAccountsUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {(totalLiquidUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
               </p>
             </div>
-            <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-              Mercury · Binance · Efectivo · DolarApp
+            <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
+              Mercury · Binance · Efectivo · Brubank · DolarApp
             </p>
           </CardContent>
         </Card>
@@ -211,28 +235,28 @@ export function PatrimonioView() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                 <Banknote className="h-4 w-4" />
-                Líquido en Pesos
+                Bancos & Billeteras ARS
               </span>
               <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-400 border-sky-500/20">
-                {arsLiquidWeightPct.toFixed(1)}%
+                {liquidArsWeightPct.toFixed(1)}%
               </Badge>
             </div>
             <div className="pt-1">
               <div className="text-2xl font-black font-mono text-foreground">
-                US$ {arsAccountsUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                US$ {totalLiquidARS_inUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {arsAccountsARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                $ {totalLiquidARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
               </p>
             </div>
-            <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-              Brubank y cuentas bancarias locales
+            <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
+              Cuentas bancarias en moneda local
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* 4. BREAKDOWN POR CUENTA FINANCIERA INDIVIDUAL */}
+      {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -240,31 +264,31 @@ export function PatrimonioView() {
             Desglose por Cuenta Financiera ({activeAccounts.length + 1})
           </h2>
           <span className="text-xs font-mono text-muted-foreground">
-            Total Cuentas: US$ {totalNetWorthUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            Total Patrimonio: US$ {totalNetWorthUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card: Brokers / Inversiones (con Activos y Cash Comitente) */}
-          <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
+          {/* Card: Portafolio de Acciones (Activos Invertidos) */}
+          <Card className="bg-card border border-primary/30 hover:border-primary transition-colors">
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                <div className="p-2.5 rounded-xl bg-primary/15 border border-primary/30">
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-foreground">Brokers (Inversiones)</h3>
-                  <span className="text-[11px] text-primary/80 uppercase font-mono">
-                    ARQ · IEB+ · IBKR
+                  <h3 className="font-bold text-sm text-foreground">Portafolio Acciones / CEDEARs</h3>
+                  <span className="text-[11px] text-primary font-mono uppercase">
+                    Activos Invertidos
                   </span>
                 </div>
               </div>
               <div className="text-right font-mono">
                 <div className="text-base font-black text-foreground">
-                  US$ {totalBrokerUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-[11px] text-muted-foreground block">
-                  $ {totalBrokerARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+                  $ {(portfolioInvestedUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
                 </span>
               </div>
             </CardContent>
