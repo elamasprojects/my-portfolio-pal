@@ -9,7 +9,6 @@ import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Wallet,
   Landmark,
@@ -392,7 +391,7 @@ export function PatrimonioView() {
         </Card>
       </div>
 
-      {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS (CON TOGGLE INLINE DESPLEGABLE) */}
+      {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -405,11 +404,11 @@ export function PatrimonioView() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card: Portafolio de Acciones (Activos Invertidos) - TOGGLE INLINE DESPLEGABLE */}
+          {/* Card: Portfolio - CLICKEABLE CON TOGGLE INLINE */}
           <Card
             onClick={() => setIsPortfolioExpanded((prev) => !prev)}
             className={`bg-card border cursor-pointer transition-all duration-200 hover:shadow-lg group ${
-              isPortfolioExpanded ? "border-primary ring-1 ring-primary/40" : "border-primary/40 hover:border-primary"
+              isPortfolioExpanded ? "border-primary ring-1 ring-primary/40 bg-primary/5" : "border-primary/40 hover:border-primary"
             }`}
           >
             <CardContent className="p-4 flex items-center justify-between">
@@ -418,12 +417,7 @@ export function PatrimonioView() {
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-bold text-sm text-foreground">Portafolio Acciones / CEDEARs</h3>
-                    <Badge variant="outline" className="text-[9px] font-mono bg-primary/10 text-primary border-primary/30 py-0 px-1.5">
-                      {isPortfolioExpanded ? "Cerrar" : "Ver por Broker"}
-                    </Badge>
-                  </div>
+                  <h3 className="font-bold text-sm text-foreground">Portfolio</h3>
                   <span className="text-[11px] text-primary font-mono uppercase flex items-center gap-1 mt-0.5">
                     Activos Invertidos
                     <ChevronDown
@@ -480,108 +474,102 @@ export function PatrimonioView() {
           })}
         </div>
 
-        {/* 5. INLINE EXPANDABLE ACCORDION: DESGLOSE PRECISO POR BROKER */}
-        <AnimatePresence>
-          {isPortfolioExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="overflow-hidden space-y-4 pt-3"
-            >
-              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-primary/40 shadow-xl space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
-                  <div>
-                    <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-primary" />
-                      Desglose de Posiciones Abiertas por Broker
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Distribución exacta de tus activos y cotizaciones en vivo en cada broker.
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/10">
-                    Total Cartera: US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </Badge>
-                </div>
-
-                {/* Grid de Brokers (ARQ, IEB+, IBKR) */}
-                <div className="grid grid-cols-1 gap-4">
-                  {brokerHoldingsBreakdown.map((b) => (
-                    <Card key={b.brokerName} className="border border-border/80 bg-background/80 overflow-hidden shadow-sm">
-                      <CardHeader className="p-3.5 bg-muted/40 border-b border-border/50 flex flex-row items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-foreground">{b.brokerName}</h4>
-                            <Badge variant="secondary" className="text-[10px] font-mono py-0 h-4">
-                              {b.holdings.length} {b.holdings.length === 1 ? "posición" : "posiciones"}
-                            </Badge>
-                          </div>
-                          <span className="text-[11px] text-muted-foreground font-mono">
-                            Efectivo Comitente: US$ {b.cashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <div className="text-right font-mono">
-                          <span className="text-sm font-black text-foreground block">
-                            US$ {b.totalMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                          </span>
-                          <span className={`text-[11px] font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {b.unrealizedPnlUSD >= 0 ? "+" : ""}US$ {b.unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{b.unrealizedPnlPct.toFixed(1)}%)
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="hover:bg-transparent text-[11px]">
-                              <TableHead>Activo</TableHead>
-                              <TableHead className="text-right">Cantidad</TableHead>
-                              <TableHead className="text-right">Compra (USD)</TableHead>
-                              <TableHead className="text-right">Actual (USD)</TableHead>
-                              <TableHead className="text-right">Valuación</TableHead>
-                              <TableHead className="text-right">P&L Latente</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {b.holdings.map((h) => (
-                              <TableRow key={`${b.brokerName}_${h.symbol}`} className="hover:bg-muted/30 text-xs">
-                                <TableCell className="font-bold font-mono">
-                                  <span>{h.symbol}</span>
-                                  <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
-                                    {h.assetName}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-medium">
-                                  {h.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })}
-                                </TableCell>
-                                <TableCell className="text-right font-mono text-muted-foreground">
-                                  US$ {h.avgCostUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-bold text-foreground">
-                                  US$ {h.livePriceUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-bold">
-                                  US$ {h.marketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                </TableCell>
-                                <TableCell className={`text-right font-mono font-bold ${h.pnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {h.pnlUSD >= 0 ? "+" : ""}US$ {h.pnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                                  <span className="block text-[10px] opacity-80">
-                                    {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(1)}%
-                                  </span>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+        {/* 5. INLINE ACCORDION: DESGLOSE PRECISO POR BROKER */}
+        {isPortfolioExpanded && (
+          <div className="rounded-2xl bg-card border border-primary/50 p-4 sm:p-5 shadow-xl space-y-4 transition-all duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Desglose de Posiciones por Broker
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Distribución de activos en cartera y cotizaciones en vivo en cada broker.
+                </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/10">
+                Total Portfolio: US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </Badge>
+            </div>
+
+            {/* Grid de Brokers (ARQ, IEB+, IBKR) */}
+            <div className="grid grid-cols-1 gap-4">
+              {brokerHoldingsBreakdown.length === 0 ? (
+                <p className="text-center py-6 text-sm text-muted-foreground">No hay posiciones activas registradas.</p>
+              ) : (
+                brokerHoldingsBreakdown.map((b) => (
+                  <Card key={b.brokerName} className="border border-border/80 bg-background/80 overflow-hidden shadow-sm">
+                    <CardHeader className="p-3.5 bg-muted/40 border-b border-border/50 flex flex-row items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-foreground">{b.brokerName}</h4>
+                          <Badge variant="secondary" className="text-[10px] font-mono py-0 h-4">
+                            {b.holdings.length} {b.holdings.length === 1 ? "posición" : "posiciones"}
+                          </Badge>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          Efectivo Comitente: US$ {b.cashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="text-right font-mono">
+                        <span className="text-sm font-black text-foreground block">
+                          US$ {b.totalMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className={`text-[11px] font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {b.unrealizedPnlUSD >= 0 ? "+" : ""}US$ {b.unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{b.unrealizedPnlPct.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent text-[11px]">
+                            <TableHead>Activo</TableHead>
+                            <TableHead className="text-right">Cantidad</TableHead>
+                            <TableHead className="text-right">Compra (USD)</TableHead>
+                            <TableHead className="text-right">Actual (USD)</TableHead>
+                            <TableHead className="text-right">Valuación</TableHead>
+                            <TableHead className="text-right">P&L Latente</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {b.holdings.map((h) => (
+                            <TableRow key={`${b.brokerName}_${h.symbol}`} className="hover:bg-muted/30 text-xs">
+                              <TableCell className="font-bold font-mono">
+                                <span>{h.symbol}</span>
+                                <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
+                                  {h.assetName}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-medium">
+                                {h.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-muted-foreground">
+                                US$ {h.avgCostUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-bold text-foreground">
+                                US$ {h.livePriceUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className="text-right font-mono font-bold">
+                                US$ {h.marketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell className={`text-right font-mono font-bold ${h.pnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {h.pnlUSD >= 0 ? "+" : ""}US$ {h.pnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                                <span className="block text-[10px] opacity-80">
+                                  {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(1)}%
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 6. DIAGRAMA SANKEY DE FLUJO DE FONDOS */}
