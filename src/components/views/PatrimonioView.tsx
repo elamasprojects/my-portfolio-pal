@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUnifiedFinancials } from "@/hooks/useUnifiedFinancials";
 import { useFinancialAccounts } from "@/hooks/useFinance";
 import { useTrades, computeHoldings } from "@/hooks/usePortfolio";
@@ -27,6 +28,7 @@ const formatUSD = (val: number) => Math.floor(val || 0).toLocaleString("en-US");
 const formatARS = (val: number) => Math.floor(val || 0).toLocaleString("es-AR");
 
 export function PatrimonioView() {
+  const navigate = useNavigate();
   const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
   const { accounts = [], isLoading: accountsLoading } = useFinancialAccounts();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
@@ -542,10 +544,18 @@ export function PatrimonioView() {
                             return (
                               <TableRow key={`${b.brokerName}_${h.symbol}`} className="hover:bg-muted/30 text-xs">
                                 <TableCell className="font-bold font-mono">
-                                  <span>{h.symbol}</span>
-                                  <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
-                                    {h.assetName}
-                                  </span>
+                                  <div
+                                    className="cursor-pointer group select-none"
+                                    onClick={() => navigate(`/asset/${h.symbol}`)}
+                                    title={`Ver análisis de ${h.symbol}`}
+                                  >
+                                    <span className="group-hover:text-primary group-hover:underline transition-colors">
+                                      {h.symbol}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground block font-normal truncate max-w-[120px]">
+                                      {h.assetName}
+                                    </span>
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-medium">
                                   {Number.isInteger(h.quantity) ? h.quantity.toString() : h.quantity.toFixed(2)}

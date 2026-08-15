@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import TradeLog from "./pages/TradeLog";
 import Strategy from "./pages/Strategy";
 import Patrimonio from "./pages/Patrimonio";
+import AssetDetail from "./pages/AssetDetail";
 
 const queryClient = new QueryClient();
 
@@ -35,13 +36,14 @@ const App = () => (
             {/* Public Authentication Route */}
             <Route path="/auth" element={<Auth />} />
 
-            {/* The 4 Core Navigation Routes */}
+            {/* Core Navigation Routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/portfolio" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
             <Route path="/movements" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/patrimonio" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
+            <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
 
             {/* Graceful Legacy Path Redirects -> Tablero (/) */}
             <Route path="/players" element={<Navigate to="/" replace />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
@@ -47,6 +48,7 @@ interface AuditedTradeRow {
 }
 
 export function GameReviewDashboard() {
+  const navigate = useNavigate();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
   const { venta: mepRate = 1200 } = useDolarMEP();
   
@@ -497,8 +499,14 @@ export function GameReviewDashboard() {
                   return (
                     <TableRow key={trade.id} className="hover:bg-muted/40">
                       <TableCell className="font-bold text-foreground">
-                        <div>
-                          <span>{trade.symbol}</span>
+                        <div
+                          className="cursor-pointer group select-none"
+                          onClick={() => navigate(`/asset/${trade.symbol}`)}
+                          title={`Ver análisis de ${trade.symbol}`}
+                        >
+                          <span className="group-hover:text-primary group-hover:underline transition-colors">
+                            {trade.symbol}
+                          </span>
                           <span className="text-[10px] text-muted-foreground block font-mono">
                             {input.sellDate?.slice(0, 10)} · {input.quantity.toFixed(2)} u.
                           </span>
