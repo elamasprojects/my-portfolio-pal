@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { ChessNavbar } from "@/components/navigation/ChessNavbar";
 import { ChessMobileNav } from "@/components/navigation/ChessMobileNav";
 import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
@@ -8,6 +9,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
   const [sharedText, setSharedText] = useState<string | undefined>();
   const [sharedFile, setSharedFile] = useState<File | null>(null);
+  const location = useLocation();
+
+  // Reset scroll to top on route change to prevent viewport jumping
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.pathname]);
 
   // PWA Share Target Listener
   useShareTargetListener((data: SharedData) => {
