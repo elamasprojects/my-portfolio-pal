@@ -14,9 +14,10 @@ import {
   CorporateActionSplit,
 } from "@/types/gameReview";
 import { adjustTradeForSplit } from "./corporateActions";
-import { calculateCounterfactuals } from "./counterfactuals";
+import { calculateCounterfactuals, DEFAULT_CCL_RATE } from "./counterfactuals";
 import { classifyTradeOutcome } from "./gameReviewClassifier";
 import { calculateAggregateMetricsFromAudits } from "./gameReviewMetrics";
+import { matchTradesFIFO } from "./tradeMatching";
 
 // Re-export domain interfaces for backward compatibility and clean external module consumption
 export type {
@@ -33,13 +34,14 @@ export type {
  * Audits a single closed position against counterfactual scenarios.
  */
 export async function auditClosedTrade(
-  trade: ClosedTradeAuditInput
+  trade: ClosedTradeAuditInput,
+  cclRateAtSell?: number
 ): Promise<CounterfactualMetrics> {
   // 1. Apply split scaling adjustment if splitFactor is provided
   const adjustedTrade = adjustTradeForSplit(trade);
 
   // 2. Compute counterfactual returns (Do-Nothing, Benchmarks, Strategy Adherence)
-  const cf = calculateCounterfactuals(adjustedTrade);
+  const cf = calculateCounterfactuals(adjustedTrade, cclRateAtSell);
 
   // 3. Classify outcome into taxonomy (Brillante, Correcta, Imprecisión, Blunder)
   const outcomeClassification = classifyTradeOutcome(adjustedTrade, cf);
@@ -56,7 +58,8 @@ export async function auditClosedTrade(
  * Summarizes aggregate performance and blunder metrics across a collection of closed trades.
  */
 export async function calculateAggregateAuditMetrics(
-  trades: ClosedTradeAuditInput[]
+  trades: ClosedTradeAuditInput[],
+  cclRateAtSell?: number
 ): Promise<AggregateAuditMetrics> {
   if (!trades || trades.length === 0) {
     return {
@@ -70,27 +73,55 @@ export async function calculateAggregateAuditMetrics(
 
   const audits: CounterfactualMetrics[] = [];
   for (const trade of trades) {
-    const audit = await auditClosedTrade(trade);
+    const audit = await auditClosedTrade(trade, cclRateAtSell);
     audits.push(audit);
   }
 
-  return calculateAggregateMetricsFromAudits(trades, audits);
+  return calculateAggregateMetricsFromAudits(trades, audits, cclRateAtSell);
 }
 
 /**
  * Batch execution engine auditing closed trades stored in Supabase table `trades`
  * and persisting outcome audits to `game_reviews` table.
  */
-export async function runBatchGameReview(dbClient?: any): Promise<{
+export interface BatchGameReviewOptions {
+  /**
+   * Current market price per symbol, in USD. This is what the "do nothing" counterfactual is
+   * built from: what the position would be worth today had it never been sold. Sells whose
+   * symbol has no live price are reported under `skippedNoPrice` rather than audited.
+   */
+  holdPricesUSD?: Map<string, number>;
+  /** Live ARS/USD rate used to express ARS figures. Falls back to DEFAULT_CCL_RATE. */
+  cclRate?: number;
+  /** Owner of the persisted rows. Resolved from the active session when omitted. */
+  userId?: string;
+}
+
+export interface BatchGameReviewResult {
   totalAudited: number;
+  /** Sells that could not be audited because no live price was available for the symbol. */
+  skippedNoPrice: number;
   blunderRatePercent: number;
   totalNetCostUSD: number;
-}> {
+}
+
+const EMPTY_BATCH_RESULT: BatchGameReviewResult = {
+  totalAudited: 0,
+  skippedNoPrice: 0,
+  blunderRatePercent: 0,
+  totalNetCostUSD: 0,
+};
+
+export async function runBatchGameReview(
+  dbClient?: any,
+  options: BatchGameReviewOptions = {}
+): Promise<BatchGameReviewResult> {
   const client = dbClient ?? supabase;
 
-  if (!client) {
-    return { totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 };
-  }
+  if (!client) return { ...EMPTY_BATCH_RESULT };
+
+  const holdPricesUSD = options.holdPricesUSD ?? new Map<string, number>();
+  const cclRate = options.cclRate && options.cclRate > 0 ? options.cclRate : DEFAULT_CCL_RATE;
 
   try {
     let allTrades: any[] = [];
@@ -110,103 +141,133 @@ export async function runBatchGameReview(dbClient?: any): Promise<{
       allTrades = [];
     }
 
-    if (!allTrades || allTrades.length === 0) {
-      return { totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 };
-    }
+    if (!allTrades || allTrades.length === 0) return { ...EMPTY_BATCH_RESULT };
 
-    let sellTrades = allTrades.filter((t: any) => t.trade_type === "sell" || t.status === "closed");
-    if (sellTrades.length === 0) {
-      sellTrades = allTrades;
-    }
+    // Only realised exits can be audited. There is deliberately no fallback to "audit
+    // everything": treating an open buy as a closed position invents an outcome for a
+    // decision the user has not made yet.
+    const sellTrades = allTrades.filter((t: any) => t.trade_type === "sell");
+    if (sellTrades.length === 0) return { ...EMPTY_BATCH_RESULT };
 
-    const effectiveFx = 1200.0;
-
-    const mappedInputs: ClosedTradeAuditInput[] = sellTrades.map((t: any) => {
-      const priorBuys = allTrades.filter(
-        (b: any) =>
-          b.symbol === t.symbol &&
-          b.trade_type === "buy" &&
-          new Date(b.trade_date || b.created_at) <= new Date(t.trade_date || t.created_at)
+    // FIFO lot matching gives the real cost basis per exit, including the case where a symbol
+    // was sold more than once. Averaging every prior buy (the previous approach) overstates
+    // cost basis on the second and later sells.
+    const fifoBySymbol = new Map<string, ReturnType<typeof matchTradesFIFO>>();
+    for (const symbol of new Set(allTrades.map((t: any) => String(t.symbol ?? "").toUpperCase()))) {
+      if (!symbol) continue;
+      const symbolTrades = allTrades.filter(
+        (t: any) => String(t.symbol ?? "").toUpperCase() === symbol
       );
+      fifoBySymbol.set(symbol, matchTradesFIFO(symbolTrades as any));
+    }
 
-      let totalBuyCostUSD = 0;
-      let totalBuyQty = 0;
-      let earliestBuyDate = t.trade_date || t.created_at || "2024-01-01";
+    let skippedNoPrice = 0;
+    const mappedInputs: ClosedTradeAuditInput[] = [];
 
-      for (const b of priorBuys) {
-        totalBuyCostUSD += Number(b.price_per_unit) * Number(b.quantity);
-        totalBuyQty += Number(b.quantity);
-        if (b.trade_date) earliestBuyDate = b.trade_date;
+    for (const t of sellTrades) {
+      const tradeId = t.id;
+      const symbol = t.symbol ? String(t.symbol).toUpperCase() : "";
+      const sellDate = t.trade_date || t.created_at;
+      const sellPriceUSD = Number(t.price_per_unit);
+      const quantity = Number(t.quantity);
+
+      // A row missing any of these cannot be audited truthfully, and substituting a
+      // placeholder symbol or price would silently fabricate a result.
+      if (!tradeId || !symbol || !sellDate) continue;
+      if (!Number.isFinite(sellPriceUSD) || !Number.isFinite(quantity) || quantity <= 0) continue;
+
+      const holdPriceUSD = holdPricesUSD.get(symbol);
+      if (!holdPriceUSD || holdPriceUSD <= 0) {
+        skippedNoPrice++;
+        continue;
       }
 
-      const sellPriceUSD = Number(t.price_per_unit || t.sell_price_ars || 10);
-      const avgBuyPriceUSD = totalBuyQty > 0
-        ? totalBuyCostUSD / totalBuyQty
-        : t.buy_price_ars
-        ? Number(t.buy_price_ars) / effectiveFx
-        : sellPriceUSD * 0.88;
+      // Match this exit to its FIFO lots to recover the true average cost and entry date.
+      const matched = fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellDate === sellDate) ?? [];
+      const matchedQty = matched.reduce((sum, c) => sum + c.quantity, 0);
+      if (matchedQty <= 0) continue;
 
-      const rate = Number(t.mep_rate) || (t.buy_price_ars ? 1.0 : effectiveFx);
+      const avgBuyPriceUSD =
+        matched.reduce((sum, c) => sum + c.buyPrice * c.quantity, 0) / matchedQty;
+      const buyDate = matched.reduce(
+        (earliest, c) => (c.buyDate < earliest ? c.buyDate : earliest),
+        matched[0].buyDate
+      );
 
-      // Holding counterfactual: simulate hold or exit outcome
-      const isProfitable = sellPriceUSD > avgBuyPriceUSD;
-      const holdPriceUSD = isProfitable
-        ? sellPriceUSD * 1.08 // sold early before slight continuation
-        : avgBuyPriceUSD * 1.05; // rebounded after panic sell
-
-      return {
-        tradeId: t.id || t.tradeId || "trade-1",
-        symbol: t.symbol || "AAPL",
-        buyDate: earliestBuyDate,
-        sellDate: t.trade_date || t.sell_date || t.created_at || "2024-06-01",
-        buyPriceARS: t.buy_price_ars ? Number(t.buy_price_ars) : avgBuyPriceUSD * rate,
-        sellPriceARS: t.sell_price_ars ? Number(t.sell_price_ars) : sellPriceUSD * rate,
-        holdingPriceAtSellDateARS: holdPriceUSD * rate,
-        quantity: Number(t.quantity || 1),
-        splitFactor: Number(t.split_factor || 1.0),
-        targetPriceARS: t.target_price_ars !== undefined && t.target_price_ars !== null ? Number(t.target_price_ars) : undefined,
-        invalidationPriceARS: t.invalidation_price_ars !== undefined && t.invalidation_price_ars !== null
-          ? Number(t.invalidation_price_ars)
-          : (t.invalidation_price ? Number(t.invalidation_price) : undefined),
+      // price_per_unit is stored normalised to USD across this codebase, so a single rate
+      // converts every leg consistently.
+      mappedInputs.push({
+        tradeId,
+        symbol,
+        buyDate,
+        sellDate,
+        buyPriceARS: avgBuyPriceUSD * cclRate,
+        sellPriceARS: sellPriceUSD * cclRate,
+        holdingPriceAtSellDateARS: holdPriceUSD * cclRate,
+        quantity: matchedQty,
+        splitFactor: Number(t.split_factor) || 1.0,
+        targetPriceARS:
+          t.target_price_ars !== undefined && t.target_price_ars !== null
+            ? Number(t.target_price_ars)
+            : undefined,
+        invalidationPriceARS:
+          t.invalidation_price_ars !== undefined && t.invalidation_price_ars !== null
+            ? Number(t.invalidation_price_ars)
+            : undefined,
         isPlannedExit: t.is_planned_exit !== undefined ? Boolean(t.is_planned_exit) : true,
         unplannedRationale: t.unplanned_rationale,
-      };
-    });
+      });
+    }
 
-    const metrics = await calculateAggregateAuditMetrics(mappedInputs);
+    if (mappedInputs.length === 0) {
+      return { ...EMPTY_BATCH_RESULT, skippedNoPrice };
+    }
 
-    // Persist reviews to Supabase `game_reviews` table
+    // Audit once and reuse: the aggregate metrics and the persisted rows are both derived
+    // from this single pass.
+    const audits: CounterfactualMetrics[] = [];
+    for (const input of mappedInputs) {
+      audits.push(await auditClosedTrade(input, cclRate));
+    }
+    const metrics = calculateAggregateMetricsFromAudits(mappedInputs, audits, cclRate);
+
+    // Every row must carry its owner: `game_reviews` RLS scopes on user_id, and rows written
+    // without one used to land in a bucket readable by every authenticated user.
+    let userId = options.userId;
+    if (!userId && client === supabase) {
+      const { data } = await supabase.auth.getUser();
+      userId = data.user?.id;
+    }
+
     try {
-      const rowsToInsert = await Promise.all(
-        mappedInputs.map(async (trade) => {
-          const audit = await auditClosedTrade(trade);
-          return {
-            trade_id: trade.tradeId,
-            do_nothing_return_ars: audit.doNothingReturnARS,
-            spy_return: audit.benchmarkReturns.spyReturn,
-            ccl_return: audit.benchmarkReturns.cclReturn,
-            fixed_deposit_return: audit.benchmarkReturns.fixedDepositReturn,
-            outcome_classification: audit.outcomeClassification,
-            net_cost_usd: audit.netCostOfTradingUSD,
-            audited_at: new Date().toISOString(),
-          };
-        })
-      );
+      const auditedAt = new Date().toISOString();
+      const rowsToInsert = mappedInputs.map((trade, i) => ({
+        ...(userId ? { user_id: userId } : {}),
+        trade_id: trade.tradeId,
+        do_nothing_return_ars: audits[i].doNothingReturnARS,
+        spy_return: audits[i].benchmarkReturns.spyReturn,
+        ccl_return: audits[i].benchmarkReturns.cclReturn,
+        fixed_deposit_return: audits[i].benchmarkReturns.fixedDepositReturn,
+        outcome_classification: audits[i].outcomeClassification,
+        net_cost_usd: audits[i].netCostOfTradingUSD,
+        audited_at: auditedAt,
+      }));
 
-      const { error: upsertError } = await client.from("game_reviews").upsert(rowsToInsert, { onConflict: "trade_id" });
-      if (upsertError) {
-        return { totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 };
-      }
+      const { error: upsertError } = await client
+        .from("game_reviews")
+        .upsert(rowsToInsert, { onConflict: "trade_id" });
+      if (upsertError) return { ...EMPTY_BATCH_RESULT, skippedNoPrice };
     } catch {
-      return { totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 };
+      return { ...EMPTY_BATCH_RESULT, skippedNoPrice };
     }
 
     return {
       totalAudited: metrics.totalClosedTrades,
+      skippedNoPrice,
       blunderRatePercent: metrics.blunderRatePercent,
       totalNetCostUSD: metrics.totalNetCostUSD,
     };
   } catch {
-    return { totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 };
+    return { ...EMPTY_BATCH_RESULT };
   }
 }

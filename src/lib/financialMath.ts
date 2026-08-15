@@ -199,29 +199,10 @@ export function computeUnifiedNetWorth(
     portfolioMarketValueUSD += p ? p * h.net_quantity : h.total_invested;
   }
 
-  // Compute dynamic uninvested cash in broker accounts from trade proceeds (sells, dividends, buys)
-  let dynamicTradeCashUSD = 0;
-  if (trades && Array.isArray(trades) && trades.length > 0) {
-    const sortedTrades = [...trades].sort(
-      (a, b) => new Date(a.trade_date || a.created_at).getTime() - new Date(b.trade_date || b.created_at).getTime()
-    );
-    let runningCash = 0;
-    for (const t of sortedTrades) {
-      const price = Number(t.price_per_unit || 0);
-      const qty = Number(t.quantity || 0);
-      const total = Number(t.total_amount) || price * qty;
-      if (t.trade_type === "sell" || t.trade_type === "dividend") {
-        runningCash += total;
-      } else if (t.trade_type === "buy") {
-        runningCash -= total;
-      }
-      if (runningCash < 0) runningCash = 0;
-    }
-    dynamicTradeCashUSD = Math.round(runningCash * 100) / 100;
-  }
-
-  brokerCashUSD += dynamicTradeCashUSD;
-
+  // Uninvested broker cash comes from the `financial_accounts` balances above, which are
+  // the authoritative, user-maintained figures. Deriving a second estimate from the trade
+  // ledger and adding it here counted the same pesos twice, and the running total it used
+  // clamped at zero on every buy-before-sell sequence, so it overstated cash on top of that.
   const netWorthUSD = liquidCashUSD + brokerCashUSD + portfolioMarketValueUSD;
 
   // Monthly flow (last 30 days)

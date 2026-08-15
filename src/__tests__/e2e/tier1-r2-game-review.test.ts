@@ -179,10 +179,76 @@ describe("Tier 1 - Requirement 2 (R2): Retroactive Game Review Engine", () => {
    * T1-R2-06: Historical Batch Execution Engine
    */
   it("T1-R2-06: executes batch game review engine over database closed trade records", async () => {
-    const batchResult = await runBatchGameReview(env.mockSupabase);
+    const local = setupTestEnvironment({
+      initialData: {
+        trades: [
+          {
+            id: "aaaaaaaa-0000-4000-8000-00000000000b",
+            symbol: "AAPL",
+            trade_type: "buy",
+            trade_date: "2024-01-01",
+            price_per_unit: 20,
+            quantity: 10,
+          },
+          {
+            id: "aaaaaaaa-0000-4000-8000-00000000000s",
+            symbol: "AAPL",
+            trade_type: "sell",
+            trade_date: "2024-06-01",
+            price_per_unit: 30,
+            quantity: 10,
+          },
+        ] as never,
+      },
+    });
 
-    expect(batchResult.totalAudited).toBeGreaterThan(0);
+    // Bought at 20, exited at 30, worth 35 today: holding would have been better, so the
+    // cost of trading is positive. The engine needs the live price to say that at all.
+    const batchResult = await runBatchGameReview(local.mockSupabase, {
+      holdPricesUSD: new Map([["AAPL", 35]]),
+      userId: "user-test-123",
+    });
+
+    expect(batchResult.totalAudited).toBe(1);
+    expect(batchResult.skippedNoPrice).toBe(0);
     expect(batchResult.blunderRatePercent).toBeGreaterThanOrEqual(0);
-    expect(batchResult.totalNetCostUSD).toBeGreaterThanOrEqual(0);
+    expect(batchResult.totalNetCostUSD).toBeGreaterThan(0);
+
+    local.cleanup();
+  });
+
+  it("T1-R2-07: skips exits whose symbol has no live price instead of inventing one", async () => {
+    const local = setupTestEnvironment({
+      initialData: {
+        trades: [
+          {
+            id: "bbbbbbbb-0000-4000-8000-00000000000b",
+            symbol: "MELI",
+            trade_type: "buy",
+            trade_date: "2024-01-01",
+            price_per_unit: 100,
+            quantity: 5,
+          },
+          {
+            id: "bbbbbbbb-0000-4000-8000-00000000000s",
+            symbol: "MELI",
+            trade_type: "sell",
+            trade_date: "2024-06-01",
+            price_per_unit: 150,
+            quantity: 5,
+          },
+        ] as never,
+      },
+    });
+
+    const batchResult = await runBatchGameReview(local.mockSupabase, {
+      holdPricesUSD: new Map(),
+    });
+
+    expect(batchResult.totalAudited).toBe(0);
+    expect(batchResult.skippedNoPrice).toBe(1);
+    expect(batchResult.totalNetCostUSD).toBe(0);
+
+    local.cleanup();
   });
 });

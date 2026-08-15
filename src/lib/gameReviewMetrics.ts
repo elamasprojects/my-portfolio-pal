@@ -4,6 +4,7 @@
  */
 
 import { ClosedTradeAuditInput, CounterfactualMetrics, AggregateAuditMetrics } from "@/types/gameReview";
+import { DEFAULT_CCL_RATE } from "./counterfactuals";
 
 /**
  * Resolves the asset category for a given trade symbol.
@@ -81,8 +82,11 @@ export function resolveAssetCategory(symbol: string, declaredCategory?: string):
  */
 export function calculateAggregateMetricsFromAudits(
   trades: ClosedTradeAuditInput[],
-  audits: CounterfactualMetrics[]
+  audits: CounterfactualMetrics[],
+  cclRate: number = DEFAULT_CCL_RATE
 ): AggregateAuditMetrics {
+  const effectiveCclRate = cclRate > 0 ? cclRate : DEFAULT_CCL_RATE;
+
   if (!trades || trades.length === 0 || !audits || audits.length === 0) {
     return {
       totalClosedTrades: 0,
@@ -115,8 +119,9 @@ export function calculateAggregateMetricsFromAudits(
     const adjBuyPrice = trade.buyPriceARS / splitFactor;
     const actualReturnARS = (trade.sellPriceARS - adjBuyPrice) * adjQuantity;
     const edgeARS = actualReturnARS - audit.doNothingReturnARS;
-    const cclRate = trade.cclReturnPct && trade.cclReturnPct > 0 ? trade.cclReturnPct : 1000.0;
-    const edgeUSD = edgeARS / cclRate;
+    // cclReturnPct is a percentage return, not an exchange rate — dividing ARS by it produced
+    // an edge inflated by roughly 60x whenever a trade carried that field.
+    const edgeUSD = edgeARS / effectiveCclRate;
 
     categoryEdgeUSD[cat] = Math.round(((categoryEdgeUSD[cat] || 0) + edgeUSD) * 100) / 100;
   }

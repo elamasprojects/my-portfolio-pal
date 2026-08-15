@@ -82,11 +82,12 @@ describe("Empirical Challenger R2_2 — Category Edge USD, Ticker Resolution & B
         sellPriceARS: 600,
         quantity: 10,
         holdingPriceAtSellDateARS: 0, // Asset went to 0 after trade exit
-        cclReturnPct: 1200.0,
       };
 
-      const audit = await auditClosedTrade(trade);
-      const metrics = calculateAggregateMetricsFromAudits([trade], [audit]);
+      // The ARS/USD rate is a separate argument. It used to be read from cclReturnPct, which is
+      // a percentage return, so passing 1200 there meant both "1200% vs CCL" and "1200 ARS/USD".
+      const audit = await auditClosedTrade(trade, 1200);
+      const metrics = calculateAggregateMetricsFromAudits([trade], [audit], 1200);
 
       // actualReturn = (600 - 1000) * 10 = -4000 ARS
       // doNothingReturn = (0 - 1000) * 10 = -10000 ARS
@@ -205,12 +206,19 @@ describe("Empirical Challenger R2_2 — Category Edge USD, Ticker Resolution & B
                   return Promise.resolve({
                     data: [
                       {
+                        id: "trade-uuid-0",
+                        symbol: "GGAL.BA",
+                        trade_type: "buy",
+                        trade_date: "2024-01-01",
+                        price_per_unit: 20,
+                        quantity: 50,
+                      },
+                      {
                         id: "trade-uuid-1",
                         symbol: "GGAL.BA",
-                        buy_date: "2024-01-01",
-                        sell_date: "2024-06-01",
-                        buy_price_ars: 1000,
-                        sell_price_ars: 1500,
+                        trade_type: "sell",
+                        trade_date: "2024-06-01",
+                        price_per_unit: 30,
                         quantity: 50,
                         split_factor: 1.0,
                         target_price_ars: 1800,
@@ -238,12 +246,18 @@ describe("Empirical Challenger R2_2 — Category Edge USD, Ticker Resolution & B
         },
       };
 
-      const result = await runBatchGameReview(mockDb);
+      const result = await runBatchGameReview(mockDb, {
+        holdPricesUSD: new Map([["GGAL.BA", 25]]),
+        userId: "user-1",
+      });
 
+      // Only the sell is audited; the buy that funds it is cost basis, not a decision outcome.
       expect(result.totalAudited).toBe(1);
+      expect(result.skippedNoPrice).toBe(0);
       expect(upsertCalled).toBe(true);
       expect(insertedPayload).toHaveLength(1);
       expect(insertedPayload[0].trade_id).toBe("trade-uuid-1");
+      expect(insertedPayload[0].user_id).toBe("user-1");
       expect(insertedPayload[0].outcome_classification).toBeDefined();
     });
 
@@ -257,7 +271,7 @@ describe("Empirical Challenger R2_2 — Category Edge USD, Ticker Resolution & B
       };
 
       const result = await runBatchGameReview(failingDb);
-      expect(result).toEqual({ totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 });
+      expect(result).toEqual({ totalAudited: 0, skippedNoPrice: 0, blunderRatePercent: 0, totalNetCostUSD: 0 });
     });
 
     it("3.3 Handles upsert failure gracefully", async () => {
@@ -289,7 +303,7 @@ describe("Empirical Challenger R2_2 — Category Edge USD, Ticker Resolution & B
       };
 
       const result = await runBatchGameReview(failingUpsertDb);
-      expect(result).toEqual({ totalAudited: 0, blunderRatePercent: 0, totalNetCostUSD: 0 });
+      expect(result).toEqual({ totalAudited: 0, skippedNoPrice: 0, blunderRatePercent: 0, totalNetCostUSD: 0 });
     });
   });
 });

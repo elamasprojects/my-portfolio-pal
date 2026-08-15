@@ -30,7 +30,6 @@ describe("M2 Challenger 1: Adversarial Router & Legacy Redirect Stress Suite", (
     "/trades",
     "/add",
     "/add/new-trade",
-    "/finance",
     "/finance/expenses",
     "/finance/incomes",
     "/finance/analytics",
@@ -65,6 +64,17 @@ describe("M2 Challenger 1: Adversarial Router & Legacy Redirect Stress Suite", (
       expect(window.location.pathname).toBe("/movements");
       unmount();
     });
+  });
+
+  // /finance is not a legacy alias: it is the Finanzas (Patrimonio) view, and both the desktop
+  // and mobile navs link to it. Only its retired PR #2 subroutes redirect to Movimientos.
+  it("keeps '/finance' on the Finanzas view rather than redirecting it", async () => {
+    window.history.pushState({}, "Test", "/finance");
+    const { unmount } = render(<App />);
+
+    await screen.findByText("CHESS");
+    expect(window.location.pathname).toBe("/finance");
+    unmount();
   });
 
   strategyRoutes.forEach((route) => {

@@ -328,13 +328,19 @@ describe("Retroactive Game Review Engine & Counterfactual Audit System (Unit Tes
     it("runs batch review over mock database interface", async () => {
       const mockTrades = [
         {
+          id: "trade-0",
+          symbol: "AAPL",
+          trade_type: "buy",
+          trade_date: "2024-01-01",
+          price_per_unit: 20,
+          quantity: 10,
+        },
+        {
           id: "trade-1",
           symbol: "AAPL",
-          status: "closed",
-          buy_date: "2024-01-01",
-          sell_date: "2024-06-01",
-          buy_price_ars: 1000,
-          sell_price_ars: 1500,
+          trade_type: "sell",
+          trade_date: "2024-06-01",
+          price_per_unit: 30,
           quantity: 10,
         },
       ];
@@ -354,11 +360,16 @@ describe("Retroactive Game Review Engine & Counterfactual Audit System (Unit Tes
         },
       };
 
-      const result = await runBatchGameReview(mockDb);
+      // Hold price (35) above the exit price (30) means holding would have been better, so the
+      // cost of trading is positive. Bought at 20, sold at 30, 10 units.
+      const result = await runBatchGameReview(mockDb, {
+        holdPricesUSD: new Map([["AAPL", 35]]),
+      });
 
       expect(result.totalAudited).toBe(1);
+      expect(result.skippedNoPrice).toBe(0);
       expect(result.blunderRatePercent).toBe(0.0);
-      expect(result.totalNetCostUSD).toBeGreaterThanOrEqual(0);
+      expect(result.totalNetCostUSD).toBeGreaterThan(0);
     });
   });
 });

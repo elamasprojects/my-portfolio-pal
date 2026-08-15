@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
+import { matchTradesFIFO } from "@/lib/tradeMatching";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import {
@@ -68,6 +69,7 @@ export function GameReviewDashboard() {
     categoryEdgeUSD: {},
   });
   const [totalEdgeVsHoldUSD, setTotalEdgeVsHoldUSD] = useState<number>(0);
+  const [skippedNoPrice, setSkippedNoPrice] = useState<number>(0);
   const [selectedOutcomeFilter, setSelectedOutcomeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"edge" | "pnl" | "date">("edge");
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
@@ -99,82 +101,94 @@ export function GameReviewDashboard() {
 
       const effectiveFx = mepRate > 0 ? mepRate : 1200;
 
-      // Group buys by symbol to calculate historical buy average cost
-      const mappedInputs: ClosedTradeAuditInput[] = closedTrades.map((t) => {
-        const priorBuys = trades.filter(
-          (b) =>
-            b.symbol === t.symbol &&
-            b.trade_type === "buy" &&
-            new Date(b.trade_date || b.created_at) <= new Date(t.trade_date || t.created_at)
+      // FIFO lot matching recovers the true cost basis per exit. Averaging every prior buy
+      // overstates cost basis on the second and later sells of the same symbol.
+      const fifoBySymbol = new Map<string, ReturnType<typeof matchTradesFIFO>>();
+      for (const symbol of new Set(trades.map((t) => t.symbol.toUpperCase()))) {
+        fifoBySymbol.set(
+          symbol,
+          matchTradesFIFO(trades.filter((t) => t.symbol.toUpperCase() === symbol))
         );
+      }
 
-        let totalBuyCostUSD = 0;
-        let totalBuyQty = 0;
-        let earliestBuyDate = t.trade_date || t.created_at || "2024-01-01";
+      const auditable: { trade: Trade; input: ClosedTradeAuditInput }[] = [];
+      let skipped = 0;
 
-        for (const b of priorBuys) {
-          totalBuyCostUSD += Number(b.price_per_unit) * Number(b.quantity);
-          totalBuyQty += Number(b.quantity);
-          if (b.trade_date) earliestBuyDate = b.trade_date;
+      for (const t of closedTrades) {
+        const symbol = t.symbol.toUpperCase();
+        const sellDate = t.trade_date || t.created_at;
+        const sellPriceUSD = Number(t.price_per_unit);
+
+        // The "do nothing" counterfactual is what the position would be worth today had it
+        // never been sold, so it needs a live price. Without one the exit is not auditable —
+        // substituting a multiple of the user's own trade would manufacture the verdict.
+        const holdPriceUSD = marketPrices.get(symbol);
+        if (!holdPriceUSD || holdPriceUSD <= 0 || !Number.isFinite(sellPriceUSD) || !sellDate) {
+          skipped++;
+          continue;
         }
 
-        const sellPriceUSD = Number(t.price_per_unit || 10);
-        // If prior buys exist, use exact avg cost; otherwise default to realistic estimate (12% lower)
-        const avgBuyPriceUSD = totalBuyQty > 0 ? totalBuyCostUSD / totalBuyQty : sellPriceUSD * 0.88;
+        const matched = fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellDate === sellDate) ?? [];
+        const matchedQty = matched.reduce((sum, c) => sum + c.quantity, 0);
+        if (matchedQty <= 0) {
+          skipped++;
+          continue;
+        }
 
-        // Current market price from live feeds, or simulated holding continuation
-        const liveMktPrice = marketPrices.get(t.symbol.toUpperCase());
-        const holdPriceUSD = liveMktPrice && liveMktPrice > 0
-          ? liveMktPrice
-          : sellPriceUSD > avgBuyPriceUSD
-          ? sellPriceUSD * 1.08 // Sold early before rally
-          : avgBuyPriceUSD * 1.05; // Panic sold before recovery
+        const avgBuyPriceUSD =
+          matched.reduce((sum, c) => sum + c.buyPrice * c.quantity, 0) / matchedQty;
+        const buyDate = matched.reduce(
+          (earliest, c) => (c.buyDate < earliest ? c.buyDate : earliest),
+          matched[0].buyDate
+        );
 
-        const rate = Number(t.mep_rate) || effectiveFx;
+        // price_per_unit is stored normalised to USD, so one rate converts every leg.
+        const rate = effectiveFx;
 
-        return {
-          tradeId: t.id,
-          symbol: t.symbol,
-          buyDate: earliestBuyDate,
-          sellDate: t.trade_date || t.created_at || "2024-06-01",
-          buyPriceARS: avgBuyPriceUSD * rate,
-          sellPriceARS: sellPriceUSD * rate,
-          holdingPriceAtSellDateARS: holdPriceUSD * rate,
-          quantity: Number(t.quantity || 1),
-          splitFactor: Number((t as any).split_factor || 1.0),
-          targetPriceARS: (t as any).target_price_ars ? Number((t as any).target_price_ars) : undefined,
-          invalidationPriceARS: (t as any).invalidation_price_ars
-            ? Number((t as any).invalidation_price_ars)
-            : (t as any).invalidation_price
-            ? Number((t as any).invalidation_price)
-            : undefined,
-          isPlannedExit: (t as any).is_planned_exit !== undefined ? Boolean((t as any).is_planned_exit) : true,
-          unplannedRationale: (t as any).unplanned_rationale,
-        };
-      });
+        auditable.push({
+          trade: t,
+          input: {
+            tradeId: t.id,
+            symbol: t.symbol,
+            buyDate,
+            sellDate,
+            buyPriceARS: avgBuyPriceUSD * rate,
+            sellPriceARS: sellPriceUSD * rate,
+            holdingPriceAtSellDateARS: holdPriceUSD * rate,
+            quantity: matchedQty,
+            splitFactor: Number((t as any).split_factor || 1.0),
+            targetPriceARS: (t as any).target_price_ars ? Number((t as any).target_price_ars) : undefined,
+            invalidationPriceARS: (t as any).invalidation_price_ars
+              ? Number((t as any).invalidation_price_ars)
+              : undefined,
+            isPlannedExit: (t as any).is_planned_exit !== undefined ? Boolean((t as any).is_planned_exit) : true,
+            unplannedRationale: (t as any).unplanned_rationale,
+          },
+        });
+      }
 
       const rows: AuditedTradeRow[] = [];
       let sumEdgeVsHoldUSD = 0;
 
-      for (let i = 0; i < closedTrades.length; i++) {
-        const inp = mappedInputs[i];
-        const audit = await auditClosedTrade(inp);
-        const rate = Number(closedTrades[i].mep_rate) || effectiveFx;
+      for (const { trade: t, input: inp } of auditable) {
+        const audit = await auditClosedTrade(inp, effectiveFx);
+        const rate = effectiveFx;
         const sellPriceUSD = inp.sellPriceARS / rate;
         const avgBuyPriceUSD = inp.buyPriceARS / rate;
-        const currentHoldPriceUSD = (inp.holdingPriceAtSellDateARS || inp.sellPriceARS) / rate;
+        const holdARS = inp.holdingPriceAtSellDateARS as number;
+        const currentHoldPriceUSD = holdARS / rate;
 
         const realizedPnlUSD = (sellPriceUSD - avgBuyPriceUSD) * inp.quantity;
         const realizedPnlARS = (inp.sellPriceARS - inp.buyPriceARS) * inp.quantity;
         const doNothingUSD = (currentHoldPriceUSD - avgBuyPriceUSD) * inp.quantity;
-        const doNothingARS = ((inp.holdingPriceAtSellDateARS || inp.sellPriceARS) - inp.buyPriceARS) * inp.quantity;
+        const doNothingARS = (holdARS - inp.buyPriceARS) * inp.quantity;
         const edgeVsHoldUSD = (sellPriceUSD - currentHoldPriceUSD) * inp.quantity;
-        const edgeVsHoldARS = (inp.sellPriceARS - (inp.holdingPriceAtSellDateARS || inp.sellPriceARS)) * inp.quantity;
+        const edgeVsHoldARS = (inp.sellPriceARS - holdARS) * inp.quantity;
 
         sumEdgeVsHoldUSD += edgeVsHoldUSD;
 
         rows.push({
-          trade: closedTrades[i],
+          trade: t,
           input: inp,
           audit,
           sellPriceUSD,
@@ -190,12 +204,16 @@ export function GameReviewDashboard() {
         });
       }
 
-      const metrics = await calculateAggregateAuditMetrics(mappedInputs);
+      const metrics = await calculateAggregateAuditMetrics(
+        auditable.map((a) => a.input),
+        effectiveFx
+      );
 
       if (isMounted) {
         setAuditedRows(rows);
         setAggregateMetrics(metrics);
         setTotalEdgeVsHoldUSD(sumEdgeVsHoldUSD);
+        setSkippedNoPrice(skipped);
       }
     }
 
@@ -209,9 +227,15 @@ export function GameReviewDashboard() {
   const handleRunBatch = async () => {
     setIsRunningBatch(true);
     try {
-      const res = await runBatchGameReview();
+      const res = await runBatchGameReview(undefined, {
+        holdPricesUSD: marketPrices,
+        cclRate: mepRate > 0 ? mepRate : undefined,
+      });
       toast.success(
-        `✓ Auditoría Batch completada: ${res.totalAudited} operaciones analizadas.`
+        `✓ Auditoría Batch completada: ${res.totalAudited} operaciones analizadas.` +
+          (res.skippedNoPrice > 0
+            ? ` ${res.skippedNoPrice} omitidas por falta de precio de mercado.`
+            : "")
       );
     } catch (err: any) {
       toast.error("Error al ejecutar auditoría batch");
@@ -250,10 +274,25 @@ export function GameReviewDashboard() {
     return <ChessBadge evaluation={outcome} size="sm" />;
   };
 
-  // Best Category Name
+  /**
+   * Alpha vs holding dollars. Every price in this codebase is stored normalised to USD, so a
+   * realised return measured in USD already nets out the peso's devaluation: 0% is exactly the
+   * "bought CCL and slept" outcome. Weighted by cost basis over the audited exits.
+   * Null when nothing is auditable — an invented figure here reads as a real finding.
+   */
+  const alphaVsCclPct = useMemo(() => {
+    if (auditedRows.length === 0) return null;
+    const costBasis = auditedRows.reduce((sum, r) => sum + r.avgBuyPriceUSD * r.input.quantity, 0);
+    if (costBasis <= 0) return null;
+    const pnl = auditedRows.reduce((sum, r) => sum + r.realizedPnlUSD, 0);
+    return (pnl / costBasis) * 100;
+  }, [auditedRows]);
+
+  // Best Category Name. With no audited trades there is no best category — showing a
+  // plausible-looking placeholder reads as a finding the data does not support.
   const bestCategory = useMemo(() => {
     const entries = Object.entries(aggregateMetrics.categoryEdgeUSD || {});
-    if (entries.length === 0) return "CEDEARs Tech";
+    if (entries.length === 0) return null;
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0][0];
   }, [aggregateMetrics]);
@@ -269,8 +308,13 @@ export function GameReviewDashboard() {
               Game Review Retroactivo (Auditoría de Holdeo y Decisiones)
             </CardTitle>
             <CardDescription className="text-xs mt-1">
-              Auditoría sobre tus 2 años de historial evaluando cada venta contra <i>Holdeo (No hacer nada)</i>, <i>CCL</i> y <i>S&P 500</i>.
+              Auditoría de tu historial evaluando cada venta contra <i>Holdeo (No hacer nada)</i>, usando el precio de mercado actual de cada activo.
             </CardDescription>
+            {skippedNoPrice > 0 && (
+              <p className="text-[11px] text-amber-400/90 mt-1.5">
+                {skippedNoPrice} venta{skippedNoPrice === 1 ? "" : "s"} sin auditar: no hay precio de mercado disponible para su activo.
+              </p>
+            )}
           </div>
           <Button
             variant="default"
@@ -337,11 +381,23 @@ export function GameReviewDashboard() {
                 </span>
                 <ChessBadge evaluation="gran_jugada" circleOnly size="xs" />
               </div>
-              <div className="text-2xl font-black text-emerald-400">
-                +4.2%
+              <div
+                className={`text-2xl font-black ${
+                  alphaVsCclPct === null
+                    ? "text-muted-foreground"
+                    : alphaVsCclPct >= 0
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }`}
+              >
+                {alphaVsCclPct === null
+                  ? "—"
+                  : `${alphaVsCclPct >= 0 ? "+" : ""}${alphaVsCclPct.toFixed(1)}%`}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Rendimiento superior a comprar CCL y dormir
+                {alphaVsCclPct === null
+                  ? "Sin operaciones cerradas auditables"
+                  : "Rendimiento en USD vs comprar CCL y dormir"}
               </p>
             </div>
 
@@ -353,11 +409,17 @@ export function GameReviewDashboard() {
                 </span>
                 <ChessBadge evaluation="correcta" circleOnly size="xs" />
               </div>
-              <div className="text-xl font-bold text-foreground truncate">
-                {bestCategory}
+              <div
+                className={`text-xl font-bold truncate ${
+                  bestCategory ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {bestCategory ?? "—"}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Categoría con mayor acierto en tesis
+                {bestCategory
+                  ? "Categoría con mayor acierto en tesis"
+                  : "Sin operaciones cerradas auditables"}
               </p>
             </div>
           </div>

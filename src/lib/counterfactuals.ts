@@ -28,11 +28,17 @@ export interface CounterfactualCalculationResult {
 }
 
 /**
+ * Last-resort ARS/USD rate, used only when no caller supplies a live one. Callers in the
+ * app always pass the rate from useDolarMEP; this exists so pure unit tests stay deterministic.
+ */
+export const DEFAULT_CCL_RATE = 1000.0;
+
+/**
  * Calculates (a) Do-Nothing counterfactual, (b) Benchmarks & Alpha, and (c) Strategy Adherence.
  */
 export function calculateCounterfactuals(
   trade: ClosedTradeAuditInput,
-  cclRateAtSell = 1000.0
+  cclRateAtSell: number = DEFAULT_CCL_RATE
 ): CounterfactualCalculationResult {
   const adjTrade = adjustTradeForSplit(trade);
   const adjQuantity = adjTrade.quantity;
@@ -49,9 +55,11 @@ export function calculateCounterfactuals(
   const doNothingReturnPct =
     adjBuyPrice > 0 ? ((currentHoldPrice - adjBuyPrice) / adjBuyPrice) * 100 : 0;
 
-  // Opportunity cost of trading vs holding (ARS & USD)
-  const opportunityCostARS = Math.max(0, doNothingReturnARS - actualTotalReturnARS);
-  const effectiveCclRate = cclRateAtSell > 0 ? cclRateAtSell : 1000.0;
+  // Cost of trading vs holding, signed: positive means holding would have been better,
+  // negative means the exit beat holding. Clamping this at zero made it impossible for the
+  // audit to ever report that a sale was the right call.
+  const opportunityCostARS = doNothingReturnARS - actualTotalReturnARS;
+  const effectiveCclRate = cclRateAtSell > 0 ? cclRateAtSell : DEFAULT_CCL_RATE;
   const netCostUSD = Math.round((opportunityCostARS / effectiveCclRate) * 100) / 100;
 
   // (b) Multi-Benchmark returns & Alpha calculation

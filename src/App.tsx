@@ -38,7 +38,6 @@ const App = () => (
 
             {/* Core Navigation Routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/portfolio" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
             <Route path="/movements" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
@@ -66,7 +65,8 @@ const App = () => (
             <Route path="/trades" element={<Navigate to="/movements" replace />} />
             <Route path="/add" element={<Navigate to="/movements" replace />} />
             <Route path="/add/*" element={<Navigate to="/movements" replace />} />
-            <Route path="/finance" element={<Navigate to="/movements" replace />} />
+            {/* /finance itself is the Finanzas view (declared above and linked from both navs);
+                only its retired PR #2 subroutes redirect. */}
             <Route path="/finance/*" element={<Navigate to="/movements" replace />} />
 
             {/* Graceful Legacy Path Redirects -> Estrategia (/strategy) */}
