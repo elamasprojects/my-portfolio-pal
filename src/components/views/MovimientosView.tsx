@@ -68,32 +68,51 @@ export function MovimientosView() {
   const reviewQueueCount = reviewQueue.length;
 
   // ══════════════════════════════════════════════════════════════════════
-  // FREQUENT EXPENSES PRESETS (Repetidos > 4 veces)
+  // FREQUENT EXPENSES PRESETS (Repetidos > 4 veces Y en los últimos 14 días)
+  // Máximo 3 en una sola fila
   // ══════════════════════════════════════════════════════════════════════
   const frequentPresets = useMemo(() => {
-    const map = new Map<string, { name: string; amount: number; currency: string; count: number }>();
+    const now = Date.now();
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+    const map = new Map<
+      string,
+      { name: string; amount: number; currency: string; count: number; latestDate: Date }
+    >();
+
     for (const t of transactions) {
       if (!t.name || t.deleted_at) continue;
       const cleanName = t.name.trim();
       const origAmount = Number(t.original_amount || t.amount_usd || 0);
       const key = `${cleanName.toLowerCase()}_${origAmount}`;
+      const txDate = new Date(t.transaction_date || t.created_at || now);
+
       const curr = map.get(key);
       if (curr) {
         curr.count += 1;
+        if (txDate > curr.latestDate) {
+          curr.latestDate = txDate;
+        }
       } else {
         map.set(key, {
           name: cleanName,
           amount: origAmount,
           currency: t.original_currency || "ARS",
           count: 1,
+          latestDate: txDate,
         });
       }
     }
 
-    const items = Array.from(map.values()).sort((a, b) => b.count - a.count);
-    const strictFrequent = items.filter((i) => i.count >= 4);
-    // Return frequent items (or top recorded if still populating history)
-    return strictFrequent.length > 0 ? strictFrequent.slice(0, 6) : items.slice(0, 4);
+    // Must be > 4 occurrences AND occurred within the last 14 days
+    const qualified = Array.from(map.values()).filter((item) => {
+      const isRepeated = item.count > 4;
+      const isRecent = now - item.latestDate.getTime() <= FOURTEEN_DAYS_MS;
+      return isRepeated && isRecent;
+    });
+
+    // Maximum 3 presets
+    return qualified.sort((a, b) => b.count - a.count).slice(0, 3);
   }, [transactions]);
 
   // ══════════════════════════════════════════════════════════════════════
@@ -437,13 +456,13 @@ export function MovimientosView() {
             </Button>
           )}
 
-          {/* Frequent Expenses Presets (Expenses repeated > 4 times) */}
+          {/* Frequent Expenses Presets (Max 3 in single row) */}
           {frequentPresets.length > 0 && (
             <div className="pt-2 border-t border-border/40 space-y-1.5">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                Gastos Frecuentes ({frequentPresets.length})
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                Gastos Frecuentes Recientes (últimos 14 días)
               </span>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {frequentPresets.map((p) => (
                   <Button
                     key={`${p.name}_${p.amount}`}
@@ -454,17 +473,17 @@ export function MovimientosView() {
                       setOmnibarText(text);
                       handleSubmitOmnibar(text);
                     }}
-                    className="h-7 text-xs bg-background/60 hover:bg-secondary border-border/60 rounded-lg px-2.5 font-medium"
+                    className="h-8 text-xs bg-background/60 hover:bg-secondary border-border/60 rounded-xl px-2.5 font-medium flex items-center justify-between truncate"
                   >
-                    <span>{p.name}</span>
-                    <span className="font-mono text-muted-foreground ml-1.5 font-bold">
-                      ${p.amount.toLocaleString("es-AR")}
-                    </span>
-                    {p.count >= 4 && (
-                      <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0 h-4 font-mono bg-primary/10 text-primary">
+                    <span className="truncate">{p.name}</span>
+                    <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                      <span className="font-mono text-muted-foreground font-bold">
+                        ${p.amount.toLocaleString("es-AR")}
+                      </span>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono bg-primary/10 text-primary">
                         {p.count}x
                       </Badge>
-                    )}
+                    </div>
                   </Button>
                 ))}
               </div>
