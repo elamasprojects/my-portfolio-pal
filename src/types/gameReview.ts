@@ -5,10 +5,18 @@
 
 export type TradeOutcome = 'Brillante' | 'Correcta' | 'Imprecision' | 'Blunder';
 
+/**
+ * Benchmark returns over the trade's holding period, as percentages.
+ *
+ * `null` means "we do not have this series for this period" — it is not zero and not a
+ * neutral value. These used to default to invented constants (15% SPY, 20% CCL, and a
+ * 110% TNA plazo fijo compounded daily), which made every comparison a comparison against
+ * a number nobody measured.
+ */
 export interface BenchmarkReturns {
-  spyReturn: number;
-  cclReturn: number;
-  fixedDepositReturn: number;
+  spyReturn: number | null;
+  cclReturn: number | null;
+  fixedDepositReturn: number | null;
 }
 
 export interface CounterfactualMetrics {

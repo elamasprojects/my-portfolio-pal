@@ -2,6 +2,8 @@ import "@testing-library/jest-dom";
 import { vi, beforeEach } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { resetIngestionCache } from "@/lib/apiIngestion";
+import { resetBenchmarkCache } from "@/lib/benchmarks";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -20,6 +22,18 @@ Object.defineProperty(window, "matchMedia", {
 // jsdom has no layout engine, so scrollTo is unimplemented and AppLayout's route-change
 // scroll reset logs a noisy "Not implemented" error on every navigation assertion.
 Object.defineProperty(window, "scrollTo", { writable: true, value: () => {} });
+
+// jsdom ships no ResizeObserver, which recharts' ResponsiveContainer constructs on mount.
+// Without this, every test that renders a chart threw an uncaught ReferenceError during the
+// commit phase and the runner hung instead of failing — which is why the suite never finished.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+}
 
 /**
  * Tests that render <App /> exercise the signed-in application, so the harness supplies a
@@ -63,4 +77,11 @@ function stubAuth() {
 }
 
 stubAuth();
-beforeEach(stubAuth);
+
+beforeEach(() => {
+  stubAuth();
+  // The inflation/FX/SPY series are memoised per session, so one test's resolved series
+  // must not leak into the next.
+  resetIngestionCache();
+  resetBenchmarkCache();
+});

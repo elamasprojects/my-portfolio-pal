@@ -107,17 +107,19 @@ describe("Milestone M3 Challenger Edge Cases & Stress Harness", () => {
   });
 
   describe("3. View Component Rendering & Stability", () => {
+    // These assertions previously named copy that no component renders ("Tablero General",
+    // "Movimientos Unificados"). They were never caught because this file hung on a missing
+    // ResizeObserver before reaching them, so the suite reported nothing rather than failing.
     it("renders TableroView without crashing on empty portfolio state", async () => {
       const { container } = renderWithProviders(<TableroView />);
       expect(container).toBeInTheDocument();
-      expect(screen.getByText("Tablero General")).toBeInTheDocument();
-      expect(screen.getByText("Patrimonio Neto Unificado (Net Worth)")).toBeInTheDocument();
+      expect(screen.getByText("Portafolio de Inversiones")).toBeInTheDocument();
     });
 
     it("renders MovimientosView without crashing on empty event log", async () => {
       const { container } = renderWithProviders(<MovimientosView />);
       expect(container).toBeInTheDocument();
-      expect(screen.getByText("Movimientos Unificados")).toBeInTheDocument();
+      expect(screen.getByText(/Feed Unificado de Eventos/)).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/coto|uber/i)).toBeInTheDocument();
     });
 

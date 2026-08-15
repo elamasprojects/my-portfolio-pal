@@ -22,7 +22,15 @@ export function classifyTradeOutcome(
   const isPlannedExit = trade.isPlannedExit ?? true;
 
   // 1. BRILLANTE RULES (Masterful Trade / Outperformed Benchmarks or Avoided Catastrophic Hold Loss)
-  const beatsSpyAndCcl = actualReturnPct > spyReturn && actualReturnPct > cclReturn;
+  //
+  // A null benchmark means the series was unavailable, so the comparison is unknown rather
+  // than passed. Treating null as a beaten benchmark is how a nominal ARS return used to clear
+  // a hardcoded 20% "CCL" and land in Brillante under any inflation.
+  const beatsSpyAndCcl =
+    spyReturn !== null &&
+    cclReturn !== null &&
+    actualReturnPct > spyReturn &&
+    actualReturnPct > cclReturn;
   const targetMetOrNoTarget = trade.targetPriceARS
     ? trade.sellPriceARS >= trade.targetPriceARS * 0.95
     : true;
@@ -61,11 +69,15 @@ export function classifyTradeOutcome(
     return 'Imprecision';
   }
 
-  if (
-    actualReturnPct < spyReturn ||
-    (trade.targetPriceARS && trade.sellPriceARS < trade.targetPriceARS && actualReturnPct < 0)
-  ) {
-    if (actualReturnPct < fixedDepositReturn && actualTotalReturnARS <= doNothingReturnARS) {
+  const underperformedSpy = spyReturn !== null && actualReturnPct < spyReturn;
+  const missedTargetAtALoss = Boolean(
+    trade.targetPriceARS && trade.sellPriceARS < trade.targetPriceARS && actualReturnPct < 0
+  );
+
+  if (underperformedSpy || missedTargetAtALoss) {
+    const underperformedFixedDeposit =
+      fixedDepositReturn !== null && actualReturnPct < fixedDepositReturn;
+    if (underperformedFixedDeposit && actualTotalReturnARS <= doNothingReturnARS) {
       return 'Imprecision';
     }
   }

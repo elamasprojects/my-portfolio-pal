@@ -18,6 +18,7 @@ import { calculateCounterfactuals, DEFAULT_CCL_RATE } from "./counterfactuals";
 import { classifyTradeOutcome } from "./gameReviewClassifier";
 import { calculateAggregateMetricsFromAudits } from "./gameReviewMetrics";
 import { matchTradesFIFO } from "./tradeMatching";
+import { getBenchmarkReturnsForPeriod } from "./benchmarks";
 
 // Re-export domain interfaces for backward compatibility and clean external module consumption
 export type {
@@ -194,6 +195,9 @@ export async function runBatchGameReview(
         matched[0].buyDate
       );
 
+      // Benchmarks measured over this trade's own holding period, or absent. Never constants.
+      const benchmarks = await getBenchmarkReturnsForPeriod(buyDate, sellDate);
+
       // price_per_unit is stored normalised to USD across this codebase, so a single rate
       // converts every leg consistently.
       mappedInputs.push({
@@ -201,6 +205,9 @@ export async function runBatchGameReview(
         symbol,
         buyDate,
         sellDate,
+        spyReturnPct: benchmarks.spyReturnPct ?? undefined,
+        cclReturnPct: benchmarks.cclReturnPct ?? undefined,
+        fixedDepositReturnPct: benchmarks.fixedDepositReturnPct ?? undefined,
         buyPriceARS: avgBuyPriceUSD * cclRate,
         sellPriceARS: sellPriceUSD * cclRate,
         holdingPriceAtSellDateARS: holdPriceUSD * cclRate,

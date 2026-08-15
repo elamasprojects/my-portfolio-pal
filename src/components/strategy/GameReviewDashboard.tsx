@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTrades, Trade } from "@/hooks/usePortfolio";
 import { matchTradesFIFO } from "@/lib/tradeMatching";
+import { getBenchmarkReturnsForPeriod } from "@/lib/benchmarks";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import {
@@ -85,16 +86,23 @@ export function GameReviewDashboard() {
 
     async function computeAllAudits() {
       if (closedTrades.length === 0) {
+        // Reset by identity, not unconditionally: assigning a fresh [] / {} on every pass
+        // re-rendered the component, which re-ran this effect, forever.
         if (isMounted) {
-          setAuditedRows([]);
-          setAggregateMetrics({
-            totalClosedTrades: 0,
-            blunderCount: 0,
-            blunderRatePercent: 0,
-            totalNetCostUSD: 0,
-            categoryEdgeUSD: {},
-          });
+          setAuditedRows((prev) => (prev.length === 0 ? prev : []));
+          setAggregateMetrics((prev) =>
+            prev.totalClosedTrades === 0 && Object.keys(prev.categoryEdgeUSD).length === 0
+              ? prev
+              : {
+                  totalClosedTrades: 0,
+                  blunderCount: 0,
+                  blunderRatePercent: 0,
+                  totalNetCostUSD: 0,
+                  categoryEdgeUSD: {},
+                }
+          );
           setTotalEdgeVsHoldUSD(0);
+          setSkippedNoPrice(0);
         }
         return;
       }
@@ -145,6 +153,10 @@ export function GameReviewDashboard() {
         // price_per_unit is stored normalised to USD, so one rate converts every leg.
         const rate = effectiveFx;
 
+        // Benchmarks measured over THIS trade's holding period, or null where the series is
+        // unavailable. They used to be fixed constants applied to every trade alike.
+        const benchmarks = await getBenchmarkReturnsForPeriod(buyDate, sellDate);
+
         auditable.push({
           trade: t,
           input: {
@@ -152,6 +164,9 @@ export function GameReviewDashboard() {
             symbol: t.symbol,
             buyDate,
             sellDate,
+            spyReturnPct: benchmarks.spyReturnPct ?? undefined,
+            cclReturnPct: benchmarks.cclReturnPct ?? undefined,
+            fixedDepositReturnPct: benchmarks.fixedDepositReturnPct ?? undefined,
             buyPriceARS: avgBuyPriceUSD * rate,
             sellPriceARS: sellPriceUSD * rate,
             holdingPriceAtSellDateARS: holdPriceUSD * rate,

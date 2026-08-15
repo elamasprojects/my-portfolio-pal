@@ -13,6 +13,9 @@ interface MarketPriceResult {
   isLoading: boolean;
 }
 
+/** Stable identity for the "no data yet" case. Must never be mutated by consumers. */
+const EMPTY_PRICE_MAP: ReadonlyMap<string, number> = new Map<string, number>();
+
 async function fetchQuote(symbol: string): Promise<QuoteResult> {
   try {
     const { data, error } = await supabase.functions.invoke("fetch-quote", {
@@ -50,9 +53,13 @@ export function useMarketPrices(symbols: string[]): MarketPriceResult {
     gcTime: 10 * 60 * 1000,
   });
 
+  // Shared frozen empties: returning `new Map()` on every render gave consumers a fresh
+  // identity each time, so any effect with `prices` in its dependency array re-ran on every
+  // render. Combined with an effect that sets fresh state, that is an infinite render loop —
+  // which is what hung /strategy whenever no quotes were loaded.
   return {
-    prices: data?.prices || new Map<string, number>(),
-    previousCloses: data?.previousCloses || new Map<string, number>(),
+    prices: data?.prices ?? (EMPTY_PRICE_MAP as Map<string, number>),
+    previousCloses: data?.previousCloses ?? (EMPTY_PRICE_MAP as Map<string, number>),
     isLoading,
   };
 }

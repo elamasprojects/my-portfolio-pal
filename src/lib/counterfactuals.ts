@@ -14,10 +14,11 @@ export interface CounterfactualCalculationResult {
   opportunityCostARS: number;
   netCostUSD: number;
   benchmarkReturns: BenchmarkReturns;
+  /** Null wherever the corresponding benchmark series is unavailable for this period. */
   alphas: {
-    spyAlpha: number;
-    cclAlpha: number;
-    fixedDepositAlpha: number;
+    spyAlpha: number | null;
+    cclAlpha: number | null;
+    fixedDepositAlpha: number | null;
   };
   strategyAdherence: {
     targetHit: boolean;
@@ -32,6 +33,15 @@ export interface CounterfactualCalculationResult {
  * app always pass the rate from useDolarMEP; this exists so pure unit tests stay deterministic.
  */
 export const DEFAULT_CCL_RATE = 1000.0;
+
+function numberOrNull(value: number | undefined | null): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function alphaOrNull(actualReturnPct: number, benchmark: number | null): number | null {
+  if (benchmark === null) return null;
+  return Math.round((actualReturnPct - benchmark) * 100) / 100;
+}
 
 /**
  * Calculates (a) Do-Nothing counterfactual, (b) Benchmarks & Alpha, and (c) Strategy Adherence.
@@ -62,25 +72,16 @@ export function calculateCounterfactuals(
   const effectiveCclRate = cclRateAtSell > 0 ? cclRateAtSell : DEFAULT_CCL_RATE;
   const netCostUSD = Math.round((opportunityCostARS / effectiveCclRate) * 100) / 100;
 
-  // (b) Multi-Benchmark returns & Alpha calculation
-  const spyReturn = adjTrade.spyReturnPct ?? 15.0;
-  const cclReturn = adjTrade.cclReturnPct ?? 20.0;
-
-  // Compute compounding Plazo Fijo return if buy & sell dates available, else fallback
-  let fixedDepositReturn = adjTrade.fixedDepositReturnPct ?? 5.0;
-  if (!adjTrade.fixedDepositReturnPct && adjTrade.buyDate && adjTrade.sellDate) {
-    const buyTime = new Date(adjTrade.buyDate).getTime();
-    const sellTime = new Date(adjTrade.sellDate).getTime();
-    if (!isNaN(buyTime) && !isNaN(sellTime)) {
-      const days = Math.max(1, Math.round((sellTime - buyTime) / (1000 * 60 * 60 * 24)));
-      // Annual Nominal Rate TNA = 110%
-      const dailyRate = 1.10 / 365;
-      fixedDepositReturn = Math.round((Math.pow(1 + dailyRate, days) - 1) * 10000) / 100;
-    }
-  }
-  if (isNaN(fixedDepositReturn)) {
-    fixedDepositReturn = 5.0;
-  }
+  // (b) Multi-Benchmark returns & Alpha calculation.
+  //
+  // These come from real series measured over this trade's holding period, or they are null.
+  // They used to fall back to literal constants — 15% for the S&P 500, 20% for CCL, and a
+  // 110% TNA plazo fijo compounded daily (an effective ~200% annual, and a rate that has not
+  // been current for years). A trade held three days and one held two years were compared
+  // against the identical figure.
+  const spyReturn = numberOrNull(adjTrade.spyReturnPct);
+  const cclReturn = numberOrNull(adjTrade.cclReturnPct);
+  const fixedDepositReturn = numberOrNull(adjTrade.fixedDepositReturnPct);
 
   const benchmarkReturns: BenchmarkReturns = {
     spyReturn,
@@ -89,9 +90,9 @@ export function calculateCounterfactuals(
   };
 
   const alphas = {
-    spyAlpha: Math.round((actualReturnPct - spyReturn) * 100) / 100,
-    cclAlpha: Math.round((actualReturnPct - cclReturn) * 100) / 100,
-    fixedDepositAlpha: Math.round((actualReturnPct - fixedDepositReturn) * 100) / 100,
+    spyAlpha: alphaOrNull(actualReturnPct, spyReturn),
+    cclAlpha: alphaOrNull(actualReturnPct, cclReturn),
+    fixedDepositAlpha: alphaOrNull(actualReturnPct, fixedDepositReturn),
   };
 
   // (c) Strategy Adherence

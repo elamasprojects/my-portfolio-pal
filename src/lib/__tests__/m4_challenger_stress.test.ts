@@ -186,7 +186,7 @@ describe("Milestone M4 Challenger Stress Tests & Adversarial Vectors", () => {
       expect(cfNegFx.netCostUSD).toBe(8.0);
     });
 
-    it("stress tests Plazo Fijo compounding math when buyDate or sellDate is invalid", () => {
+    it("reports null benchmarks when no series is supplied, rather than inventing them", () => {
       const tradeInvalidDate: ClosedTradeAuditInput = {
         tradeId: "t-invalid-date",
         symbol: "LOCAL",
@@ -198,7 +198,33 @@ describe("Milestone M4 Challenger Stress Tests & Adversarial Vectors", () => {
       };
 
       const cf = calculateCounterfactuals(tradeInvalidDate);
-      expect(typeof cf.benchmarkReturns.fixedDepositReturn).toBe("number");
+
+      // These used to be 15% / 20% / a 110% TNA plazo fijo compounded daily, applied to every
+      // trade regardless of its dates. Absent a real series the answer is "unknown".
+      expect(cf.benchmarkReturns.spyReturn).toBeNull();
+      expect(cf.benchmarkReturns.cclReturn).toBeNull();
+      expect(cf.benchmarkReturns.fixedDepositReturn).toBeNull();
+      expect(cf.alphas.spyAlpha).toBeNull();
+      expect(cf.alphas.cclAlpha).toBeNull();
+      expect(cf.alphas.fixedDepositAlpha).toBeNull();
+    });
+
+    it("computes alpha only against benchmarks that were actually supplied", () => {
+      const cf = calculateCounterfactuals({
+        tradeId: "t-partial-benchmarks",
+        symbol: "AAPL",
+        buyDate: "2024-01-01",
+        sellDate: "2024-06-01",
+        buyPriceARS: 1000,
+        sellPriceARS: 1200,
+        quantity: 10,
+        spyReturnPct: 8,
+      });
+
+      expect(cf.actualReturnPct).toBe(20);
+      expect(cf.alphas.spyAlpha).toBe(12);
+      expect(cf.alphas.cclAlpha).toBeNull();
+      expect(cf.alphas.fixedDepositAlpha).toBeNull();
     });
 
     it("audits aggregate category edge calculation accuracy", () => {

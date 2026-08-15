@@ -67,31 +67,46 @@ describe("API Ingestion & CER Daily Inflation Engine", () => {
   });
 
   describe("FX Rate Resolution & Backward Fallback", () => {
+    // The series is passed explicitly so these assertions describe the resolution logic
+    // rather than whatever the live ArgentinaDatos endpoint happens to return today.
     it("resolves exact daily FX rate when available", async () => {
-      const rate = await getFxRatesForDate("2024-01-15");
+      const rate = await getFxRatesForDate("2024-01-15", getMockFxRatesData());
       expect(rate.rate_date).toBe("2024-01-15");
       expect(rate.ccl_rate).toBe(1135.0);
     });
 
     it("falls back to nearest prior date for weekend or missing date", async () => {
-      // 2024-01-16 is not in mock dates, should fall back to 2024-01-15
-      const rate = await getFxRatesForDate("2024-01-16");
+      // 2024-01-16 is not in the series, so it should fall back to 2024-01-15
+      const rate = await getFxRatesForDate("2024-01-16", getMockFxRatesData());
       expect(rate.rate_date).toBe("2024-01-15");
       expect(rate.ccl_rate).toBe(1135.0);
     });
   });
 
-  describe("Ingestion Strategy & Cache Fallbacks", () => {
-    it("fetches inflation index and returns success result", async () => {
+  describe("Ingestion Strategy & Provenance", () => {
+    /**
+     * `success` now means "this is measured data", not "the call returned something".
+     * A synthetic fallback series must never report success, or callers cannot tell INDEC
+     * figures apart from an invented 2%/month projection.
+     */
+    it("reports inflation provenance and never labels synthetic data as measured", async () => {
       const result = await fetchAndCacheInflationIndex();
-      expect(result.success).toBe(true);
+
       expect(result.data.length).toBeGreaterThan(0);
+      expect(["db-cache", "live-api", "mock"]).toContain(result.provenance);
+      expect(result.isEstimated).toBe(result.provenance === "mock");
+      expect(result.success).toBe(!result.isEstimated);
+      if (result.isEstimated) expect(result.error).toBeTruthy();
     });
 
-    it("fetches FX rates and returns success result", async () => {
+    it("reports FX provenance and never labels synthetic data as measured", async () => {
       const result = await fetchAndCacheFxRates();
-      expect(result.success).toBe(true);
+
       expect(result.data.length).toBeGreaterThan(0);
+      expect(["db-cache", "live-api", "mock"]).toContain(result.provenance);
+      expect(result.isEstimated).toBe(result.provenance === "mock");
+      expect(result.success).toBe(!result.isEstimated);
+      if (result.isEstimated) expect(result.error).toBeTruthy();
     });
   });
 });

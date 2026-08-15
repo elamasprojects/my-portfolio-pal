@@ -60,11 +60,26 @@ export interface DailyFxRateRecord {
   created_at?: string;
 }
 
+/**
+ * Where a series actually came from.
+ *
+ * `mock` is synthetic data — an invented series that projects a flat 2%/month. It exists so
+ * unit tests are deterministic and so the UI can degrade instead of crashing, but anything
+ * derived from it is an estimate, not a measurement. Callers must check this before
+ * presenting a number as fact: the result used to report `success: true` with no way to tell
+ * INDEC data apart from fabricated data.
+ */
+export type IngestionProvenance = 'db-cache' | 'live-api' | 'mock';
+
 export interface IngestionResult<T> {
   success: boolean;
   data: T[];
   count: number;
   fromCache: boolean;
+  /** Real provenance of `data`. Treat 'mock' as "no data available". */
+  provenance: IngestionProvenance;
+  /** True when `data` is synthetic and must not be presented as measured. */
+  isEstimated: boolean;
   error?: string;
 }
 

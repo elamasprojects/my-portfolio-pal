@@ -5,6 +5,55 @@ import type {
   IngestionResult,
 } from "@/types/realReturns";
 
+/**
+ * Parses a 'YYYY-MM-DD' string as a LOCAL calendar date.
+ *
+ * `new Date("2025-03-01")` parses as UTC midnight, but getFullYear/getMonth/getDate read local
+ * time. In Argentina (UTC-3) that made every date resolve to the previous day, so a March 1
+ * valuation was interpolated against February's IPC pair with dayOfMonth 28-of-28 instead of
+ * 1-of-31 — nearly a full month of inflation applied instead of nearly none.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return new Date(NaN);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * Resolved series are memoised for the page session. Beyond avoiding a full table scan (or a
+ * full HTTP fetch of the entire series) on every single date lookup, this guarantees that
+ * ipcStart and ipcEnd for one calculation always come from the SAME series. Resolving each
+ * lookup independently could mix a DB-cached live series (based at its earliest record) with
+ * the mock series (based at Dec 2023), producing a meaningless ipcEnd/ipcStart ratio.
+ */
+let inflationSeriesPromise: Promise<IngestionResult<MonthlyInflationRecord>> | null = null;
+let fxSeriesPromise: Promise<IngestionResult<DailyFxRateRecord>> | null = null;
+
+export function resetIngestionCache(): void {
+  inflationSeriesPromise = null;
+  fxSeriesPromise = null;
+}
+
+export function getInflationSeries(): Promise<IngestionResult<MonthlyInflationRecord>> {
+  if (!inflationSeriesPromise) {
+    inflationSeriesPromise = fetchAndCacheInflationIndex().catch((err) => {
+      inflationSeriesPromise = null;
+      throw err;
+    });
+  }
+  return inflationSeriesPromise;
+}
+
+export function getFxSeries(): Promise<IngestionResult<DailyFxRateRecord>> {
+  if (!fxSeriesPromise) {
+    fxSeriesPromise = fetchAndCacheFxRates().catch((err) => {
+      fxSeriesPromise = null;
+      throw err;
+    });
+  }
+  return fxSeriesPromise;
+}
+
 // ==========================================
 // 1. DETERMINISTIC MOCK DATASETS (TIER 3)
 // ==========================================
@@ -106,6 +155,8 @@ export async function fetchAndCacheInflationIndex(
           data: data as MonthlyInflationRecord[],
           count: data.length,
           fromCache: true,
+          provenance: "db-cache",
+          isEstimated: false,
         };
       }
     } catch {
@@ -160,6 +211,8 @@ export async function fetchAndCacheInflationIndex(
           data: records,
           count: records.length,
           fromCache: false,
+          provenance: "live-api",
+          isEstimated: false,
         };
       }
     }
@@ -167,13 +220,16 @@ export async function fetchAndCacheInflationIndex(
     // API fetch failed, proceed to Tier 3
   }
 
-  // Tier 3: Return Mock Data
+  // Tier 3: synthetic series. Flagged so callers never present it as measured inflation.
   const mockData = getMockInflationData();
   return {
-    success: true,
+    success: false,
     data: mockData,
     count: mockData.length,
     fromCache: false,
+    provenance: "mock",
+    isEstimated: true,
+    error: "No INDEC inflation data available (DB cache empty and live API unreachable)",
   };
 }
 
@@ -208,6 +264,8 @@ export async function fetchAndCacheFxRates(
           data: data as DailyFxRateRecord[],
           count: data.length,
           fromCache: true,
+          provenance: "db-cache",
+          isEstimated: false,
         };
       }
     } catch {
@@ -250,6 +308,8 @@ export async function fetchAndCacheFxRates(
           data: records,
           count: records.length,
           fromCache: false,
+          provenance: "live-api",
+          isEstimated: false,
         };
       }
     }
@@ -257,13 +317,16 @@ export async function fetchAndCacheFxRates(
     // API fetch failed, proceed to Tier 3
   }
 
-  // Tier 3: Return Mock Data
+  // Tier 3: synthetic series. Flagged so callers never present it as measured FX.
   const mockData = getMockFxRatesData();
   return {
-    success: true,
+    success: false,
     data: mockData,
     count: mockData.length,
     fromCache: false,
+    provenance: "mock",
+    isEstimated: true,
+    error: "No CCL data available (DB cache empty and live API unreachable)",
   };
 }
 
@@ -280,7 +343,7 @@ export async function getCERIndexForDate(
   inflationRecords?: MonthlyInflationRecord[]
 ): Promise<number> {
   const cleanDate = targetDate.slice(0, 10);
-  const targetDateObj = new Date(cleanDate);
+  const targetDateObj = parseLocalDate(cleanDate);
 
   if (isNaN(targetDateObj.getTime())) {
     return 100.0;
@@ -289,7 +352,7 @@ export async function getCERIndexForDate(
   // Retrieve records if not provided
   let records = inflationRecords;
   if (!records || records.length === 0) {
-    const result = await fetchAndCacheInflationIndex();
+    const result = await getInflationSeries();
     records = result.data;
   }
 
@@ -347,7 +410,7 @@ export async function getCERIndexForDate(
         ? I_latest / secondLatestRecord.index_value
         : 1 + (latestRecord.monthly_rate ?? 2.0) / 100;
 
-    const latestDateObj = new Date(latestRecord.month);
+    const latestDateObj = parseLocalDate(latestRecord.month);
     const diffTime = Math.max(0, targetDateObj.getTime() - latestDateObj.getTime());
     const daysAfter = diffTime / (1000 * 60 * 60 * 24);
 
@@ -369,43 +432,55 @@ export async function getCERIndexForDate(
 // ==========================================
 
 /**
- * Retrieves daily CCL exchange rate for target date with backward weekend/holiday fallback.
+ * Retrieves the daily CCL exchange rate for a target date, walking backwards over weekends
+ * and holidays to the most recent published rate.
+ *
+ * Resolves against the memoised series so that every date in one calculation is read from the
+ * same source. Previously this hit the DB directly, never consulted the live API, and fell
+ * through to the synthetic table with no signal — so a DB-cached start date could be paired
+ * with a fabricated end date.
  */
-export async function getFxRatesForDate(targetDate: string): Promise<DailyFxRateRecord> {
+export async function getFxRatesForDate(
+  targetDate: string,
+  fxRecords?: DailyFxRateRecord[]
+): Promise<DailyFxRateRecord> {
   const cleanDate = targetDate.slice(0, 10);
 
-  try {
-    // Check DB cache
-    const { data, error } = await supabase
-      .from("fx_rates")
-      .select("rate_date, ccl_rate, mep_rate, oficial_rate, source")
-      .lte("rate_date", cleanDate)
-      .order("rate_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const records = fxRecords ?? (await getFxSeries()).data;
+  const sorted = [...records].sort((a, b) => b.rate_date.localeCompare(a.rate_date));
+  const matched = sorted.find((r) => r.rate_date <= cleanDate && r.ccl_rate > 0);
 
-    if (!error && data && data.ccl_rate) {
-      return data as DailyFxRateRecord;
-    }
-  } catch {
-    // Ignore DB errors
-  }
+  if (matched) return matched;
 
-  // Fallback to mock dataset
-  const mockData = getMockFxRatesData();
-  const sortedMock = [...mockData].sort((a, b) => b.rate_date.localeCompare(a.rate_date));
-  const matched = sortedMock.find((r) => r.rate_date <= cleanDate);
+  // Target predates the whole series: use its earliest point rather than inventing a rate.
+  const earliest = sorted[sorted.length - 1];
+  if (earliest) return earliest;
 
-  if (matched) {
-    return matched;
-  }
-
-  // Hard fallback default
   return {
     rate_date: cleanDate,
-    ccl_rate: 1200.0,
-    mep_rate: 1180.0,
-    oficial_rate: 950.0,
-    source: "fallback",
+    ccl_rate: 0,
+    source: "unavailable",
   };
+}
+
+/**
+ * CCL return over a holding period, as a percentage — the "bought dollars and slept" benchmark.
+ * Returns null when the series is synthetic or the endpoints cannot be resolved, so callers
+ * report "no data" instead of a made-up figure.
+ */
+export async function getCclReturnPct(
+  startDate: string,
+  endDate: string
+): Promise<number | null> {
+  const series = await getFxSeries();
+  if (series.isEstimated) return null;
+
+  const [start, end] = await Promise.all([
+    getFxRatesForDate(startDate),
+    getFxRatesForDate(endDate),
+  ]);
+
+  if (!start?.ccl_rate || !end?.ccl_rate || start.ccl_rate <= 0) return null;
+
+  return Math.round(((end.ccl_rate - start.ccl_rate) / start.ccl_rate) * 10000) / 100;
 }
