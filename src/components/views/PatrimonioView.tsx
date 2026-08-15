@@ -1,11 +1,21 @@
 import { useState, useMemo } from "react";
 import { useUnifiedFinancials } from "@/hooks/useUnifiedFinancials";
 import { useFinancialAccounts } from "@/hooks/useFinance";
-import { useTrades } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings } from "@/hooks/usePortfolio";
+import { useBrokers } from "@/hooks/useBrokers";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Wallet,
   Landmark,
@@ -16,14 +26,18 @@ import {
   Layers,
   Building2,
   DollarSign,
-  ShieldCheck,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 
 export function PatrimonioView() {
   const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
   const { accounts = [], isLoading: accountsLoading } = useFinancialAccounts();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
+  const { data: brokersList = [] } = useBrokers();
   const { venta: mepRate = 1200 } = useDolarMEP();
+
+  const [brokerModalOpen, setBrokerModalOpen] = useState(false);
 
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
 
@@ -34,6 +48,11 @@ export function PatrimonioView() {
 
   // Open stocks / CEDEARs active market valuation
   const portfolioInvestedUSD = netWorthMetrics.portfolioMarketValueUSD || 0;
+
+  // Symbols for market prices
+  const allHoldings = useMemo(() => computeHoldings(trades), [trades]);
+  const symbols = useMemo(() => allHoldings.map((h) => h.symbol), [allHoldings]);
+  const { prices: marketPrices } = useMarketPrices(symbols);
 
   // Separate Broker Cash vs Liquid Bank Accounts & Wallets
   const { brokerAccounts, liquidBankAccounts, totalBrokerCashUSD, totalLiquidUSD, totalLiquidARS } = useMemo(() => {
@@ -87,6 +106,108 @@ export function PatrimonioView() {
   const brokerWeightPct = totalNetWorthUSD > 0 ? (totalBrokerUSD / totalNetWorthUSD) * 100 : 0;
   const liquidUsdWeightPct = totalNetWorthUSD > 0 ? (totalLiquidUSD / totalNetWorthUSD) * 100 : 0;
   const liquidArsWeightPct = totalNetWorthUSD > 0 ? (totalLiquidARS_inUSD / totalNetWorthUSD) * 100 : 0;
+
+  // Detailed Holdings Breakdown per Broker
+  const brokerHoldingsBreakdown = useMemo(() => {
+    const tradesByBroker = new Map<string, typeof trades>();
+    for (const t of trades) {
+      const bId = t.broker_id || "unassigned";
+      if (!tradesByBroker.has(bId)) tradesByBroker.set(bId, []);
+      tradesByBroker.get(bId)!.push(t);
+    }
+
+    const brokerNameMap = new Map<string, string>();
+    for (const b of brokersList) {
+      brokerNameMap.set(b.id, b.name);
+    }
+    brokerNameMap.set("unassigned", "ARQ / Broker Principal");
+
+    const brokerCashMap = new Map<string, number>();
+    for (const acc of activeAccounts) {
+      const bal = Number(acc.current_balance || 0);
+      const isARS = acc.currency === "ARS";
+      const balUSD = isARS ? bal / effectiveCclRate : bal;
+      const n = acc.name.toLowerCase();
+      if (n.includes("arq")) brokerCashMap.set("arq", balUSD);
+      else if (n.includes("ibkr") || n.includes("interactive")) brokerCashMap.set("ibkr", balUSD);
+      else if (n.includes("ieb")) brokerCashMap.set("ieb", balUSD);
+    }
+
+    const result: Array<{
+      brokerId: string;
+      brokerName: string;
+      totalInvestedUSD: number;
+      totalMarketValUSD: number;
+      unrealizedPnlUSD: number;
+      unrealizedPnlPct: number;
+      cashUSD: number;
+      holdings: Array<{
+        symbol: string;
+        assetName: string;
+        assetType: string;
+        quantity: number;
+        avgCostUSD: number;
+        livePriceUSD: number;
+        marketValUSD: number;
+        pnlUSD: number;
+        pnlPct: number;
+      }>;
+    }> = [];
+
+    tradesByBroker.forEach((bTrades, bId) => {
+      const bHoldings = computeHoldings(bTrades);
+      if (bHoldings.length === 0) return;
+
+      const brokerName = brokerNameMap.get(bId) || "Broker";
+      let bInvested = 0;
+      let bMarketVal = 0;
+      const holdingDetails = [];
+
+      for (const h of bHoldings) {
+        const livePriceUSD = marketPrices.get(h.symbol.toUpperCase()) || h.avg_cost;
+        const posCostUSD = h.avg_cost * h.net_quantity;
+        const posMarketValUSD = livePriceUSD * h.net_quantity;
+        const posPnlUSD = posMarketValUSD - posCostUSD;
+        const posPnlPct = posCostUSD > 0 ? (posPnlUSD / posCostUSD) * 100 : 0;
+
+        bInvested += posCostUSD;
+        bMarketVal += posMarketValUSD;
+
+        holdingDetails.push({
+          symbol: h.symbol,
+          assetName: h.asset_name || h.symbol,
+          assetType: h.asset_type || "CEDEAR",
+          quantity: h.net_quantity,
+          avgCostUSD: h.avg_cost,
+          livePriceUSD,
+          marketValUSD: posMarketValUSD,
+          pnlUSD: posPnlUSD,
+          pnlPct: posPnlPct,
+        });
+      }
+
+      holdingDetails.sort((a, b) => b.marketValUSD - a.marketValUSD);
+
+      let matchedCashUSD = 0;
+      const bLower = brokerName.toLowerCase();
+      if (bLower.includes("arq") || bId === "unassigned") matchedCashUSD = brokerCashMap.get("arq") || 0;
+      else if (bLower.includes("ibkr") || bLower.includes("interactive")) matchedCashUSD = brokerCashMap.get("ibkr") || 0;
+      else if (bLower.includes("ieb")) matchedCashUSD = brokerCashMap.get("ieb") || 0;
+
+      result.push({
+        brokerId: bId,
+        brokerName,
+        totalInvestedUSD: bInvested,
+        totalMarketValUSD: bMarketVal,
+        unrealizedPnlUSD: bMarketVal - bInvested,
+        unrealizedPnlPct: bInvested > 0 ? ((bMarketVal - bInvested) / bInvested) * 100 : 0,
+        cashUSD: matchedCashUSD,
+        holdings: holdingDetails,
+      });
+    });
+
+    return result.sort((a, b) => b.totalMarketValUSD - a.totalMarketValUSD);
+  }, [trades, brokersList, marketPrices, activeAccounts, effectiveCclRate]);
 
   // Account Icons helper
   const getAccountIcon = (type: string, name: string) => {
@@ -256,7 +377,7 @@ export function PatrimonioView() {
         </Card>
       </div>
 
-      {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS */}
+      {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS (CON CLICK PARA VER DESGLOSE POR BROKER) */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -269,17 +390,25 @@ export function PatrimonioView() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Card: Portafolio de Acciones (Activos Invertidos) */}
-          <Card className="bg-card border border-primary/30 hover:border-primary transition-colors">
+          {/* Card: Portafolio de Acciones (Activos Invertidos) - CLICKEABLE */}
+          <Card
+            onClick={() => setBrokerModalOpen(true)}
+            className="bg-card border border-primary/40 hover:border-primary cursor-pointer transition-all duration-200 hover:shadow-lg group"
+          >
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-primary/15 border border-primary/30">
+                <div className="p-2.5 rounded-xl bg-primary/15 border border-primary/30 group-hover:scale-105 transition-transform">
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-foreground">Portafolio Acciones / CEDEARs</h3>
-                  <span className="text-[11px] text-primary font-mono uppercase">
-                    Activos Invertidos
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-sm text-foreground">Portafolio Acciones / CEDEARs</h3>
+                    <Badge variant="outline" className="text-[9px] font-mono bg-primary/10 text-primary border-primary/30 py-0 px-1.5">
+                      Ver por Broker
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-primary font-mono uppercase flex items-center gap-1 mt-0.5">
+                    Activos Invertidos <ChevronRight className="h-3 w-3 inline" />
                   </span>
                 </div>
               </div>
@@ -330,7 +459,126 @@ export function PatrimonioView() {
         </div>
       </div>
 
-      {/* 5. DIAGRAMA SANKEY DE FLUJO DE FONDOS */}
+      {/* 5. MODAL INTERACTIVO: DESGLOSE DE ACTIVOS INVERTIDOS POR BROKER */}
+      <Dialog open={brokerModalOpen} onOpenChange={setBrokerModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto bg-card border-border p-6 space-y-5">
+          <DialogHeader className="pb-2 border-b border-border/40">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <TrendingUp className="h-6 w-6 text-primary" />
+              Desglose de Inversiones por Broker
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Detalle de activos en cartera y cotizaciones en vivo en cada cuenta de broker.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Resumen Superior */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-background/80 border border-border/60">
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Total Invertido en Activos</span>
+              <span className="text-xl font-black font-mono text-foreground">
+                US$ {portfolioInvestedUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-mono block">
+                ≈ ${(portfolioInvestedUSD * effectiveCclRate).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Cash Comitente Líquido</span>
+              <span className="text-xl font-black font-mono text-emerald-400">
+                US$ {totalBrokerCashUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-mono block">
+                ARQ + IBKR + IEB+
+              </span>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Brokers con Posiciones</span>
+              <span className="text-xl font-black font-mono text-primary">
+                {brokerHoldingsBreakdown.length} Brokers Activos
+              </span>
+            </div>
+          </div>
+
+          {/* Lista de Brokers con sus Holdings */}
+          <div className="space-y-4">
+            {brokerHoldingsBreakdown.length === 0 ? (
+              <p className="text-center py-8 text-sm text-muted-foreground">No hay posiciones activas registradas.</p>
+            ) : (
+              brokerHoldingsBreakdown.map((b) => (
+                <Card key={b.brokerId} className="border border-border/70 bg-background/60 overflow-hidden">
+                  <CardHeader className="p-4 bg-muted/40 border-b border-border/40 flex flex-row items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-base text-foreground">{b.brokerName}</h4>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {b.holdings.length} posiciones
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        Valuación Activos: US$ {b.totalMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        {b.cashUSD > 0 && ` · Cash: US$ ${b.cashUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                      </span>
+                    </div>
+                    <div className="text-right font-mono">
+                      <span className="text-base font-black text-foreground block">
+                        US$ {b.totalMarketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className={`text-xs font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {b.unrealizedPnlUSD >= 0 ? "+" : ""}US$ {b.unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{b.unrealizedPnlPct.toFixed(1)}%)
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent text-xs">
+                          <TableHead>Activo</TableHead>
+                          <TableHead className="text-right">Cantidad</TableHead>
+                          <TableHead className="text-right">Precio Compra</TableHead>
+                          <TableHead className="text-right">Precio Actual</TableHead>
+                          <TableHead className="text-right">Valuación</TableHead>
+                          <TableHead className="text-right">P&L Latente</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {b.holdings.map((h) => (
+                          <TableRow key={h.symbol} className="hover:bg-muted/30 text-xs">
+                            <TableCell className="font-bold font-mono">
+                              <span>{h.symbol}</span>
+                              <span className="text-[10px] text-muted-foreground block font-normal">{h.assetName}</span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-medium">
+                              {h.quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              US$ {h.avgCostUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold text-foreground">
+                              US$ {h.livePriceUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold">
+                              US$ {h.marketValUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className={`text-right font-mono font-bold ${h.pnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                              {h.pnlUSD >= 0 ? "+" : ""}US$ {h.pnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                              <span className="block text-[10px] opacity-80">
+                                {h.pnlPct >= 0 ? "+" : ""}{h.pnlPct.toFixed(1)}%
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. DIAGRAMA SANKEY DE FLUJO DE FONDOS */}
       <Card className="bg-card border border-border/80">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
