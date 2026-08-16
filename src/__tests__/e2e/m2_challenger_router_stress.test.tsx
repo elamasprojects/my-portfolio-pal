@@ -28,14 +28,14 @@ describe("M2 Challenger 1: Adversarial Router & Legacy Redirect Stress Suite", (
 
   const movementsRoutes = [
     "/trades",
-    "/add",
-    "/add/new-trade",
     "/finance/expenses",
     "/finance/incomes",
     "/finance/analytics",
-    "/import",
     "/timeline"
   ];
+
+  // The CSV importer is gone, so its old path lands on manual capture rather than the log.
+  const addRoutes = ["/add/import", "/import"];
 
   const strategyRoutes = [
     "/watchlist",
@@ -62,6 +62,28 @@ describe("M2 Challenger 1: Adversarial Router & Legacy Redirect Stress Suite", (
 
       await screen.findByText("CHESS");
       expect(window.location.pathname).toBe("/movements");
+      unmount();
+    });
+  });
+
+  // /add is the trade capture flow, not a legacy alias. It used to redirect to /movements,
+  // which left the app with no way to record a buy or a dividend at all.
+  it("keeps '/add' on the trade capture flow rather than redirecting it", async () => {
+    window.history.pushState({}, "Test", "/add");
+    const { unmount } = render(<App />);
+
+    await screen.findByText("CHESS");
+    expect(window.location.pathname).toBe("/add");
+    unmount();
+  });
+
+  addRoutes.forEach((route) => {
+    it(`routes legacy import path '${route}' to the trade capture flow (/add)`, async () => {
+      window.history.pushState({}, "Test", route);
+      const { unmount } = render(<App />);
+
+      await screen.findByText("CHESS");
+      expect(window.location.pathname).toBe("/add");
       unmount();
     });
   });

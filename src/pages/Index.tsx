@@ -18,9 +18,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { TrendingUp, TrendingDown, DollarSign, Plus, Target, Banknote, Wallet, ArrowUpRight, ArrowDownRight, ChevronDown, ChevronUp, LineChart as LucideLineChart, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceLine, AreaChart, Area, Legend, LineChart, Line } from "recharts";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "@/i18n";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
+import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 import { MobileSwipeableHoldingCard } from "@/components/MobileSwipeableHoldingCard";
 import { ClosedPositionSummaryDialog, ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
 import { Holding } from "@/hooks/usePortfolio";
@@ -50,8 +51,12 @@ const Index = () => {
   const [closedSummaryOpen, setClosedSummaryOpen] = useState(false);
   const [closedSummaryData, setClosedSummaryData] = useState<ClosedPositionSummary | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+
+  // /add is a deep link into this view with the capture dialog already open.
+  const [addTradeOpen, setAddTradeOpen] = useState(location.pathname.startsWith("/add"));
 
   const handleOpenQuickSell = (holding: Holding, price?: number | null, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -426,11 +431,17 @@ const Index = () => {
           <h1 className="text-2xl chess-title">{t("board.title")}</h1>
           <p className="text-muted-foreground text-sm">{t("board.subtitle")}</p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setAddTradeOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Operación
+          </Button>
         <div className="flex flex-col items-end gap-0.5">
           <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
           {isARS && mepRate > 0 && (
             <span className="text-[10px] text-muted-foreground">{t("board.exchangeRate")} · ${mepRate.toFixed(2)}</span>
           )}
+        </div>
         </div>
       </div>
 
@@ -753,7 +764,7 @@ const Index = () => {
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
                 <p className="text-muted-foreground text-sm">{t("board.noHoldings")}</p>
-                <Button size="sm" onClick={() => navigate("/add")}>
+                <Button size="sm" onClick={() => setAddTradeOpen(true)}>
                   <Plus className="h-4 w-4 mr-1" />
                   {t("board.addFirstTrade")}
                 </Button>
@@ -1015,7 +1026,7 @@ const Index = () => {
             ) : (
               <div className="flex flex-col items-center gap-3 py-8">
                 <p className="text-muted-foreground text-sm">{t("board.noTrades")}</p>
-                <Button variant="outline" size="sm" onClick={() => navigate("/add")}>
+                <Button variant="outline" size="sm" onClick={() => setAddTradeOpen(true)}>
                   <Plus className="h-4 w-4 mr-1" />
                   {t("board.getStarted")}
                 </Button>
@@ -1136,6 +1147,8 @@ const Index = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen} />
 
       <QuickSellDialog
         open={quickSellOpen}

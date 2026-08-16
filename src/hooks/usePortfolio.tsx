@@ -632,3 +632,52 @@ export function useQuickSellTrade() {
   });
 }
 
+export type { TradeEntryInput as AddTradeInput } from "@/lib/tradeEntry";
+
+/**
+ * Records a buy, sell or dividend.
+ *
+ * This is the only write path for opening a position or booking a dividend: the PR that
+ * introduced the 3-view architecture deleted AddTrade/ImportTrades and left `useQuickSellTrade`
+ * as the sole insert, so the app could close positions but never open one.
+ */
+export function useAddTrade() {
+  const { user } = useAuth();
+  const { activeId } = useActivePortfolio();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: TradeEntryInput) => {
+      if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      const row = buildTradeRow(input, { userId: user.id, portfolioId: activeId });
+
+      const { data, error } = await supabase
+        .from("trades")
+        .insert(row as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Keep the cached `portfolio_positions` row in step with the ledger.
+      try {
+        await supabase.rpc("rebuild_position" as any, {
+          _user_id: user.id,
+          _portfolio_id: activeId,
+          _symbol: row.symbol,
+        });
+      } catch {
+        /* position cache rebuild is best-effort */
+      }
+
+      return data as Trade;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolios"] });
+    },
+  });
+}
+

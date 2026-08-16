@@ -43,6 +43,8 @@ const App = () => (
             <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/patrimonio" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+            {/* Deep link into Inversiones with the trade capture dialog open. */}
+            <Route path="/add" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 
             {/* Graceful Legacy Path Redirects -> Tablero (/) */}
             <Route path="/players" element={<Navigate to="/" replace />} />
@@ -63,8 +65,8 @@ const App = () => (
 
             {/* Graceful Legacy Path Redirects -> Movimientos (/movements) */}
             <Route path="/trades" element={<Navigate to="/movements" replace />} />
-            <Route path="/add" element={<Navigate to="/movements" replace />} />
-            <Route path="/add/*" element={<Navigate to="/movements" replace />} />
+            {/* The CSV importer is gone; its old path lands on the manual capture flow. */}
+            <Route path="/add/*" element={<Navigate to="/add" replace />} />
             {/* /finance itself is the Finanzas view (declared above and linked from both navs);
                 only its retired PR #2 subroutes redirect. */}
             <Route path="/finance/*" element={<Navigate to="/movements" replace />} />
@@ -76,7 +78,7 @@ const App = () => (
 
             {/* Historical Legacy Aliases */}
             <Route path="/export" element={<Navigate to="/" replace />} />
-            <Route path="/import" element={<Navigate to="/movements" replace />} />
+            <Route path="/import" element={<Navigate to="/add" replace />} />
             <Route path="/performance" element={<Navigate to="/" replace />} />
             <Route path="/timeline" element={<Navigate to="/movements" replace />} />
             <Route path="/report" element={<Navigate to="/" replace />} />

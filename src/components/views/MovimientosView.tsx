@@ -5,6 +5,7 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeToUnifiedEvents, UnifiedEventItem, UnifiedEventType } from "@/lib/unifiedEvents";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
+import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
+  TrendingUp,
   CheckCircle2,
   AlertTriangle,
   Send,
@@ -55,6 +57,7 @@ export function MovimientosView() {
 
   // Omnibar State
   const [omnibarText, setOmnibarText] = useState("");
+  const [addTradeOpen, setAddTradeOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -554,9 +557,16 @@ export function MovimientosView() {
 
       {/* 3. UNIFIED EVENT FEED TABLE */}
       <Card className="bg-card border border-border/80">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Feed Unificado de Eventos ({filteredEvents.length})</CardTitle>
-          <CardDescription className="text-xs">Historial cronológico ordenado.</CardDescription>
+        <CardHeader className="pb-2 flex flex-row items-start justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-base font-semibold">Feed Unificado de Eventos ({filteredEvents.length})</CardTitle>
+            <CardDescription className="text-xs">Historial cronológico ordenado.</CardDescription>
+          </div>
+          {/* The omnibar above captures expenses and income; trades need their own entry point. */}
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setAddTradeOpen(true)}>
+            <TrendingUp className="h-4 w-4 mr-1" />
+            Operación
+          </Button>
         </CardHeader>
         <CardContent>
           {txLoading || tradesLoading ? (
@@ -633,6 +643,8 @@ export function MovimientosView() {
           )}
         </CardContent>
       </Card>
+
+      <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen} />
     </div>
   );
 }
