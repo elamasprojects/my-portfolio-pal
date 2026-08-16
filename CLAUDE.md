@@ -22,11 +22,35 @@ For local testing, debugging, or database access:
 
 ## ⚠️ Important project rules (read first)
 
-### 1. Supabase — always use the CLI, never the MCP
-For **any** Supabase query or action (reads **and** writes), use the Supabase **CLI**
-(`npx supabase …`) — **not** the Supabase MCP server. Only fall back to the MCP if the CLI
-path is genuinely impossible. See [Supabase](#supabase) for the working method on this machine
-(Docker is not installed here, so use the access-token + Management API path for ad-hoc SQL).
+### 1. Supabase — pick the right access path, and the right connector
+
+> ⚠️ **Two Supabase MCP connectors are configured, and their tools have identical names.**
+> They are told apart only by an opaque UUID prefix. Using the wrong one runs migrations and
+> SQL against a different project. Check the prefix before every write.
+
+| Connector | Server ID prefix | Points to | Use for this repo? |
+| --- | --- | --- | --- |
+| **`portfolio-tracker`** (custom) | `mcp__1a6d8274-8474-4091-982c-e9158ce59bc6__…` | `yimbswiaqmuggmqygicf.supabase.co` — org `ocdcofxixkaojfuyqgsz` | ✅ **Yes — this one** |
+| Official Supabase connector | `mcp__e44037be-429b-4d5f-97d9-b5341ff88822__…` | org `zchsagewrrmiofnjgmyk` (`elamasprojects`) — a different project | ❌ Never |
+
+To confirm you have the right one before writing, call its `get_project_url`; it must return
+`https://yimbswiaqmuggmqygicf.supabase.co`.
+
+**Which path to use where:**
+
+- **Local (this machine):** prefer the **CLI** (`npx supabase …`). See [Supabase](#supabase) for
+  the working method — Docker is not installed here, so use the access-token + Management API
+  path for ad-hoc SQL.
+- **Claude Code on the web / cloud sessions:** use the **`portfolio-tracker` connector**. The CLI
+  path there would require putting a `SUPABASE_ACCESS_TOKEN` into cloud environment variables,
+  which have no secrets store and are readable by anyone using the environment — and a Supabase
+  personal access token is account-wide, so it would also expose the other organization. The
+  connector avoids both problems, and its traffic does not need any allowlisted domain.
+
+**What the connector cannot do:** it exposes no secrets tooling. It can read edge-function
+*source* (so you see names like `LOVABLE_API_KEY`) but never their values, and edge-function
+secrets live in the platform env, not Postgres, so `execute_sql` cannot reach them either. To
+**set or rotate** a secret, use the dashboard or `npx supabase secrets set` from a local shell.
 
 ### 2. Pushing to `main` — commit as the `elamasprojects` GitHub account
 Every push to `main` must be **authored** by the GitHub account:
@@ -121,8 +145,9 @@ Routes under `/` are wrapped in `ProtectedRoute` (redirects to `/auth` when no s
 
 ### CLI-first workflow (Docker is NOT installed on this machine)
 
-The CLI is installed as a devDependency and the project is linked. **Use the CLI for all Supabase
-work — not the MCP.** Practical caveats here:
+The CLI is installed as a devDependency and the project is linked. **On this machine, use the CLI
+for Supabase work** (in cloud sessions use the `portfolio-tracker` connector instead — see
+[rule 1](#1-supabase--pick-the-right-access-path-and-the-right-connector)). Practical caveats here:
 
 - `supabase start`, `supabase db …`, `supabase db dump` **require Docker Desktop**, which is
   **not installed** on this machine → those commands fail. Don't rely on them.
@@ -131,7 +156,7 @@ work — not the MCP.** Practical caveats here:
   `POST https://api.supabase.com/v1/projects/yimbswiaqmuggmqygicf/database/query` with the
   access token that `supabase login` stored (Windows: the `Supabase CLI:supabase` entry in
   Credential Manager). This executes as `postgres` (bypasses RLS) — the same mechanism the CLI
-  uses internally. Prefer this over the Supabase MCP.
+  uses internally.
 - Auth/link (one-time): `npx supabase login`, then
   `npx supabase link --project-ref yimbswiaqmuggmqygicf`.
 
