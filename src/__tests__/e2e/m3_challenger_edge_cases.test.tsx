@@ -80,8 +80,9 @@ describe("Milestone M3 Challenger Edge Cases & Stress Harness", () => {
       const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       const { result } = renderHook(() => useCandidateWatchlist());
-      expect(result.current.items).toBeDefined();
-      expect(result.current.items.length).toBeGreaterThan(0); // Falls back to default candidates
+      // Recovering from corrupt storage means an empty list, not a set of invented candidates.
+      expect(result.current.items).toEqual([]);
+      expect(consoleWarnSpy).toHaveBeenCalled();
 
       consoleWarnSpy.mockRestore();
     });

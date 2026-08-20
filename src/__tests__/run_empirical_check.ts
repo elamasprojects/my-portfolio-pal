@@ -13,7 +13,7 @@ async function main() {
     data: {
       inflation_index: [],
       fx_rates: [],
-      trades: [{ id: "t1", invalidation_condition: "stop", target_price_ars: 100 }],
+      trades: [{ id: "t1", invalidation_condition: "stop", target_price_usd: 100 }],
       game_reviews: [],
     },
   };
@@ -33,7 +33,7 @@ async function main() {
     checksum: validChecksum, // Stale checksum before data modification
     data: {
       ...rawPayload.data,
-      trades: [{ id: "t1", invalidation_condition: "stop", target_price_ars: 999999 }], // TAMPERED
+      trades: [{ id: "t1", invalidation_condition: "stop", target_price_usd: 999999 }], // TAMPERED
     },
   };
 

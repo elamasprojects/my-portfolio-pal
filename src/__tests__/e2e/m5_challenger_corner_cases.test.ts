@@ -77,7 +77,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
             {
               id: "t1",
               symbol: "AAPL",
-              // missing invalidation_condition and target_price_ars
+              // missing invalidation_condition and target_price_usd
             },
           ],
         },
@@ -101,7 +101,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
       // Mutate data
       const mutatedPayload = {
         ...rawPayload,
-        data: { ...rawPayload.data, trades: [{ id: "t1", invalidation_condition: "stop", target_price_ars: 100 }] },
+        data: { ...rawPayload.data, trades: [{ id: "t1", invalidation_condition: "stop", target_price_usd: 100 }] },
       };
       const hashMutated = calculateBackupChecksum(mutatedPayload);
       expect(hashMutated).not.toBe(hash1);
@@ -114,7 +114,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         data: {
           inflation_index: [],
           fx_rates: [],
-          trades: [{ id: "t1", invalidation_condition: "stop", target_price_ars: 100 }],
+          trades: [{ id: "t1", invalidation_condition: "stop", target_price_usd: 100 }],
           game_reviews: [],
         },
       };
@@ -136,7 +136,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         checksum: originalHash, // original hash before tampering data
         data: {
           ...rawPayload.data,
-          trades: [{ id: "t1", invalidation_condition: "stop", target_price_ars: 999999 }], // TAMPERED!
+          trades: [{ id: "t1", invalidation_condition: "stop", target_price_usd: 999999 }], // TAMPERED!
         },
       };
       
@@ -300,7 +300,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "MELI",
-            target_price_ars: 100,
+            target_price_usd: 100,
             buy_price_ars: 80,
             sell_price_ars: 95,
           },
@@ -318,7 +318,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "MELI",
-            target_price_ars: 100,
+            target_price_usd: 100,
             buy_price_ars: 80,
           },
         ],
@@ -333,7 +333,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "MELI",
-            target_price_ars: 100,
+            target_price_usd: 100,
             buy_price_ars: 80,
           },
         ],
@@ -348,7 +348,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "MELI",
-            target_price_ars: 100,
+            target_price_usd: 100,
             buy_price_ars: 80,
           },
         ],
@@ -364,7 +364,7 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "GGAL",
-            target_price_ars: 0,
+            target_price_usd: 0,
             buy_price_ars: 100,
           },
         ],
@@ -380,8 +380,8 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
         [
           {
             symbol: "YPF",
-            target_price_ars: 200,
-            invalidation_price_ars: 100,
+            target_price_usd: 200,
+            invalidation_price_usd: 100,
             invalidation_condition: "Break of 100 support level",
             buy_price_ars: 150,
           },
@@ -398,10 +398,10 @@ describe("M5 Challenger Corner-Case & Boundary Stress Test Suite", () => {
     it("C3-WB-04: tests multiple assets with mixed target_met, near_target, invalidation_hit, and active status", async () => {
       const briefMixed = await generateWeeklyBrief(
         [
-          { symbol: "AAPL", target_price_ars: 100, invalidation_price_ars: 50 },
-          { symbol: "MSFT", target_price_ars: 200, invalidation_price_ars: 100 },
-          { symbol: "NVDA", target_price_ars: 500, invalidation_price_ars: 300 },
-          { symbol: "TSLA", target_price_ars: 300, invalidation_price_ars: 150 },
+          { symbol: "AAPL", target_price_usd: 100, invalidation_price_usd: 50 },
+          { symbol: "MSFT", target_price_usd: 200, invalidation_price_usd: 100 },
+          { symbol: "NVDA", target_price_usd: 500, invalidation_price_usd: 300 },
+          { symbol: "TSLA", target_price_usd: 300, invalidation_price_usd: 150 },
         ],
         [],
         {

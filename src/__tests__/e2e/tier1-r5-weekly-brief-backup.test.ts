@@ -29,14 +29,31 @@ describe("Tier 1 - Requirement 5 (R5): Weekly Brief Generator & Automated Backup
   it("T1-R5-01: generates Sunday intelligence digest computing 7d/MTD returns, alerts, and conversion rate", async () => {
     triggerSundayWeeklyBrief("2026-08-16T09:00:00Z");
 
-    const brief = await generateWeeklyBrief(sampleTradeFixtures);
+    // The conversion rate is measured from recorded income and investment. This assertion used
+    // to pass with no transactions at all, because the generator returned a hardcoded 42.5%.
+    const transactions = [
+      { type: "income", amount: 200000 },
+      { type: "investment", amount: 50000 },
+    ];
+
+    const brief = await generateWeeklyBrief(sampleTradeFixtures, transactions);
 
     expect(brief).toBeDefined();
     expect(brief.performance7dPct).toBeDefined();
     expect(brief.performanceMTDPct).toBeDefined();
-    expect(brief.conversionRatePct).toBeGreaterThan(0);
+    expect(brief.conversionRatePct).toBe(25);
     expect(brief.thesisAlerts).toHaveLength(1);
     expect(brief.abnormalExpenses).toBeDefined();
+  });
+
+  it("T1-R5-01b: reports zero rather than a placeholder when nothing was recorded", async () => {
+    const brief = await generateWeeklyBrief([], []);
+
+    expect(brief.conversionRatePct).toBe(0);
+    expect(brief.performance7dPct).toBe(0);
+    expect(brief.performanceMTDPct).toBe(0);
+    expect(brief.thesisAlerts).toEqual([]);
+    expect(brief.abnormalExpenses).toEqual([]);
   });
 
   /**

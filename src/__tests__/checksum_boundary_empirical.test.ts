@@ -18,7 +18,7 @@ describe("Empirical Boundary Payload Checksum Verification Logic Harness", () =>
           id: "t100",
           symbol: "AAPL",
           buy_price_ars: 1500,
-          target_price_ars: 2000,
+          target_price_usd: 2000,
           invalidation_condition: "Price drops below 1400 ARS stop-loss",
         },
       ],
@@ -46,7 +46,7 @@ describe("Empirical Boundary Payload Checksum Verification Logic Harness", () =>
     expect(resEmpty.error).toBe("Missing Checksum Signature");
   });
 
-  it("BP-CS-03: fails validation when trade data is tampered (target_price_ars altered)", () => {
+  it("BP-CS-03: fails validation when trade data is tampered (target_price_usd altered)", () => {
     const originalChecksum = calculateBackupChecksum(validBasePayload);
     const tamperedTradePayload = {
       ...validBasePayload,
@@ -56,7 +56,7 @@ describe("Empirical Boundary Payload Checksum Verification Logic Harness", () =>
         trades: [
           {
             ...validBasePayload.data.trades[0],
-            target_price_ars: 9999, // TAMPERED!
+            target_price_usd: 9999, // TAMPERED!
           },
         ],
       },

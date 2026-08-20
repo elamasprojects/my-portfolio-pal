@@ -8,6 +8,12 @@ export interface ClosedTrade {
   quantity: number;
   pnl: number;
   returnPct: number;
+  /**
+   * The sell that consumed this lot. Callers grouping lots back onto their exit must key on
+   * this, not on `sellDate`: two sells of the same symbol on one day share a date, and matching
+   * by date hands each of them every lot closed that day — doubling quantity and P&L.
+   */
+  sellTradeId: string;
 }
 
 export interface TradeMatchingResult {
@@ -46,6 +52,7 @@ export function matchTradesFIFO(trades: Trade[]): TradeMatchingResult {
           quantity: consumed,
           pnl: (sellPrice - lot.price) * consumed,
           returnPct: lot.price > 0 ? ((sellPrice - lot.price) / lot.price) * 100 : 0,
+          sellTradeId: trade.id,
         });
 
         lot.remainingQty -= consumed;

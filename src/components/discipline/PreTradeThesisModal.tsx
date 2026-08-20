@@ -4,16 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import type { PreTradeThesis } from "@/types/thesis";
 
 export interface PreTradeThesisModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (thesis: { entryThesis: string; targetPriceARS: number; invalidationCondition: string }) => void;
+  onSubmit: (thesis: PreTradeThesis) => void;
 }
 
 export function PreTradeThesisModal({ open, onOpenChange, onSubmit }: PreTradeThesisModalProps) {
   const [entryThesis, setEntryThesis] = useState("");
-  const [targetPriceARS, setTargetPriceARS] = useState<number | "">("");
+  const [targetPriceUSD, setTargetPriceUSD] = useState<number | "">("");
   const [invalidationCondition, setInvalidationCondition] = useState("");
   const [error, setError] = useState("");
 
@@ -22,7 +23,7 @@ export function PreTradeThesisModal({ open, onOpenChange, onSubmit }: PreTradeTh
       setError("Reason for entry / Thesis must be at least 10 characters.");
       return;
     }
-    if (!targetPriceARS || Number(targetPriceARS) <= 0) {
+    if (!targetPriceUSD || Number(targetPriceUSD) <= 0) {
       setError("Exit target price must be greater than 0.");
       return;
     }
@@ -34,7 +35,7 @@ export function PreTradeThesisModal({ open, onOpenChange, onSubmit }: PreTradeTh
     setError("");
     onSubmit({
       entryThesis: entryThesis.trim(),
-      targetPriceARS: Number(targetPriceARS),
+      targetPriceUSD: Number(targetPriceUSD),
       invalidationCondition: invalidationCondition.trim(),
     });
     onOpenChange(false);
@@ -58,12 +59,12 @@ export function PreTradeThesisModal({ open, onOpenChange, onSubmit }: PreTradeTh
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Exit Target Price (ARS)</Label>
+            <Label className="text-xs">Exit Target Price (US$)</Label>
             <Input
               type="number"
-              placeholder="1500"
-              value={targetPriceARS}
-              onChange={(e) => setTargetPriceARS(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="300"
+              value={targetPriceUSD}
+              onChange={(e) => setTargetPriceUSD(e.target.value === "" ? "" : Number(e.target.value))}
             />
           </div>
           <div className="space-y-1">
@@ -85,7 +86,7 @@ export function PreTradeThesisModal({ open, onOpenChange, onSubmit }: PreTradeTh
   );
 }
 
-export type { PreTradeThesis } from "@/types/thesis";
+export type { PreTradeThesis };
 
 /**
  * Pre-Trade Form Validator (R4)
@@ -120,13 +121,14 @@ export function validatePreTradeThesisForm(input: {
  */
 export function validatePreTradeThesis(
   thesis: Partial<PreTradeThesis>,
-  buyPriceARS: number
+  /** Entry price in the same unit as `thesis.targetPriceUSD`. */
+  buyPrice: number
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   if (!thesis.entryThesis || thesis.entryThesis.trim().length < 10) {
     errors.push('Entry thesis must be at least 10 characters long.');
   }
-  if (!thesis.targetPriceARS || thesis.targetPriceARS <= buyPriceARS) {
+  if (!thesis.targetPriceUSD || thesis.targetPriceUSD <= buyPrice) {
     errors.push('Target price must be greater than buy price.');
   }
   if (!thesis.invalidationCondition || thesis.invalidationCondition.trim().length < 10) {

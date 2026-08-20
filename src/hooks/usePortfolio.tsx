@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useState, useEffect, useCallback } from "react";
+import { buildTradeRow, type TradeEntryInput } from "@/lib/tradeEntry";
+import { processSellExecution } from "@/lib/disciplineFriction";
 
 export interface Trade {
   id: string;
@@ -25,6 +27,18 @@ export interface Trade {
   commission_amount: number;
   mep_rate: number | null;
   journal_notes: Record<string, string> | null;
+  /**
+   * Pre-trade thesis (R4). `target_price_usd` and `invalidation_price_usd` are normalised to
+   * USD like `price_per_unit`, so a thesis level and a live quote are always comparable
+   * without a currency guess.
+   */
+  entry_thesis: string | null;
+  target_price_usd: number | null;
+  invalidation_condition: string | null;
+  invalidation_price_usd: number | null;
+  is_planned_exit: boolean | null;
+  unplanned_rationale: string | null;
+  split_factor: number;
 }
 
 export interface Portfolio {
@@ -575,6 +589,8 @@ export function useQuickSellTrade() {
       price,
       currency = "USD",
       mep_rate,
+      is_planned_exit = false,
+      unplanned_rationale = null,
     }: {
       symbol: string;
       asset_name: string;
@@ -583,8 +599,27 @@ export function useQuickSellTrade() {
       price: number;
       currency?: "USD" | "ARS";
       mep_rate?: number | null;
+      /**
+       * True only when the exit was taken against a declared thesis level. The Game Review
+       * audit and the weekly brief both read this to tell a planned exit from an impulse, so
+       * it has to be recorded at the point of sale — it cannot be reconstructed afterwards.
+       */
+      is_planned_exit?: boolean;
+      /** Written justification, required by the friction rules for an unplanned exit. */
+      unplanned_rationale?: string | null;
     }) => {
       if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      const frictionCheck = processSellExecution({
+        isPlannedExit: is_planned_exit,
+        unplannedRationale: unplanned_rationale ?? undefined,
+        // The dialog only calls through once its timer has elapsed; this re-checks the rule at
+        // the write path so no other caller can skip the cooling-off period.
+        coolingOffDurationSeconds: is_planned_exit ? 0 : 60,
+      });
+      if (!frictionCheck.success) {
+        throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
+      }
 
       const isARS = currency === "ARS" && mep_rate && mep_rate > 0;
       const pricePerUnit = isARS ? price / mep_rate : price;
@@ -606,6 +641,8 @@ export function useQuickSellTrade() {
           mep_rate: isARS ? mep_rate : null,
           commission_pct: 0,
           commission_amount: 0,
+          is_planned_exit,
+          unplanned_rationale: is_planned_exit ? null : unplanned_rationale,
         } as any)
         .select()
         .single();

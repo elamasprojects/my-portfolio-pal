@@ -88,7 +88,9 @@ export function OmnibarFinance({
   const { categories } = useCategories();
   const { paymentMethods } = usePaymentMethods();
   const { addTransaction } = useTransactions();
-  const { mepRate } = useDolarMEP();
+  // useDolarMEP exposes the rate as `venta`; destructuring `mepRate` yielded undefined, so
+  // an ARS amount skipped conversion and was stored as if it were dollars.
+  const { venta: mepRate = 0 } = useDolarMEP();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

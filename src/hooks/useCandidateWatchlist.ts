@@ -4,42 +4,21 @@ import { toast } from "sonner";
 
 const STORAGE_KEY = "chess_candidate_watchlist";
 
-const DEFAULT_CANDIDATES: CandidateWatchlistItem[] = [
-  {
-    id: "cand_1",
-    symbol: "AAPL",
-    assetCategory: "cedear",
-    targetEntryPriceARS: 14500,
-    targetExitPriceARS: 18500,
-    invalidationPriceARS: 13200,
-    entryThesis: "Consolidación en soporte técnico previo a reporte trimestral de ganancias con fuerte demanda institucional.",
-    invalidationCondition: "Cierre por debajo de $13.200 con volumen superior al promedio mensual.",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "cand_2",
-    symbol: "AL30",
-    assetCategory: "bond",
-    targetEntryPriceARS: 68000,
-    targetExitPriceARS: 85000,
-    invalidationPriceARS: 61000,
-    entryThesis: "Comprensión de riesgo país y acumulación de reservas del BCRA.",
-    invalidationCondition: "Deterioro fiscal mensual o reversión de compras netas de divisas.",
-    created_at: new Date().toISOString(),
-  },
-];
-
 export function useCandidateWatchlist() {
+  // Seeded with nothing on purpose. This list used to open with two invented candidates
+  // (AAPL and AL30, with prices and theses nobody wrote) which the effect below then persisted
+  // to localStorage, making them indistinguishable from the user's own entries.
   const [items, setItems] = useState<CandidateWatchlistItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn("Error reading candidate watchlist from localStorage:", e);
     }
-    return DEFAULT_CANDIDATES;
+    return [];
   });
 
   useEffect(() => {

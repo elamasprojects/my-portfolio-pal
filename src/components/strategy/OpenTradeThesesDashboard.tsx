@@ -4,6 +4,8 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
 import { PreTradeThesisModal } from "@/components/discipline/PreTradeThesisModal";
+import { latestBuyForSymbol, thesisForSymbol } from "@/lib/thesis";
+import type { PreTradeThesis } from "@/types/thesis";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ export function OpenTradeThesesDashboard() {
   const [quickSellOpen, setQuickSellOpen] = useState(false);
   const [selectedHoldingForSell, setSelectedHoldingForSell] = useState<Holding | null>(null);
   const [sellPrice, setSellPrice] = useState<number | null>(null);
+  const [sellIsPlanned, setSellIsPlanned] = useState(false);
 
   // Edit Thesis Modal
   const [editThesisOpen, setEditThesisOpen] = useState(false);
@@ -36,9 +39,13 @@ export function OpenTradeThesesDashboard() {
 
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
-  const handleOpenPlannedSell = (holding: Holding, priceUSD: number) => {
+  // An exit only counts as planned once a declared level was actually reached. The button used
+  // to claim "Salida Planificada" on every row, which meant an impulse sale was recorded as
+  // planned and skipped the cooling-off period.
+  const handleOpenSell = (holding: Holding, priceUSD: number, isPlanned: boolean) => {
     setSelectedHoldingForSell(holding);
     setSellPrice(priceUSD);
+    setSellIsPlanned(isPlanned);
     setQuickSellOpen(true);
   };
 
@@ -47,14 +54,14 @@ export function OpenTradeThesesDashboard() {
     setEditThesisOpen(true);
   };
 
-  const handleSaveThesis = async (thesis: { entryThesis: string; targetPriceARS: number; invalidationCondition: string }) => {
+  const handleSaveThesis = async (thesis: PreTradeThesis) => {
     if (!targetTradeIdForThesis) return;
     try {
       const { error } = await supabase
         .from("trades" as any)
         .update({
           entry_thesis: thesis.entryThesis,
-          target_price_ars: thesis.targetPriceARS,
+          target_price_usd: thesis.targetPriceUSD,
           invalidation_condition: thesis.invalidationCondition,
         })
         .eq("id", targetTradeIdForThesis);
@@ -70,18 +77,17 @@ export function OpenTradeThesesDashboard() {
   // Enriched rows with USD native calculations
   const enrichedRows = useMemo(() => {
     const list = holdings.map((h) => {
-      const symbolTrades = trades.filter((t) => t.symbol === h.symbol && t.trade_type === "buy");
-      const latestBuyTrade = symbolTrades[symbolTrades.length - 1];
+      const latestBuyTrade = latestBuyForSymbol(trades, h.symbol);
+      const thesis = thesisForSymbol(trades, h.symbol);
 
-      const rawEntryThesis = latestBuyTrade?.entry_thesis || "Sin tesis registrada.";
-      const rawTargetPriceARS = Number(latestBuyTrade?.target_price_ars || 0);
-      const rawInvalidation = latestBuyTrade?.invalidation_condition || "Sin invalidación definida.";
+      const rawEntryThesis = thesis.entryThesis || "Sin tesis registrada.";
+      const rawInvalidation = thesis.invalidationCondition || "Sin invalidación definida.";
 
       const currentPriceUSD = marketPrices.get(h.symbol.toUpperCase()) || h.avg_cost;
       const buyPriceUSD = h.avg_cost;
 
-      // If target was saved as large ARS number (> 1000), convert to USD; otherwise treat as USD
-      const targetPriceUSD = rawTargetPriceARS > 1000 ? rawTargetPriceARS / effectiveRate : rawTargetPriceARS;
+      // Stored USD-normalised, same as `price_per_unit` — no currency guess.
+      const targetPriceUSD = thesis.targetPriceUSD ?? 0;
 
       let progressPct = 0;
       if (targetPriceUSD > 0 && currentPriceUSD > 0) {
@@ -108,7 +114,7 @@ export function OpenTradeThesesDashboard() {
     return list.sort((a, b) => {
       return sortOrder === "desc" ? b.progressPct - a.progressPct : a.progressPct - b.progressPct;
     });
-  }, [holdings, trades, marketPrices, effectiveRate, sortOrder]);
+  }, [holdings, trades, marketPrices, sortOrder]);
 
   return (
     <div className="space-y-6">
@@ -218,10 +224,12 @@ export function OpenTradeThesesDashboard() {
                                   ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                                   : "bg-primary text-primary-foreground"
                               }`}
-                              onClick={() => handleOpenPlannedSell(h, currentPriceUSD)}
+                              onClick={() =>
+                                handleOpenSell(h, currentPriceUSD, targetHit || invalidationHit)
+                              }
                             >
                               <TrendingDown className="h-3.5 w-3.5 mr-1" />
-                              Salida Planificada
+                              {targetHit || invalidationHit ? "Salida Planificada" : "Vender"}
                             </Button>
                           </div>
                         </TableCell>
@@ -245,6 +253,7 @@ export function OpenTradeThesesDashboard() {
         displayCurrency="USD"
         mepRate={effectiveRate}
         trades={trades}
+        isPlannedExit={sellIsPlanned}
       />
 
       {/* PRE-TRADE THESIS MODAL FOR EDITING */}

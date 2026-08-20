@@ -544,7 +544,11 @@ export type Database = {
           commission_amount: number
           commission_pct: number
           created_at: string
+          entry_thesis: string | null
           id: string
+          invalidation_condition: string | null
+          invalidation_price_usd: number | null
+          is_planned_exit: boolean | null
           journal_notes: Json | null
           mep_rate: number | null
           notes: string | null
@@ -553,15 +557,13 @@ export type Database = {
           portfolio_id: string
           price_per_unit: number
           quantity: number
+          split_factor: number
           strategy_id: string | null
           symbol: string
+          target_price_usd: number | null
           total_amount: number | null
           trade_date: string
           trade_type: Database["public"]["Enums"]["trade_type"]
-          entry_thesis: string | null
-          invalidation_condition: string | null
-          is_planned_exit: boolean | null
-          target_price_ars: number | null
           unplanned_rationale: string | null
           user_id: string
         }
@@ -575,6 +577,7 @@ export type Database = {
           entry_thesis?: string | null
           id?: string
           invalidation_condition?: string | null
+          invalidation_price_usd?: number | null
           is_planned_exit?: boolean | null
           journal_notes?: Json | null
           mep_rate?: number | null
@@ -584,9 +587,10 @@ export type Database = {
           portfolio_id: string
           price_per_unit: number
           quantity: number
+          split_factor?: number
           strategy_id?: string | null
           symbol: string
-          target_price_ars?: number | null
+          target_price_usd?: number | null
           total_amount?: number | null
           trade_date?: string
           trade_type?: Database["public"]["Enums"]["trade_type"]
@@ -603,6 +607,7 @@ export type Database = {
           entry_thesis?: string | null
           id?: string
           invalidation_condition?: string | null
+          invalidation_price_usd?: number | null
           is_planned_exit?: boolean | null
           journal_notes?: Json | null
           mep_rate?: number | null
@@ -612,9 +617,10 @@ export type Database = {
           portfolio_id?: string
           price_per_unit?: number
           quantity?: number
+          split_factor?: number
           strategy_id?: string | null
           symbol?: string
-          target_price_ars?: number | null
+          target_price_usd?: number | null
           total_amount?: number | null
           trade_date?: string
           trade_type?: Database["public"]["Enums"]["trade_type"]

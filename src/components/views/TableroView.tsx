@@ -5,6 +5,7 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
 import { MobileSwipeableHoldingCard } from "@/components/MobileSwipeableHoldingCard";
 import { ClosedPositionSummaryDialog, ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
+import { thesisForSymbol } from "@/lib/thesis";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -119,15 +120,15 @@ export function TableroView() {
       totalInvestedUSD += positionCostUSD;
       currentMarketValueUSD += positionMarketValUSD;
 
-      // Match thesis for target & invalidation
-      const symbolTrades = trades.filter((t) => t.symbol === h.symbol && t.trade_type === "buy");
-      const latestBuy = symbolTrades[symbolTrades.length - 1];
-      const targetPriceUSD = latestBuy?.target_price_ars
-        ? (latestBuy.target_price_ars > 1000 ? latestBuy.target_price_ars / effectiveCclRate : latestBuy.target_price_ars)
-        : 0;
-      const invalidationPriceUSD = (latestBuy as any)?.invalidation_price_ars
-        ? ((latestBuy as any).invalidation_price_ars > 1000 ? (latestBuy as any).invalidation_price_ars / effectiveCclRate : (latestBuy as any).invalidation_price_ars)
-        : (latestBuy?.avg_cost ? latestBuy.avg_cost * 0.85 : 0);
+      // Thesis levels come back USD-normalised, so they compare directly against the live
+      // quote. This used to infer the currency from the magnitude (`> 1000` meant pesos),
+      // which misread any sub-1000 ARS target as dollars.
+      const thesis = thesisForSymbol(trades, h.symbol);
+      const targetPriceUSD = thesis.targetPriceUSD ?? 0;
+      // No declared stop level falls back to the 15% drawdown rule off the position's average
+      // cost — `h.avg_cost`, the holding's. The trade row has no `avg_cost`, so reading one
+      // off it yielded undefined and disabled the check entirely.
+      const invalidationPriceUSD = thesis.invalidationPriceUSD ?? (h.avg_cost > 0 ? h.avg_cost * 0.85 : 0);
 
       const isTargetHit = targetPriceUSD > 0 && livePriceUSD >= targetPriceUSD;
       const isInvalidationHit = (invalidationPriceUSD > 0 && livePriceUSD <= invalidationPriceUSD) || unrealizedPnlPct <= -15;
@@ -152,8 +153,8 @@ export function TableroView() {
         isTargetHit,
         isInvalidationHit,
         targetProgressPct,
-        entryThesis: latestBuy?.entry_thesis,
-        invalidationCondition: latestBuy?.invalidation_condition,
+        entryThesis: thesis.entryThesis,
+        invalidationCondition: thesis.invalidationCondition,
       };
     });
 
@@ -175,7 +176,7 @@ export function TableroView() {
       totalInvalidations,
       holdingsEnriched: enrichedWithWeights,
     };
-  }, [holdings, marketPrices, trades, effectiveCclRate]);
+  }, [holdings, marketPrices, trades]);
 
   // Filtered holdings
   const filteredHoldings = useMemo(() => {
@@ -597,10 +598,24 @@ export function TableroView() {
                 filteredHoldings.map((h) => (
                   <MobileSwipeableHoldingCard
                     key={h.symbol}
-                    holding={h}
-                    currentPrice={h.livePriceUSD}
+                    // The card reads the live price off the holding (`currentPrice`), and needs
+                    // its formatters and navigation callback. It was previously handed
+                    // `currentPrice`/`displayCurrency`, which it does not accept, so it rendered
+                    // without a price and its tap-through did nothing.
+                    holding={{
+                      ...h,
+                      currentPrice: h.livePriceUSD,
+                      mktVal: h.positionMarketValUSD,
+                      uPnl: h.unrealizedPnlUSD,
+                      uPnlPct: h.unrealizedPnlPct,
+                    }}
+                    pricesLoading={pricesLoading}
                     currencySymbol="US$"
-                    displayCurrency="USD"
+                    cx={(val) => val}
+                    fmtCompact={(val) =>
+                      val.toLocaleString("en-US", { maximumFractionDigits: 2 })
+                    }
+                    onNavigate={(symbol) => navigate(`/asset/${symbol}`)}
                     onQuickSell={(holding, price) => handleOpenQuickSell(holding, price || h.livePriceUSD)}
                   />
                 ))
@@ -620,7 +635,9 @@ export function TableroView() {
         displayCurrency="USD"
         mepRate={effectiveCclRate}
         trades={trades}
-        onSuccess={handleQuickSellSuccess}
+        // The prop is `onSuccessClosedSummary`; under the old name the celebration dialog
+        // never received a summary and never opened.
+        onSuccessClosedSummary={handleQuickSellSuccess}
       />
 
       {/* CLOSED POSITION SUMMARY CELEBRATION MODAL */}
@@ -629,7 +646,6 @@ export function TableroView() {
         onOpenChange={setClosedSummaryOpen}
         summary={closedSummaryData}
         currencySymbol="US$"
-        displayCurrency="USD"
       />
     </div>
   );

@@ -191,19 +191,25 @@ export async function fetchAndCacheInflationIndex(
           };
         });
 
-        // Batch upsert to Supabase
+        // Insert-only: RLS lets a signed-in user extend the shared series but never rewrite
+        // a month somebody already recorded, so conflicts are skipped rather than updated.
+        // The result was previously discarded entirely, which hid the fact that every write
+        // was being rejected and the Tier-1 cache never filled.
         try {
-          await supabase.from("inflation_index").upsert(
+          const { error: cacheError } = await supabase.from("inflation_index").upsert(
             records.map((r) => ({
               month: r.month,
               index_value: r.index_value,
               monthly_rate: r.monthly_rate ?? null,
               source: r.source,
             })),
-            { onConflict: "month" }
+            { onConflict: "month", ignoreDuplicates: true }
           );
-        } catch {
-          // Non-blocking upsert error
+          if (cacheError) {
+            console.warn("inflation_index cache write failed:", cacheError.message);
+          }
+        } catch (e) {
+          console.warn("inflation_index cache write threw:", e);
         }
 
         return {
@@ -287,9 +293,9 @@ export async function fetchAndCacheFxRates(
           source: "argentinadatos",
         }));
 
-        // Batch upsert to Supabase
+        // Insert-only, same rationale as inflation_index above.
         try {
-          await supabase.from("fx_rates").upsert(
+          const { error: cacheError } = await supabase.from("fx_rates").upsert(
             records.map((r) => ({
               rate_date: r.rate_date,
               ccl_rate: r.ccl_rate,
@@ -297,10 +303,13 @@ export async function fetchAndCacheFxRates(
               oficial_rate: r.oficial_rate ?? null,
               source: r.source,
             })),
-            { onConflict: "rate_date" }
+            { onConflict: "rate_date", ignoreDuplicates: true }
           );
-        } catch {
-          // Non-blocking upsert error
+          if (cacheError) {
+            console.warn("fx_rates cache write failed:", cacheError.message);
+          }
+        } catch (e) {
+          console.warn("fx_rates cache write threw:", e);
         }
 
         return {

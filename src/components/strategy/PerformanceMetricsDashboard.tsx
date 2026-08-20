@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTrades, computePerformance, Trade } from "@/hooks/usePortfolio";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { matchTradesFIFO } from "@/lib/tradeMatching";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -16,51 +17,49 @@ export function PerformanceMetricsDashboard() {
   const effectiveRate = mepRate > 0 ? mepRate : 1200;
 
   // Compute closed trades P&L grouped by period
-  const periodicData = useMemo(() => {
-    const sells = trades.filter((t) => t.trade_type === "sell");
-    const buys = trades.filter((t) => t.trade_type === "buy");
+  const { periodicData, unmatchedSells } = useMemo(() => {
     const dividends = trades.filter((t) => t.trade_type === "dividend");
 
     const groupMap: Record<string, { period: string; realizedUSD: number; dividendsUSD: number }> = {};
+    const periodKey = (value: string | Date) => {
+      const date = value instanceof Date ? value : new Date(value);
+      return period === "month"
+        ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+        : `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+    };
 
-    // Process sells
-    for (const s of sells) {
-      const date = new Date(s.trade_date || s.created_at);
-      const key =
-        period === "month"
-          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-          : `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
-
-      const priorBuys = buys.filter(
-        (b) => b.symbol === s.symbol && new Date(b.trade_date || b.created_at) <= date
-      );
-      let avgBuyUSD = Number(s.price_per_unit) * 0.88;
-      if (priorBuys.length > 0) {
-        const totalCost = priorBuys.reduce((sum, b) => sum + Number(b.price_per_unit) * Number(b.quantity), 0);
-        const totalQty = priorBuys.reduce((sum, b) => sum + Number(b.quantity), 0);
-        if (totalQty > 0) avgBuyUSD = totalCost / totalQty;
+    // Realised P&L comes from FIFO lot matching, the same engine the Game Review uses, so a
+    // sell is priced against the lots it actually consumed. The previous version averaged
+    // every prior buy and — when a sell had no buy in the loaded window — fell back to
+    // `sell price * 0.88`, inventing a ~13.6% gain out of a constant.
+    const matchedSellIds = new Set<string>();
+    for (const symbol of new Set(trades.map((t) => t.symbol.toUpperCase()))) {
+      const symbolTrades = trades.filter((t) => t.symbol.toUpperCase() === symbol);
+      for (const lot of matchTradesFIFO(symbolTrades).closedTrades) {
+        matchedSellIds.add(lot.sellTradeId);
+        const key = periodKey(lot.sellDate);
+        if (!groupMap[key]) groupMap[key] = { period: key, realizedUSD: 0, dividendsUSD: 0 };
+        groupMap[key].realizedUSD += lot.pnl;
       }
-
-      const pnlUSD = (Number(s.price_per_unit) - avgBuyUSD) * Number(s.quantity || 1);
-
-      if (!groupMap[key]) groupMap[key] = { period: key, realizedUSD: 0, dividendsUSD: 0 };
-      groupMap[key].realizedUSD += pnlUSD;
     }
 
-    // Process dividends
-    for (const d of dividends) {
-      const date = new Date(d.trade_date || d.created_at);
-      const key =
-        period === "month"
-          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-          : `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+    // A sell whose opening buy predates the data window cannot be priced. It is reported,
+    // not guessed at.
+    const unmatched = trades.filter(
+      (t) => t.trade_type === "sell" && !matchedSellIds.has(t.id)
+    ).length;
 
+    for (const d of dividends) {
+      const key = periodKey(d.trade_date || d.created_at);
       const amtUSD = Number(d.total_amount || 0);
       if (!groupMap[key]) groupMap[key] = { period: key, realizedUSD: 0, dividendsUSD: 0 };
       groupMap[key].dividendsUSD += amtUSD;
     }
 
-    return Object.values(groupMap).sort((a, b) => a.period.localeCompare(b.period));
+    return {
+      periodicData: Object.values(groupMap).sort((a, b) => a.period.localeCompare(b.period)),
+      unmatchedSells: unmatched,
+    };
   }, [trades, period]);
 
   // Aggregate stats
@@ -93,6 +92,17 @@ export function PerformanceMetricsDashboard() {
 
   return (
     <div className="space-y-6">
+      {unmatchedSells > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            {unmatchedSells} {unmatchedSells === 1 ? "venta queda" : "ventas quedan"} fuera del
+            cálculo: su compra de origen es anterior a los datos cargados, así que no hay costo
+            real contra el cual medirlas.
+          </span>
+        </div>
+      )}
+
       {/* 4 Summary Metric Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-card border border-border/70 p-4 space-y-1">

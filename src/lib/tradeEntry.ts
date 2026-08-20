@@ -22,8 +22,14 @@ export interface TradeEntryInput {
   notes?: string | null;
   /** Pre-trade thesis (R4). Mandatory on buys — enforced by the capture form. */
   entryThesis?: string | null;
-  targetPriceARS?: number | null;
+  /**
+   * Exit target, entered in the same currency as `price`. Normalised to USD on the way in, so
+   * the stored level is always comparable against a live quote.
+   */
+  targetPrice?: number | null;
   invalidationCondition?: string | null;
+  /** Optional numeric stop level, entered in the same currency as `price`. */
+  invalidationPrice?: number | null;
 }
 
 export interface TradeEntryContext {
@@ -62,6 +68,16 @@ export function buildTradeRow(input: TradeEntryInput, ctx: TradeEntryContext) {
   // mep_rate preserve exactly what the user typed.
   const pricePerUnit = isARS ? enteredPrice / (mepRate as number) : enteredPrice;
 
+  // The thesis levels are entered in the same currency as the price, so they follow the same
+  // normalisation. Storing them unconverted is what made a US$300 target read as AR$300 and
+  // fire "target reached" the moment the position was opened.
+  const toUSD = (value?: number | null): number | null => {
+    if (value === null || value === undefined) return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    return isARS ? numeric / (mepRate as number) : numeric;
+  };
+
   // NOTE: `total_amount` is a GENERATED column and must never appear here.
   return {
     portfolio_id: ctx.portfolioId,
@@ -83,7 +99,8 @@ export function buildTradeRow(input: TradeEntryInput, ctx: TradeEntryContext) {
     commission_pct: 0,
     commission_amount: 0,
     entry_thesis: input.entryThesis || null,
-    target_price_ars: input.targetPriceARS ?? null,
+    target_price_usd: toUSD(input.targetPrice),
     invalidation_condition: input.invalidationCondition || null,
+    invalidation_price_usd: toUSD(input.invalidationPrice),
   };
 }

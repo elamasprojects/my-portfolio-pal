@@ -15,6 +15,7 @@ import { useLanguage } from "@/i18n";
 import { toast } from "sonner";
 import { TrendingDown, Loader2 } from "lucide-react";
 
+import { FrictionCoolingTimerModal } from "@/components/discipline/FrictionCoolingTimerModal";
 import { ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
 import { Trade } from "@/hooks/usePortfolio";
 
@@ -28,6 +29,12 @@ interface QuickSellDialogProps {
   mepRate?: number | null;
   trades?: Trade[];
   onSuccessClosedSummary?: (summary: ClosedPositionSummary) => void;
+  /**
+   * Friction inversion (R4): an exit taken against a declared thesis level executes in one
+   * click, anything else goes through the 60s cooling-off and a written justification.
+   * Callers that reach this dialog from a target/invalidation alert pass true.
+   */
+  isPlannedExit?: boolean;
 }
 
 export function QuickSellDialog({
@@ -40,6 +47,7 @@ export function QuickSellDialog({
   mepRate,
   trades = [],
   onSuccessClosedSummary,
+  isPlannedExit = false,
 }: QuickSellDialogProps) {
   const { t } = useLanguage();
   const quickSellMutation = useQuickSellTrade();
@@ -47,6 +55,7 @@ export function QuickSellDialog({
   const [selectedPct, setSelectedPct] = useState<100 | 50 | 25>(100);
   const [priceStr, setPriceStr] = useState<string>("");
   const [qtyStr, setQtyStr] = useState<string>("");
+  const [coolingOffOpen, setCoolingOffOpen] = useState(false);
 
   // Initialize or update fields when dialog opens or holding/price changes
   useEffect(() => {
@@ -75,20 +84,34 @@ export function QuickSellDialog({
   const parsedQty = parseFloat(qtyStr.replace(",", ".")) || 0;
   const estimatedTotal = parsedPrice * parsedQty;
 
-  const handleConfirm = async () => {
+  const validateInputs = () => {
     if (parsedQty <= 0) {
       toast.error("La cantidad debe ser mayor a 0");
-      return;
+      return false;
     }
     if (parsedQty > holding.net_quantity + 0.0001) {
       toast.error(`La cantidad a vender (${parsedQty}) supera las ${holding.net_quantity.toFixed(2)} acciones disponibles`);
-      return;
+      return false;
     }
     if (parsedPrice <= 0) {
       toast.error("El precio debe ser mayor a 0");
+      return false;
+    }
+    return true;
+  };
+
+  // A planned exit confirms straight through. An unplanned one has to sit through the
+  // cooling-off timer and be written down first — that inversion is the point of the feature.
+  const handleConfirm = () => {
+    if (!validateInputs()) return;
+    if (isPlannedExit) {
+      void executeSell(null);
       return;
     }
+    setCoolingOffOpen(true);
+  };
 
+  const executeSell = async (unplannedRationale: string | null) => {
     try {
       await quickSellMutation.mutateAsync({
         symbol: holding.symbol,
@@ -98,6 +121,8 @@ export function QuickSellDialog({
         price: parsedPrice,
         currency: displayCurrency,
         mep_rate: mepRate,
+        is_planned_exit: isPlannedExit,
+        unplanned_rationale: unplannedRationale,
       });
 
       toast.success(`${t("board.sellSuccess")}: ${holding.symbol}`);
@@ -292,12 +317,20 @@ export function QuickSellDialog({
             ) : (
               <>
                 <TrendingDown className="h-4 w-4" />
-                {t("board.confirmSell")}
+                {isPlannedExit ? t("board.confirmSell") : "Continuar (venta no planificada)"}
               </>
             )}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <FrictionCoolingTimerModal
+        open={coolingOffOpen}
+        onOpenChange={setCoolingOffOpen}
+        onConfirmSell={(rationale) => {
+          void executeSell(rationale);
+        }}
+      />
     </Dialog>
   );
 }

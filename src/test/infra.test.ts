@@ -37,7 +37,7 @@ describe('E2E Test Infrastructure & Mock Helpers', () => {
         buy_price_ars: 500.0,
         quantity: 10,
         entry_thesis: 'AI boom catalyst',
-        target_price_ars: 1000.0,
+        target_price_usd: 1000.0,
         invalidation_condition: 'Market crash',
         status: 'open' as const,
       };

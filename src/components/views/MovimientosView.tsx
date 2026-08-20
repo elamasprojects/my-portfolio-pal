@@ -41,7 +41,9 @@ export function MovimientosView() {
   const { accounts = [] } = useFinancialAccounts();
   const { paymentMethods } = usePaymentMethods();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
-  const { mepRate } = useDolarMEP();
+  // useDolarMEP exposes the rate as `venta`; destructuring `mepRate` yielded undefined, so
+  // an ARS amount skipped conversion and was stored as if it were dollars.
+  const { venta: mepRate = 0 } = useDolarMEP();
 
   // Categories Map
   const categoriesMap = useMemo(() => {
@@ -393,7 +395,9 @@ export function MovimientosView() {
                   className="shrink-0"
                 >
                   <AudioQuickRecorder
-                    onTranscriptReady={(transcript) => {
+                    // The prop is `onRecordedText`; passing `onTranscriptReady` meant the
+                    // recorder had no callback and every transcription was dropped.
+                    onRecordedText={(transcript) => {
                       setOmnibarText(transcript.trim());
                       handleSubmitOmnibar(transcript.trim());
                     }}

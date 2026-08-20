@@ -19,6 +19,15 @@ export interface AddTradeDialogProps {
   /** Preselected operation type when opened from a contextual action. */
   defaultTradeType?: TradeType;
   defaultSymbol?: string;
+  /**
+   * Prefill for the R4 thesis fields, used when the buy is executed from a candidate that
+   * already carries a written thesis. These are defaults for the form state, so mount the
+   * dialog under a `key` tied to the source record when they change.
+   */
+  defaultEntryThesis?: string;
+  defaultTargetPrice?: string;
+  defaultInvalidationCondition?: string;
+  defaultCurrency?: "USD" | "ARS";
 }
 
 const TYPE_OPTIONS: { value: TradeType; label: string; icon: typeof ArrowDownLeft }[] = [
@@ -38,6 +47,10 @@ export function AddTradeDialog({
   onOpenChange,
   defaultTradeType = "buy",
   defaultSymbol = "",
+  defaultEntryThesis = "",
+  defaultTargetPrice = "",
+  defaultInvalidationCondition = "",
+  defaultCurrency = "USD",
 }: AddTradeDialogProps) {
   const addTrade = useAddTrade();
   const { data: brokers = [] } = useBrokers();
@@ -48,15 +61,15 @@ export function AddTradeDialog({
   const [assetName, setAssetName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState<"USD" | "ARS">("USD");
+  const [currency, setCurrency] = useState<"USD" | "ARS">(defaultCurrency);
   const [tradeDate, setTradeDate] = useState(todayLocalISO());
   const [brokerId, setBrokerId] = useState<string>("none");
   const [notes, setNotes] = useState("");
 
   // Pre-trade thesis (R4): mandatory on buys.
-  const [entryThesis, setEntryThesis] = useState("");
-  const [targetPrice, setTargetPrice] = useState("");
-  const [invalidationCondition, setInvalidationCondition] = useState("");
+  const [entryThesis, setEntryThesis] = useState(defaultEntryThesis);
+  const [targetPrice, setTargetPrice] = useState(defaultTargetPrice);
+  const [invalidationCondition, setInvalidationCondition] = useState(defaultInvalidationCondition);
 
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -84,13 +97,13 @@ export function AddTradeDialog({
     setAssetName("");
     setQuantity("");
     setPrice("");
-    setCurrency("USD");
+    setCurrency(defaultCurrency);
     setTradeDate(todayLocalISO());
     setBrokerId("none");
     setNotes("");
-    setEntryThesis("");
-    setTargetPrice("");
-    setInvalidationCondition("");
+    setEntryThesis(defaultEntryThesis);
+    setTargetPrice(defaultTargetPrice);
+    setInvalidationCondition(defaultInvalidationCondition);
     setErrors([]);
   }
 
@@ -150,7 +163,8 @@ export function AddTradeDialog({
         brokerId: brokerId === "none" ? null : brokerId,
         notes: notes.trim() || null,
         entryThesis: isBuy ? entryThesis.trim() : null,
-        targetPriceARS: isBuy ? parseFloat(targetPrice) : null,
+        // Entered in `currency`; buildTradeRow normalises it to USD like the price.
+        targetPrice: isBuy ? parseFloat(targetPrice) : null,
         invalidationCondition: isBuy ? invalidationCondition.trim() : null,
       });
 
@@ -360,7 +374,9 @@ export function AddTradeDialog({
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="thesis-target" className="text-xs">Precio de salida / target</Label>
+                <Label htmlFor="thesis-target" className="text-xs">
+                  Precio de salida / target ({currency === "ARS" ? "AR$" : "US$"})
+                </Label>
                 <Input
                   id="thesis-target"
                   type="number"

@@ -25,7 +25,7 @@ describe("buildTradeRow", () => {
         quantity: 10,
         price: 230,
         entryThesis: "Crecimiento de ingresos sostenido",
-        targetPriceARS: 300,
+        targetPrice: 300,
         invalidationCondition: "Pierde el soporte de 180",
       },
       ctx
@@ -36,7 +36,7 @@ describe("buildTradeRow", () => {
     expect(row.quantity).toBe(10);
     expect(row.price_per_unit).toBe(230);
     expect(row.entry_thesis).toBe("Crecimiento de ingresos sostenido");
-    expect(row.target_price_ars).toBe(300);
+    expect(row.target_price_usd).toBe(300);
     expect(row.invalidation_condition).toBe("Pierde el soporte de 180");
   });
 
@@ -129,5 +129,52 @@ describe("buildTradeRow", () => {
     const row = buildTradeRow({ tradeType: "buy", symbol: "A", quantity: 1, price: 5 }, ctx);
     expect(row.user_id).toBe("user-1");
     expect(row.portfolio_id).toBe("portfolio-1");
+  });
+
+  // The target used to be stored exactly as typed while every reader treated it as pesos, so a
+  // US$300 target on a US$230 position read as AR$300 and reported "target reached" on day one.
+  it("normalises the thesis levels to USD like the price", () => {
+    const ars = buildTradeRow(
+      {
+        tradeType: "buy",
+        symbol: "AAPL",
+        quantity: 1,
+        price: 276000,
+        currency: "ARS",
+        mepRate: 1200,
+        entryThesis: "Tesis en pesos",
+        targetPrice: 360000,
+        invalidationPrice: 240000,
+        invalidationCondition: "Pierde el soporte",
+      },
+      ctx
+    );
+
+    expect(ars.price_per_unit).toBe(230);
+    expect(ars.target_price_usd).toBe(300);
+    expect(ars.invalidation_price_usd).toBe(200);
+
+    const usd = buildTradeRow(
+      {
+        tradeType: "buy",
+        symbol: "AAPL",
+        quantity: 1,
+        price: 230,
+        currency: "USD",
+        targetPrice: 300,
+      },
+      ctx
+    );
+
+    // A US$300 target stays 300 — never multiplied into a peso figure, never left below the
+    // live quote it will be compared against.
+    expect(usd.target_price_usd).toBe(300);
+    expect(usd.target_price_usd).toBeGreaterThan(usd.price_per_unit);
+  });
+
+  it("stores no thesis level when none was given", () => {
+    const row = buildTradeRow({ tradeType: "buy", symbol: "A", quantity: 1, price: 5 }, ctx);
+    expect(row.target_price_usd).toBeNull();
+    expect(row.invalidation_price_usd).toBeNull();
   });
 });

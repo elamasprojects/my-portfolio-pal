@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useCandidateWatchlist } from "@/hooks/useCandidateWatchlist";
 import { CandidateWatchlistItem } from "@/types/thesis";
-import { PreTradeThesisModal } from "@/components/discipline/PreTradeThesisModal";
+import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 
@@ -131,11 +131,16 @@ export function CandidateWatchlistDashboard() {
                 items.map((cand) => {
                   const effectiveRate = mepRate > 0 ? mepRate : 1200;
                   const liveUSD = marketPrices.get(cand.symbol.toUpperCase());
-                  const liveARS = liveUSD ? liveUSD * effectiveRate : cand.targetEntryPriceARS;
 
-                  // Distance % to entry
-                  const distPct = ((liveARS - cand.targetEntryPriceARS) / cand.targetEntryPriceARS) * 100;
-                  const inEntryZone = Math.abs(distPct) <= 2;
+                  // With no quote there is no distance to report. Falling back to the
+                  // candidate's own entry price compared it against itself and rendered a
+                  // green "+0.0% — en zona de entrada" that meant nothing.
+                  const hasQuote = !!liveUSD && liveUSD > 0 && cand.targetEntryPriceARS > 0;
+                  const liveARS = hasQuote ? liveUSD * effectiveRate : null;
+                  const distPct = hasQuote
+                    ? ((liveARS - cand.targetEntryPriceARS) / cand.targetEntryPriceARS) * 100
+                    : null;
+                  const inEntryZone = distPct !== null && Math.abs(distPct) <= 2;
 
                   return (
                     <TableRow key={cand.id} className="hover:bg-muted/40">
@@ -160,18 +165,24 @@ export function CandidateWatchlistDashboard() {
                         $ {cand.targetExitPriceARS.toLocaleString("es-AR")}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        <Badge
-                          variant="secondary"
-                          className={
-                            inEntryZone
-                              ? "bg-emerald-500/20 text-emerald-400 font-bold"
-                              : distPct > 0
-                              ? "bg-primary/10 text-primary"
-                              : "bg-amber-500/10 text-amber-400"
-                          }
-                        >
-                          {distPct >= 0 ? `+${distPct.toFixed(1)}%` : `${distPct.toFixed(1)}%`}
-                        </Badge>
+                        {distPct === null ? (
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                            Sin cotización
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              inEntryZone
+                                ? "bg-emerald-500/20 text-emerald-400 font-bold"
+                                : distPct > 0
+                                ? "bg-primary/10 text-primary"
+                                : "bg-amber-500/10 text-amber-400"
+                            }
+                          >
+                            {distPct >= 0 ? `+${distPct.toFixed(1)}%` : `${distPct.toFixed(1)}%`}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1.5">
@@ -304,15 +315,28 @@ export function CandidateWatchlistDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* PRE-FILL PRE-TRADE THESIS MODAL FOR BUY EXECUTION */}
-      <PreTradeThesisModal
-        open={buyModalOpen}
-        onOpenChange={setBuyModalOpen}
-        onSubmit={(thesis) => {
-          toast.success(`✓ Tesis lista para compra de ${selectedCandidate?.symbol}`);
-          setBuyModalOpen(false);
-        }}
-      />
+      {/*
+        Executing a candidate opens the real capture dialog, prefilled from the thesis the
+        candidate already carries. It used to raise a success toast and insert nothing, so the
+        position was never recorded and the thesis was thrown away.
+        Keyed by candidate so the prefilled defaults re-initialise per row.
+      */}
+      {selectedCandidate && (
+        <AddTradeDialog
+          key={selectedCandidate.id}
+          open={buyModalOpen}
+          onOpenChange={(v) => {
+            setBuyModalOpen(v);
+            if (!v) setSelectedCandidate(null);
+          }}
+          defaultTradeType="buy"
+          defaultSymbol={selectedCandidate.symbol}
+          defaultCurrency="ARS"
+          defaultEntryThesis={selectedCandidate.entryThesis}
+          defaultTargetPrice={String(selectedCandidate.targetExitPriceARS)}
+          defaultInvalidationCondition={selectedCandidate.invalidationCondition}
+        />
+      )}
     </div>
   );
 }

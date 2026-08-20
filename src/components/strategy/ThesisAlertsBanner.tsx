@@ -3,6 +3,7 @@ import { useTrades, computeHoldings, Holding } from "@/hooks/usePortfolio";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { QuickSellDialog } from "@/components/QuickSellDialog";
+import { thesisForSymbol } from "@/lib/thesis";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Target, AlertTriangle, ArrowRight } from "lucide-react";
@@ -24,51 +25,57 @@ export function ThesisAlertsBanner() {
       type: "target" | "invalidation";
       symbol: string;
       holding: Holding;
-      currentPriceARS: number;
-      targetPriceARS?: number;
+      targetPriceUSD?: number;
       invalidationText?: string;
       currentPriceUSD: number;
+      /** False when no live quote was available, so the alert is never raised on stale cost. */
+      hasLiveQuote: boolean;
     }[] = [];
 
-    const effectiveRate = mepRate > 0 ? mepRate : 1200;
-
     for (const h of holdings) {
-      const symbolTrades = trades.filter((t) => t.symbol === h.symbol && t.trade_type === "buy");
-      const latestBuyTrade = symbolTrades[symbolTrades.length - 1];
-      if (!latestBuyTrade) continue;
+      const thesis = thesisForSymbol(trades, h.symbol);
 
-      const targetPriceARS = latestBuyTrade.target_price_ars;
-      const invalidationCondition = latestBuyTrade.invalidation_condition;
-      const currentPriceUSD = marketPrices.get(h.symbol.toUpperCase()) || h.avg_cost;
-      const currentPriceARS = currentPriceUSD * effectiveRate;
+      // Without a live quote there is no evidence the target was reached; falling back to the
+      // average cost would compare the position against itself.
+      const livePriceUSD = marketPrices.get(h.symbol.toUpperCase());
+      if (!livePriceUSD || livePriceUSD <= 0) continue;
 
-      // 1. Target Reached Check
-      if (targetPriceARS && targetPriceARS > 0 && currentPriceARS >= targetPriceARS) {
+      // Both sides are USD-normalised, so no exchange rate enters the comparison and a
+      // devaluation cannot trip a target on its own.
+      if (thesis.targetPriceUSD !== null && livePriceUSD >= thesis.targetPriceUSD) {
         activeAlerts.push({
           type: "target",
           symbol: h.symbol,
           holding: h,
-          currentPriceARS,
-          targetPriceARS,
-          currentPriceUSD,
+          targetPriceUSD: thesis.targetPriceUSD,
+          currentPriceUSD: livePriceUSD,
+          hasLiveQuote: true,
         });
       }
 
-      // 2. Invalidation Check (if current price drops significantly below average cost e.g. 15% or hits invalidation level)
-      if (currentPriceARS < h.avg_cost * effectiveRate * 0.85) {
+      // Invalidation: the declared stop level when the user gave one, otherwise the 15%
+      // drawdown rule against average cost.
+      const invalidationHit =
+        thesis.invalidationPriceUSD !== null
+          ? livePriceUSD <= thesis.invalidationPriceUSD
+          : h.avg_cost > 0 && livePriceUSD < h.avg_cost * 0.85;
+
+      if (invalidationHit) {
         activeAlerts.push({
           type: "invalidation",
           symbol: h.symbol,
           holding: h,
-          currentPriceARS,
-          invalidationText: invalidationCondition || "Pérdida superior al 15% respecto al precio promedio de compra.",
-          currentPriceUSD,
+          invalidationText:
+            thesis.invalidationCondition ||
+            "Pérdida superior al 15% respecto al precio promedio de compra.",
+          currentPriceUSD: livePriceUSD,
+          hasLiveQuote: true,
         });
       }
     }
 
     return activeAlerts;
-  }, [holdings, trades, marketPrices, mepRate]);
+  }, [holdings, trades, marketPrices]);
 
   if (alerts.length === 0) {
     return null;
@@ -109,11 +116,11 @@ export function ThesisAlertsBanner() {
                 <AlertDescription className="text-xs mt-1 text-foreground/90">
                   {alert.type === "target" ? (
                     <>
-                      Cotización actual ($ {alert.currentPriceARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}) alcanzó o superó el precio objetivo ($ {alert.targetPriceARS?.toLocaleString("es-AR")}).
+                      Cotización actual (US$ {alert.currentPriceUSD.toLocaleString("es-AR", { maximumFractionDigits: 2 })}) alcanzó o superó el precio objetivo (US$ {alert.targetPriceUSD?.toLocaleString("es-AR", { maximumFractionDigits: 2 })}).
                     </>
                   ) : (
                     <>
-                      {alert.invalidationText} (Cotización actual: $ {alert.currentPriceARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })}).
+                      {alert.invalidationText} (Cotización actual: US$ {alert.currentPriceUSD.toLocaleString("es-AR", { maximumFractionDigits: 2 })}).
                     </>
                   )}
                 </AlertDescription>
@@ -142,6 +149,9 @@ export function ThesisAlertsBanner() {
         displayCurrency="USD"
         mepRate={mepRate}
         trades={trades}
+        // Reached from a target or invalidation alert: the level was declared up front, so
+        // this exit is planned and skips the cooling-off period.
+        isPlannedExit
       />
     </div>
   );

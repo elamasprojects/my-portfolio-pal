@@ -434,7 +434,7 @@ describe('Tier 2: Boundary & Corner Cases Test Suite', () => {
 
       expect(updatedTrade?.quantity).toBe(60);
       expect(updatedTrade?.entry_thesis).toBe(initialTrade?.entry_thesis);
-      expect(updatedTrade?.target_price_ars).toBe(initialTrade?.target_price_ars);
+      expect(updatedTrade?.target_price_usd).toBe(initialTrade?.target_price_usd);
     });
 
     it('T2-R4-06: rejects zero or negative quantity in sell order validation', () => {
@@ -493,7 +493,7 @@ describe('Tier 2: Boundary & Corner Cases Test Suite', () => {
             {
               id: 't-old-1',
               symbol: 'AAPL',
-              // missing mandatory invalidation_condition and target_price_ars
+              // missing mandatory invalidation_condition and target_price_usd
             },
           ],
           inflation_index: [],

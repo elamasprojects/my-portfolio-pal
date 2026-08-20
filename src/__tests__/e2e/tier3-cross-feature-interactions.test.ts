@@ -11,6 +11,7 @@ import { calculateRealReturns, calculateRealReturnsCore } from '@/lib/realReturn
 import { computeUnifiedNetWorth, buildPersonalSankeyData } from '@/lib/financialMath';
 import { matchTradesFIFO } from '@/lib/tradeMatching';
 import { computeHoldings, computePerformance, computeCash, Trade as PortfolioTrade } from '@/hooks/usePortfolio';
+import { makeTrade } from '@/test/factories';
 import { createMockSupabaseClient } from '@/test/mocks/mockSupabase';
 import { setupExternalApiMocks, resetExternalApiMocks } from '@/test/mocks/mockExternalApis';
 import { setupTestEnvironment, advanceCoolingTimer } from '@/test/helpers/stateSetup';
@@ -52,7 +53,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
 
     const thesis: PreTradeThesis = {
       entryThesis: 'Strong quarterly earnings growth forecast for Q1',
-      targetPriceARS: 1500,
+      targetPriceUSD: 1500,
       invalidationCondition: 'Revenue growth below 5% YoY',
     };
 
@@ -70,7 +71,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
       buy_price_ars: buyPrice,
       quantity,
       entry_thesis: thesis.entryThesis,
-      target_price_ars: thesis.targetPriceARS,
+      target_price_usd: thesis.targetPriceUSD,
       invalidation_condition: thesis.invalidationCondition,
       status: 'open',
       created_at: '2024-01-01T10:00:00Z',
@@ -79,7 +80,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
 
     // 3. Market advances to Target Price (1500 ARS), IPC = 110.0 (+10%), CCL = 1200 ARS/USD (+20%)
     const currentPrice = 1500;
-    const isTargetHit = currentPrice >= thesis.targetPriceARS;
+    const isTargetHit = currentPrice >= thesis.targetPriceUSD;
     expect(isTargetHit).toBe(true);
 
     // 4. Planned Exit: 1-click execution bypassing 60s cooling timer
@@ -113,7 +114,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
       buyPriceARS: buyPrice,
       sellPriceARS: currentPrice,
       quantity,
-      targetPriceARS: thesis.targetPriceARS,
+      targetPriceARS: thesis.targetPriceUSD,
       spyReturnPct: 15.0,
       cclReturnPct: 20.0,
       fixedDepositReturnPct: 5.0,
@@ -133,7 +134,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
 
     const thesis: PreTradeThesis = {
       entryThesis: 'Banking sector recovery play on macroeconomic reforms',
-      targetPriceARS: 1500,
+      targetPriceUSD: 1500,
       invalidationCondition: 'Stock breaks below 800 ARS support level',
     };
 
@@ -189,8 +190,6 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
       buyPriceARS: buyPrice,
       sellPriceARS: currentPrice,
       quantity,
-      buyCCLRate: 1000,
-      sellCCLRate: 1250,
       invalidationPriceARS: 800,
       holdingPriceAtSellDateARS: 1200,
       spyReturnPct: 10.0,
@@ -209,7 +208,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
    */
   it('TC-T3-03: Partial Position Execution with Prorated Cost Basis & Multi-Currency Real Return Sync', () => {
     // 200 AL30 bonds in two tranches: 100 @ 50,000 ARS, 100 @ 60,000 ARS
-    const trades: PortfolioTrade[] = [
+    const trades: PortfolioTrade[] = ([
       {
         id: 't1',
         portfolio_id: 'p1',
@@ -256,7 +255,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
         mep_rate: null,
         journal_notes: null,
       },
-    ];
+    ] satisfies Partial<PortfolioTrade>[]).map(makeTrade);
 
     // Compute holdings before partial sell
     const holdingsBefore = computeHoldings(trades);
@@ -264,7 +263,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
     expect(holdingsBefore[0].avg_cost).toBe(55000); // (50,000 + 60,000) / 2
 
     // Partial sell of 100 bonds at 70,000 ARS
-    const partialSell: PortfolioTrade = {
+    const partialSell: PortfolioTrade = makeTrade({
       id: 't3',
       portfolio_id: 'p1',
       user_id: 'u1',
@@ -286,7 +285,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
       commission_amount: 0,
       mep_rate: null,
       journal_notes: null,
-    };
+    });
 
     const updatedTrades = [...trades, partialSell];
     const holdingsAfter = computeHoldings(updatedTrades);
@@ -404,7 +403,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
     const buyPrice = 60000;
     const invalidThesis: Partial<PreTradeThesis> = {
       entryThesis: 'Short', // < 10 chars
-      targetPriceARS: 55000, // invalid: target <= buyPrice
+      targetPriceUSD: 55000, // invalid: target <= buyPrice
       invalidationCondition: '',
     };
 
@@ -460,7 +459,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
       buy_price_ars: 3000,
       quantity: 50,
       entry_thesis: 'Cloud expansion thesis and AI platform dominance',
-      target_price_ars: 4500,
+      target_price_usd: 4500,
       invalidation_condition: 'Azure growth decelerates below 20%',
       status: 'open',
       created_at: '2024-01-01T10:00:00Z',
@@ -505,7 +504,7 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
     // 3. Navigate to Estrategia (/strategy): Verify Active Thesis list
     const activeTheses = fetchedTrades.filter((t: any) => t.status === 'open');
     expect(activeTheses).toHaveLength(1);
-    expect(activeTheses[0].target_price_ars).toBe(4500);
+    expect(activeTheses[0].target_price_usd).toBe(4500);
     expect(activeTheses[0].invalidation_condition).toBe('Azure growth decelerates below 20%');
   });
 });

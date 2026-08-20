@@ -165,7 +165,7 @@ describe("Adversarial Challenger 2 — Milestone M4 Empirical Verification", () 
                         trade_date: "2024-06-01",
                         price_per_unit: 30,
                         quantity: 10,
-                        target_price_ars: 1800,
+                        target_price_usd: 1800,
                         invalidation_condition: "Price below 800",
                         is_planned_exit: true,
                       },

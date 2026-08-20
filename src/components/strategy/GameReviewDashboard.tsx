@@ -136,7 +136,10 @@ export function GameReviewDashboard() {
           continue;
         }
 
-        const matched = fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellDate === sellDate) ?? [];
+        // Keyed on the sell's own id, not its date: two sells of one symbol on the same day
+        // each claimed every lot closed that day, doubling quantity and P&L.
+        const matched =
+          fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellTradeId === t.id) ?? [];
         const matchedQty = matched.reduce((sum, c) => sum + c.quantity, 0);
         if (matchedQty <= 0) {
           skipped++;
@@ -171,13 +174,17 @@ export function GameReviewDashboard() {
             sellPriceARS: sellPriceUSD * rate,
             holdingPriceAtSellDateARS: holdPriceUSD * rate,
             quantity: matchedQty,
-            splitFactor: Number((t as any).split_factor || 1.0),
-            targetPriceARS: (t as any).target_price_ars ? Number((t as any).target_price_ars) : undefined,
-            invalidationPriceARS: (t as any).invalidation_price_ars
-              ? Number((t as any).invalidation_price_ars)
+            splitFactor: Number(t.split_factor || 1.0),
+            // Thesis levels are stored USD-normalised; this audit works in ARS, so they take
+            // the same rate as every other leg.
+            targetPriceARS: t.target_price_usd ? Number(t.target_price_usd) * rate : undefined,
+            invalidationPriceARS: t.invalidation_price_usd
+              ? Number(t.invalidation_price_usd) * rate
               : undefined,
-            isPlannedExit: (t as any).is_planned_exit !== undefined ? Boolean((t as any).is_planned_exit) : true,
-            unplannedRationale: (t as any).unplanned_rationale,
+            // Absent means it was not recorded as planned; defaulting to `true` graded every
+            // untagged sell as disciplined.
+            isPlannedExit: Boolean(t.is_planned_exit),
+            unplannedRationale: t.unplanned_rationale ?? undefined,
           },
         });
       }
@@ -263,13 +270,12 @@ export function GameReviewDashboard() {
   const filteredRows = useMemo(() => {
     let list = auditedRows;
     if (selectedOutcomeFilter !== "all") {
-      list = list.filter((r) => {
-        const cls = r.audit.outcomeClassification;
-        if (selectedOutcomeFilter === "Imprecisión" || selectedOutcomeFilter === "Imprecision") {
-          return cls === "Imprecisión" || cls === "Imprecision";
-        }
-        return cls === selectedOutcomeFilter;
-      });
+      // The classification is stored unaccented (`Imprecision`) while the filter button is
+      // labelled in Spanish, so the two are compared with accents stripped.
+      const normalise = (value: string) =>
+        value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const wanted = normalise(selectedOutcomeFilter);
+      list = list.filter((r) => normalise(r.audit.outcomeClassification) === wanted);
     }
 
     return [...list].sort((a, b) => {

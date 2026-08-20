@@ -4,6 +4,7 @@ import { computeDiscipline, DisciplineRule, RULE_DEFAULTS } from "@/hooks/useDis
 import { renderHook, act } from "@testing-library/react";
 import { useCandidateWatchlist } from "@/hooks/useCandidateWatchlist";
 import { Transaction, Category } from "@/types/finance";
+import { makeTransaction, makeCategory, makeTrade } from "@/test/factories";
 import { Trade } from "@/hooks/usePortfolio";
 import { computeUnifiedNetWorth, buildPersonalSankeyData } from "@/lib/financialMath";
 
@@ -16,13 +17,12 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
     });
 
     it("filters out deleted transactions (deleted_at is set)", () => {
-      const transactions: Transaction[] = [
+      const transactions: Transaction[] = ([
         {
           id: "tx_1",
           user_id: "u1",
           account_id: "acc1",
           category_id: "cat1",
-          amount: 100,
           amount_usd: 10,
           type: "expense",
           name: "Active Tx",
@@ -35,7 +35,6 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           user_id: "u1",
           account_id: "acc1",
           category_id: "cat1",
-          amount: 200,
           amount_usd: 20,
           type: "expense",
           name: "Deleted Tx",
@@ -44,7 +43,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           created_at: "2026-08-02T10:00:00Z",
           updated_at: "2026-08-03T12:00:00Z",
         },
-      ];
+      ] satisfies Partial<Transaction>[]).map(makeTransaction);
 
       const result = normalizeToUnifiedEvents(transactions, [], new Map());
       expect(result.length).toBe(1);
@@ -53,22 +52,21 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
 
     it("maps category details correctly from categoriesMap", () => {
       const catMap = new Map<string, Category>();
-      catMap.set("cat1", {
+      catMap.set("cat1", makeCategory({
         id: "cat1",
         user_id: "u1",
         name: "Supermercado",
         type: "expense",
         color: "#ff0000",
         created_at: "2026-01-01",
-      });
+      }));
 
-      const transactions: Transaction[] = [
+      const transactions: Transaction[] = ([
         {
           id: "tx_1",
           user_id: "u1",
           account_id: "acc1",
           category_id: "cat1",
-          amount: 15000,
           amount_usd: 15,
           type: "expense",
           name: "Coto",
@@ -76,7 +74,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           created_at: "2026-08-10T10:00:00Z",
           updated_at: "2026-08-10T10:00:00Z",
         },
-      ];
+      ] satisfies Partial<Transaction>[]).map(makeTransaction);
 
       const result = normalizeToUnifiedEvents(transactions, [], catMap);
       expect(result[0].categoryName).toBe("Supermercado");
@@ -90,7 +88,6 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           id: "tx_nulls",
           user_id: "u1",
           account_id: "acc1",
-          amount: 0,
           amount_usd: null,
           type: null,
           name: null,
@@ -125,24 +122,23 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
     });
 
     it("sorts merged transactions and trades chronologically descending", () => {
-      const transactions: Transaction[] = [
-        { id: "tx_old", user_id: "u1", account_id: "a1", amount: 10, amount_usd: 10, type: "expense", name: "Old Tx", transaction_date: "2026-01-01", created_at: "", updated_at: "" },
-        { id: "tx_mid", user_id: "u1", account_id: "a1", amount: 20, amount_usd: 20, type: "expense", name: "Mid Tx", transaction_date: "2026-05-15", created_at: "", updated_at: "" },
-      ];
-      const trades: Trade[] = [
+      const transactions: Transaction[] = ([
+        { id: "tx_old", user_id: "u1", account_id: "a1", amount_usd: 10, type: "expense", name: "Old Tx", transaction_date: "2026-01-01", created_at: "", updated_at: "" },
+        { id: "tx_mid", user_id: "u1", account_id: "a1", amount_usd: 20, type: "expense", name: "Mid Tx", transaction_date: "2026-05-15", created_at: "", updated_at: "" },
+      ] satisfies Partial<Transaction>[]).map(makeTransaction);
+      const trades: Trade[] = ([
         { id: "tr_newest", portfolio_id: "p1", user_id: "u1", symbol: "TSLA", trade_type: "buy", quantity: 1, price_per_unit: 200, total_amount: 200, trade_date: "2026-08-14", created_at: "" },
-      ];
+      ] satisfies Partial<Trade>[]).map(makeTrade);
 
       const result = normalizeToUnifiedEvents(transactions, trades, new Map());
       expect(result.map((r) => r.id)).toEqual(["trade_tr_newest", "tx_tx_mid", "tx_tx_old"]);
     });
 
     it("performs efficiently with large workloads (10,000 items)", () => {
-      const largeTxs: Transaction[] = Array.from({ length: 5000 }, (_, i) => ({
+      const largeTxs: Transaction[] = Array.from({ length: 5000 }, (_, i) => makeTransaction({
         id: `tx_${i}`,
         user_id: "u1",
         account_id: "a1",
-        amount: i * 10,
         amount_usd: i,
         type: "expense",
         name: `Tx ${i}`,
@@ -151,7 +147,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
         updated_at: "",
       }));
 
-      const largeTrades: Trade[] = Array.from({ length: 5000 }, (_, i) => ({
+      const largeTrades: Trade[] = Array.from({ length: 5000 }, (_, i) => makeTrade({
         id: `tr_${i}`,
         portfolio_id: "p1",
         user_id: "u1",
@@ -178,10 +174,12 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
       localStorage.clear();
     });
 
-    it("loads default candidate items when localStorage is empty", () => {
+    // The watchlist opens empty. It used to seed two invented candidates (AAPL and AL30, with
+    // prices and theses nobody wrote) and persist them, so they were indistinguishable from the
+    // user's own entries.
+    it("starts empty when localStorage has nothing stored", () => {
       const { result } = renderHook(() => useCandidateWatchlist());
-      expect(result.current.items.length).toBeGreaterThan(0);
-      expect(result.current.items[0].symbol).toBe("AAPL");
+      expect(result.current.items).toEqual([]);
     });
 
     it("handles corrupt JSON in localStorage gracefully", () => {
@@ -189,7 +187,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       const { result } = renderHook(() => useCandidateWatchlist());
-      expect(result.current.items.length).toBeGreaterThan(0); // Fallback to default
+      expect(result.current.items).toEqual([]);
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
@@ -264,7 +262,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
     });
 
     it("correctly identifies position size violation", () => {
-      const trades: Trade[] = [
+      const trades: Trade[] = ([
         {
           id: "t1",
           portfolio_id: "p1",
@@ -278,7 +276,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           trade_date: "2026-08-01",
           created_at: "",
         },
-      ];
+      ] satisfies Partial<Trade>[]).map(makeTrade);
 
       // Portfolio total value is 500. Trade 1 total is 500 (100% of portfolio). Limit is 20%.
       const score = computeDiscipline(trades, rules);
@@ -288,7 +286,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
     });
 
     it("flags missing notes rule violations", () => {
-      const trades: Trade[] = [
+      const trades: Trade[] = ([
         {
           id: "t1",
           portfolio_id: "p1",
@@ -302,7 +300,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           trade_date: "2026-08-01",
           created_at: "",
         },
-      ];
+      ] satisfies Partial<Trade>[]).map(makeTrade);
 
       const score = computeDiscipline(trades, rules);
       const notesRule = score.rules.find((r) => r.rule_type === "always_notes");
@@ -310,7 +308,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
     });
 
     it("skips dividend trades when checking position size and trade size", () => {
-      const trades: Trade[] = [
+      const trades: Trade[] = ([
         {
           id: "t_div",
           portfolio_id: "p1",
@@ -324,7 +322,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           trade_date: "2026-08-01",
           created_at: "",
         },
-      ];
+      ] satisfies Partial<Trade>[]).map(makeTrade);
 
       const score = computeDiscipline(trades, rules);
       const posRule = score.rules.find((r) => r.rule_type === "max_position_pct");
@@ -342,7 +340,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
         { rule_type: "min_diversification", rule_value: 5, enabled: false },
       ];
 
-      const trades: Trade[] = [
+      const trades: Trade[] = ([
         {
           id: "t1",
           portfolio_id: "p1",
@@ -356,7 +354,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           trade_date: "2026-08-01",
           created_at: "",
         },
-      ];
+      ] satisfies Partial<Trade>[]).map(makeTrade);
 
       const score = computeDiscipline(trades, disabledRules);
       expect(score.overall).toBe(100);
@@ -366,19 +364,28 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
 
   describe("4. Financial Math (useUnifiedFinancials dependencies) Stress Tests", () => {
     it("handles computeUnifiedNetWorth with empty inputs", () => {
-      const netWorth = computeUnifiedNetWorth([], [], [], { totalNominalValueARS: 0, totalInvestedARS: 0, totalNominalGainARS: 0, totalGainPct: 0 }, new Map());
+      const emptyPerformance = {
+        total_realized_pnl: 0,
+        total_dividends: 0,
+        total_return: 0,
+        total_cost_basis: 0,
+        win_rate: 0,
+        winning_sells: 0,
+        total_sells: 0,
+        by_symbol: [],
+      };
+      const netWorth = computeUnifiedNetWorth([], [], [], emptyPerformance, new Map());
       expect(netWorth.netWorthUSD).toBe(0);
       expect(netWorth.liquidCashUSD).toBe(0);
       expect(netWorth.investmentRatePct).toBe(0);
     });
 
     it("handles buildPersonalSankeyData with inverted or invalid date filter ranges", () => {
-      const transactions: Transaction[] = [
+      const transactions: Transaction[] = ([
         {
           id: "tx1",
           user_id: "u1",
           account_id: "a1",
-          amount: 5000,
           amount_usd: 50,
           type: "income",
           name: "Sueldo",
@@ -390,7 +397,6 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           id: "tx2",
           user_id: "u1",
           account_id: "a1",
-          amount: 2000,
           amount_usd: 20,
           type: "expense",
           name: "Alquiler",
@@ -398,7 +404,7 @@ describe("Milestone M3 Challenger Empirical Stress Tests", () => {
           created_at: "",
           updated_at: "",
         },
-      ];
+      ] satisfies Partial<Transaction>[]).map(makeTransaction);
 
       // Start date AFTER end date
       const invertedRange = { start: new Date("2026-08-30"), end: new Date("2026-08-01") };

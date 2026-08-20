@@ -30,7 +30,10 @@ export interface RestorationVerificationResult {
  * Computes SHA-256 checksum signature for database backup payload.
  */
 export function calculateBackupChecksum(payload: Omit<BackupPayload, "checksum"> | any): string {
-  const { checksum, ...cleanPayload } = payload;
+  // `id` is assigned by `public.backups` when the payload is stored, so it is absent when the
+  // checksum is first computed and present when the backup is read back. Hashing it made every
+  // round-tripped backup fail verification. Only the exported content is covered.
+  const { checksum, id, ...cleanPayload } = payload;
   const jsonStr = JSON.stringify(cleanPayload);
   try {
     return crypto.createHash("sha256").update(jsonStr).digest("hex");
@@ -63,7 +66,7 @@ export function validateBackupSchemaAndChecksum(payload: any): { valid: boolean;
   }
 
   for (const t of trades) {
-    if (t.invalidation_condition === undefined || t.target_price_ars === undefined) {
+    if (t.invalidation_condition === undefined || t.target_price_usd === undefined) {
       return { valid: false, error: "Schema version mismatch: missing mandatory column invalidation_condition" };
     }
   }
@@ -175,8 +178,8 @@ export async function verifyRestoration(
     };
   }
 
-  const rowsCount = Object.values(backupPayload.data).reduce(
-    (acc: number, arr: any) => acc + (Array.isArray(arr) ? arr.length : 0),
+  const rowsCount = Object.values(backupPayload.data).reduce<number>(
+    (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
     0
   );
 

@@ -38,7 +38,7 @@ export interface TradeFixture {
   quantity: number;
   split_factor?: number; // default 1.0
   entry_thesis: string;
-  target_price_ars: number;
+  target_price_usd: number;
   invalidation_condition: string;
   is_planned_exit?: boolean;
   unplanned_rationale?: string | null;
@@ -136,7 +136,7 @@ export const sampleTradeFixtures: TradeFixture[] = [
     quantity: 100,
     split_factor: 1.0,
     entry_thesis: 'Strong quarterly earnings growth forecast for Q1',
-    target_price_ars: 1500.0,
+    target_price_usd: 1500.0,
     invalidation_condition: 'Revenue growth below 5% YoY',
     is_planned_exit: true,
     unplanned_rationale: null,
@@ -155,7 +155,7 @@ export const sampleTradeFixtures: TradeFixture[] = [
     quantity: 100,
     split_factor: 1.0,
     entry_thesis: 'Banking sector recovery play on macroeconomic reforms',
-    target_price_ars: 1500.0,
+    target_price_usd: 1500.0,
     invalidation_condition: 'Stock breaks below 800 ARS support level',
     is_planned_exit: false,
     unplanned_rationale: 'Selling due to panic over market rumor despite no thesis change',

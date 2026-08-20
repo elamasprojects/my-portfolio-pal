@@ -183,8 +183,11 @@ export async function runBatchGameReview(
         continue;
       }
 
-      // Match this exit to its FIFO lots to recover the true average cost and entry date.
-      const matched = fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellDate === sellDate) ?? [];
+      // Match this exit to its FIFO lots by the sell's own id. Keying on the date instead gave
+      // every sell made that day the whole day's lots, doubling quantity and P&L whenever a
+      // symbol was sold twice in one session.
+      const matched =
+        fifoBySymbol.get(symbol)?.closedTrades.filter((c) => c.sellTradeId === tradeId) ?? [];
       const matchedQty = matched.reduce((sum, c) => sum + c.quantity, 0);
       if (matchedQty <= 0) continue;
 
@@ -213,15 +216,19 @@ export async function runBatchGameReview(
         holdingPriceAtSellDateARS: holdPriceUSD * cclRate,
         quantity: matchedQty,
         splitFactor: Number(t.split_factor) || 1.0,
+        // The thesis levels are stored USD-normalised; this audit works in ARS, so they take
+        // the same `cclRate` conversion as every other leg above.
         targetPriceARS:
-          t.target_price_ars !== undefined && t.target_price_ars !== null
-            ? Number(t.target_price_ars)
+          t.target_price_usd !== undefined && t.target_price_usd !== null
+            ? Number(t.target_price_usd) * cclRate
             : undefined,
         invalidationPriceARS:
-          t.invalidation_price_ars !== undefined && t.invalidation_price_ars !== null
-            ? Number(t.invalidation_price_ars)
+          t.invalidation_price_usd !== undefined && t.invalidation_price_usd !== null
+            ? Number(t.invalidation_price_usd) * cclRate
             : undefined,
-        isPlannedExit: t.is_planned_exit !== undefined ? Boolean(t.is_planned_exit) : true,
+        // Absent means the exit was not recorded as planned. Defaulting to `true` graded every
+        // legacy sell as disciplined, which is the opposite of what the audit is for.
+        isPlannedExit: Boolean(t.is_planned_exit),
         unplannedRationale: t.unplanned_rationale,
       });
     }

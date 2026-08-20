@@ -216,7 +216,15 @@ export default function AssetDetail() {
                 Win Rate en {symbol}
               </span>
               <p className="text-lg font-bold font-mono text-foreground mt-1">
-                {symbolPerf.win_rate.toFixed(0)}%
+                {/*
+                  `SymbolPerformance` has no `win_rate`; reading it returned undefined and
+                  `.toFixed` threw, taking the whole asset page down. Derived from the two
+                  counts the type does carry.
+                */}
+                {symbolPerf.total_sells > 0
+                  ? ((symbolPerf.winning_sells / symbolPerf.total_sells) * 100).toFixed(0)
+                  : "0"}
+                %
               </p>
               <span className="text-[10px] text-muted-foreground block font-mono">
                 {symbolPerf.winning_sells} de {symbolPerf.total_sells} ventas exitosas

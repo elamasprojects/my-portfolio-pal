@@ -27,7 +27,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
 
     it("rejects entry thesis under 10 characters", () => {
       const result = validatePreTradeThesis(
-        { entryThesis: "Short", targetPriceARS: 2000, invalidationCondition: "Valid condition 10 chars" },
+        { entryThesis: "Short", targetPriceUSD: 2000, invalidationCondition: "Valid condition 10 chars" },
         1000
       );
       expect(result.valid).toBe(false);
@@ -36,7 +36,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
 
     it("rejects entry thesis consisting only of whitespace", () => {
       const result = validatePreTradeThesis(
-        { entryThesis: "         ", targetPriceARS: 2000, invalidationCondition: "Valid condition 10 chars" },
+        { entryThesis: "         ", targetPriceUSD: 2000, invalidationCondition: "Valid condition 10 chars" },
         1000
       );
       expect(result.valid).toBe(false);
@@ -45,14 +45,14 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
 
     it("rejects target price less than or equal to buy price", () => {
       const equalRes = validatePreTradeThesis(
-        { entryThesis: "Valid entry thesis text", targetPriceARS: 1000, invalidationCondition: "Valid invalidation cond" },
+        { entryThesis: "Valid entry thesis text", targetPriceUSD: 1000, invalidationCondition: "Valid invalidation cond" },
         1000
       );
       expect(equalRes.valid).toBe(false);
       expect(equalRes.errors).toContain("Target price must be greater than buy price.");
 
       const lowerRes = validatePreTradeThesis(
-        { entryThesis: "Valid entry thesis text", targetPriceARS: 900, invalidationCondition: "Valid invalidation cond" },
+        { entryThesis: "Valid entry thesis text", targetPriceUSD: 900, invalidationCondition: "Valid invalidation cond" },
         1000
       );
       expect(lowerRes.valid).toBe(false);
@@ -61,7 +61,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
 
     it("rejects invalidation condition under 10 characters", () => {
       const result = validatePreTradeThesis(
-        { entryThesis: "Valid entry thesis text", targetPriceARS: 2000, invalidationCondition: "Too short" },
+        { entryThesis: "Valid entry thesis text", targetPriceUSD: 2000, invalidationCondition: "Too short" },
         1000
       );
       expect(result.valid).toBe(false);
@@ -223,7 +223,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
     it("exports database snapshot with valid SHA-256 signature", async () => {
       const fakeDbStore = {
         getStore: () => ({
-          trades: [{ id: "t1", symbol: "AAPL", target_price_ars: 1500, invalidation_condition: "Stop loss 800" }],
+          trades: [{ id: "t1", symbol: "AAPL", target_price_usd: 1500, invalidation_condition: "Stop loss 800" }],
           inflation_index: [{ date: "2026-08-01", value: 120.5 }],
           fx_rates: [{ date: "2026-08-01", ccl: 1300 }],
           game_reviews: [],
@@ -244,7 +244,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
         version: "1.0.0",
         timestamp: "2026-08-14T00:00:00Z",
         data: {
-          trades: [{ id: "t1", target_price_ars: 1000, invalidation_condition: "stop" }],
+          trades: [{ id: "t1", target_price_usd: 1000, invalidation_condition: "stop" }],
           inflation_index: [],
           fx_rates: [],
           game_reviews: [],
@@ -257,7 +257,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
         checksum: realChecksum,
         data: {
           ...validBackup.data,
-          trades: [{ id: "t1", target_price_ars: 999999, invalidation_condition: "tampered" }], // Tampered!
+          trades: [{ id: "t1", target_price_usd: 999999, invalidation_condition: "tampered" }], // Tampered!
         },
       };
 
@@ -290,7 +290,7 @@ describe("M5 Empirical Challenger Adversarial Stress Test Suite", () => {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
         data: {
-          trades: [{ id: "t1", target_price_ars: 1500, invalidation_condition: "Stop 800 ARS" }],
+          trades: [{ id: "t1", target_price_usd: 1500, invalidation_condition: "Stop 800 ARS" }],
           inflation_index: [{ date: "2026-08-01", value: 100 }],
           fx_rates: [{ date: "2026-08-01", ccl: 1300 }],
           game_reviews: [],

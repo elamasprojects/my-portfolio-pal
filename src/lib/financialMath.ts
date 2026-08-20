@@ -210,6 +210,8 @@ export function computeUnifiedNetWorth(
   let monthlyIncomeUSD = 0;
   let monthlyExpensesUSD = 0;
   let monthlyBrokerInflowUSD = 0;
+  let investmentTransactionsUSD = 0;
+  let buyTradesUSD = 0;
 
   for (const t of transactions) {
     if (t.deleted_at) continue;
@@ -219,25 +221,31 @@ export function computeUnifiedNetWorth(
     const amt = Number(t.amount_usd) || 0;
     if (t.type === "income") monthlyIncomeUSD += amt;
     else if (t.type === "expense") monthlyExpensesUSD += amt;
-    else if (t.type === "investment") monthlyBrokerInflowUSD += amt;
+    else if (t.type === "investment") investmentTransactionsUSD += amt;
   }
 
-  // Include buy trades in monthly investment volume if trades are provided
+  // Buys and `investment` transactions describe the same money from two sides: the transfer
+  // into the broker and the purchase it funded. Adding both counted every peso twice. The
+  // executed buys are the stronger record of capital actually deployed, so they win when
+  // present and the transaction total stands in only when no buy was captured.
   if (trades && Array.isArray(trades)) {
     for (const tr of trades) {
       if (tr.trade_type === "buy") {
         const trDate = parseTransactionLocalDate(tr.trade_date || tr.created_at);
         if (trDate >= thirtyDaysAgo) {
           const amt = Number(tr.total_amount) || Number(tr.price_per_unit) * Number(tr.quantity) || 0;
-          monthlyBrokerInflowUSD += amt;
+          buyTradesUSD += amt;
         }
       }
     }
   }
 
+  monthlyBrokerInflowUSD = buyTradesUSD > 0 ? buyTradesUSD : investmentTransactionsUSD;
+
   const monthlySavingsUSD = Math.max(0, monthlyIncomeUSD - monthlyExpensesUSD);
-  // If no explicit broker transfer was recorded, the saved capital is preserved in net savings
-  const effectiveCapitalInvertedUSD = monthlyBrokerInflowUSD > 0 ? monthlyBrokerInflowUSD : monthlySavingsUSD;
+  // Money saved is not money invested. Falling back to savings here reported an investment
+  // rate for a month in which nothing was bought — the one number this metric exists to catch.
+  const effectiveCapitalInvertedUSD = monthlyBrokerInflowUSD;
   const savingsRatePct = monthlyIncomeUSD > 0 ? (monthlySavingsUSD / monthlyIncomeUSD) * 100 : 0;
   const investmentRatePct = monthlyIncomeUSD > 0 ? (effectiveCapitalInvertedUSD / monthlyIncomeUSD) * 100 : 0;
   const monthlyBurnRateUSD = Math.max(1, monthlyExpensesUSD);

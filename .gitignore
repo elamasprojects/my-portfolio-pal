@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 scratch/
 .agents/
+
+# Emitted by `tsc -b` (npm run typecheck)
+*.tsbuildinfo

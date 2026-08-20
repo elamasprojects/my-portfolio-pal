@@ -43,8 +43,9 @@ describe("Tier 1 - Requirement 4 (R4): Pre-Trade Thesis & Friction Inversion Eng
     // inputs[0]: thesis
     fireEvent.change(inputs[0], { target: { value: "Strong Q1 revenue growth expected for technology sector" } });
 
-    const numberInput = screen.getByPlaceholderText("1500");
-    fireEvent.change(numberInput, { target: { value: "1500" } });
+    // The field is denominated in USD now, so its placeholder is a plausible USD target.
+    const numberInput = screen.getByPlaceholderText("300");
+    fireEvent.change(numberInput, { target: { value: "300" } });
 
     // inputs[1]: invalidation
     fireEvent.change(inputs[1], { target: { value: "Revenue drops below 5% YoY or breaks 800 ARS support" } });
@@ -53,7 +54,7 @@ describe("Tier 1 - Requirement 4 (R4): Pre-Trade Thesis & Friction Inversion Eng
 
     expect(handleSubmit).toHaveBeenCalledWith({
       entryThesis: "Strong Q1 revenue growth expected for technology sector",
-      targetPriceARS: 1500,
+      targetPriceUSD: 300,
       invalidationCondition: "Revenue drops below 5% YoY or breaks 800 ARS support",
     });
   });
@@ -121,14 +122,16 @@ describe("Tier 1 - Requirement 4 (R4): Pre-Trade Thesis & Friction Inversion Eng
    * T1-R4-04: Target Price Hit Visual Banner
    */
   it("T1-R4-04: evaluates target price hit status and returns Target alert indicator", () => {
-    const currentMarketPriceARS = 1550;
+    // Both sides USD-normalised: the quote and the declared target are the same unit, which
+    // is the whole point of storing the level in USD.
+    const currentMarketPriceUSD = 310;
     const thesis: PreTradeThesis = {
       entryThesis: "Growth thesis",
-      targetPriceARS: 1500,
-      invalidationCondition: "Break below 800 ARS",
+      targetPriceUSD: 300,
+      invalidationCondition: "Break below 180 support",
     };
 
-    const isTargetHit = currentMarketPriceARS >= thesis.targetPriceARS;
+    const isTargetHit = currentMarketPriceUSD >= thesis.targetPriceUSD;
     expect(isTargetHit).toBe(true);
   });
 
