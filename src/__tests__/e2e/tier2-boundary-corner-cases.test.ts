@@ -11,14 +11,6 @@ import { validatePreTradeThesisForm } from '@/components/discipline/PreTradeThes
 import { validateUnplannedSellRationale } from '@/components/discipline/FrictionCoolingTimerModal';
 import { calculateBackupChecksum, validateBackupSchemaAndChecksum } from '@/lib/backupSystem';
 import {
-  calculateRealReturns,
-  calculateRealReturnsCore,
-  getIPCIndex,
-  getCCLRate,
-  calculateRealReturnsBatch,
-} from '@/lib/realReturns';
-import {
-  getCERIndexForDate,
   getFxRatesForDate,
   getMockInflationData,
   getMockFxRatesData,
@@ -278,25 +270,7 @@ describe('Tier 2: Boundary & Corner Cases Test Suite', () => {
   // ==========================================================================
   // REQUIREMENT 3 (R3): Real Returns & Inflation Engine Edge Cases
   // ==========================================================================
-  describe('Requirement 3 (R3): Real Returns & Inflation Engine Edge Cases', () => {
-    it('T2-R3-01: calculates 3-column real returns accurately during 50% hyperinflation monthly IPC jump', async () => {
-      const amountARS = 100000;
-      const ipcStart = 100.0;
-      const ipcEnd = 150.0; // 50% hyperinflation spike
-      const cclRate = 1000.0;
-
-      const res = calculateRealReturnsCore(amountARS, ipcStart, ipcEnd, cclRate, 'to_end_date');
-
-      // Nominal = 100,000 ARS, Real vs IPC = 100,000 * (150/100) = 150,000 ARS (purchasing power equivalent)
-      expect(res.nominalARS).toBe(100000.0);
-      expect(res.realVsIPC).toBe(150000.0);
-      expect(res.usdVsCCL).toBe(100.0);
-
-      // Inverse deflation (to start purchasing power): 100,000 / 1.5 = 66,666.67
-      const resInverse = calculateRealReturnsCore(amountARS, ipcStart, ipcEnd, cclRate, 'to_start_date');
-      expect(resInverse.realVsIPC).toBe(66666.67);
-    });
-
+  describe('FX rate resolution edge cases', () => {
     it('T2-R3-02: falls back to preceding business day rate when FX rate is missing for weekend/holiday', async () => {
       const holidayDate = '2024-05-25'; // National holiday in Argentina
       const fxRecord = await getFxRatesForDate(holidayDate);
@@ -306,54 +280,6 @@ describe('Tier 2: Boundary & Corner Cases Test Suite', () => {
       expect(fxRecord.rate_date <= holidayDate).toBe(true);
     });
 
-    it('T2-R3-03: computes 3-column real returns for zero or negative net worth portfolio state', async () => {
-      const negativeNetWorthARS = -200000.0; // Liabilities > Assets
-      const ipcStart = 100.0;
-      const ipcEnd = 120.0;
-      const cclRate = 1000.0;
-
-      const res = calculateRealReturnsCore(negativeNetWorthARS, ipcStart, ipcEnd, cclRate, 'to_end_date');
-
-      expect(res.nominalARS).toBe(-200000.0);
-      expect(res.realVsIPC).toBe(-240000.0); // Deflated net debt
-      expect(res.usdVsCCL).toBe(-200.0);     // Real debt in USD
-    });
-
-    it('T2-R3-04: handles zero cost basis bonus shares without Infinity or NaN errors', async () => {
-      const bonusShares = 50;
-      const costBasisARS = 0.0;
-      const marketPriceARS = 100.0;
-      const currentValuationARS = bonusShares * marketPriceARS; // 5000 ARS
-
-      const res = calculateRealReturnsCore(currentValuationARS, 100.0, 110.0, 1000.0);
-
-      expect(res.nominalARS).toBe(5000.0);
-      expect(res.realVsIPC).toBe(5500.0);
-      expect(res.usdVsCCL).toBe(5.0);
-      expect(Number.isFinite(res.realVsIPC)).toBe(true);
-      expect(Number.isNaN(res.realVsIPC)).toBe(false);
-    });
-
-    it('T2-R3-05: handles date range prior to official IPC dataset start cleanly', async () => {
-      const preIpcDate = '2010-01-01';
-      const cerValue = await getCERIndexForDate(preIpcDate);
-
-      // Should default safely to earliest available index level without throwing
-      expect(cerValue).toBeGreaterThan(0);
-      expect(Number.isNaN(cerValue)).toBe(false);
-    });
-
-    it('T2-R3-06: reflects extreme FX rate spike devaluation in USD vs CCL column', async () => {
-      const amountARS = 120000.0;
-      const initialCcl = 600.0;
-      const spikedCcl = 1200.0; // CCL rate doubled overnight (+100% devaluation)
-
-      const initialUsd = calculateRealReturnsCore(amountARS, 100, 100, initialCcl).usdVsCCL;
-      const spikedUsd = calculateRealReturnsCore(amountARS, 100, 100, spikedCcl).usdVsCCL;
-
-      expect(initialUsd).toBe(200.0); // 120,000 / 600
-      expect(spikedUsd).toBe(100.0);  // 120,000 / 1200 -> -50% loss in USD purchasing power
-    });
   });
 
   // ==========================================================================

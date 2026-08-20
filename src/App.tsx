@@ -14,6 +14,7 @@ import TradeLog from "./pages/TradeLog";
 import Strategy from "./pages/Strategy";
 import Patrimonio from "./pages/Patrimonio";
 import AssetDetail from "./pages/AssetDetail";
+import Inflacion from "./pages/Inflacion";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,8 @@ const App = () => (
             <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/patrimonio" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+            {/* Macro reference only. Intentionally out of the main nav — see pages/Inflacion.tsx. */}
+            <Route path="/inflacion" element={<ProtectedRoute><Inflacion /></ProtectedRoute>} />
             {/* Deep link into Inversiones with the trade capture dialog open. */}
             <Route path="/add" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 

@@ -3,7 +3,7 @@ import type {
   MonthlyInflationRecord,
   DailyFxRateRecord,
   IngestionResult,
-} from "@/types/realReturns";
+} from "@/types/marketData";
 
 /**
  * Parses a 'YYYY-MM-DD' string as a LOCAL calendar date.
@@ -340,104 +340,7 @@ export async function fetchAndCacheFxRates(
 }
 
 // ==========================================
-// 3. CER GEOMETRIC INTERPOLATION ENGINE
-// ==========================================
-
-/**
- * Computes daily CER (Coeficiente de Estabilización de Referencia) index value for any target date
- * using continuous geometric interpolation between published monthly INDEC IPC indices.
- */
-export async function getCERIndexForDate(
-  targetDate: string,
-  inflationRecords?: MonthlyInflationRecord[]
-): Promise<number> {
-  const cleanDate = targetDate.slice(0, 10);
-  const targetDateObj = parseLocalDate(cleanDate);
-
-  if (isNaN(targetDateObj.getTime())) {
-    return 100.0;
-  }
-
-  // Retrieve records if not provided
-  let records = inflationRecords;
-  if (!records || records.length === 0) {
-    const result = await getInflationSeries();
-    records = result.data;
-  }
-
-  if (!records || records.length === 0) {
-    return 100.0;
-  }
-
-  // Ensure chronological order
-  const sortedRecords = [...records].sort((a, b) => a.month.localeCompare(b.month));
-
-  const targetYear = targetDateObj.getFullYear();
-  const targetMonth = targetDateObj.getMonth() + 1; // 1-12
-  const dayOfMonth = targetDateObj.getDate(); // 1-31
-
-  // Format month keys 'YYYY-MM-01'
-  const currentMonthKey = `${targetYear}-${String(targetMonth).padStart(2, "0")}-01`;
-
-  // Calculate previous month key
-  const prevMonthDateObj = new Date(targetYear, targetMonth - 2, 1);
-  const prevMonthKey = `${prevMonthDateObj.getFullYear()}-${String(
-    prevMonthDateObj.getMonth() + 1
-  ).padStart(2, "0")}-01`;
-
-  const currentRecord = sortedRecords.find((r) => r.month === currentMonthKey);
-  const prevRecord = sortedRecords.find((r) => r.month === prevMonthKey);
-
-  // Case 1: Both current month and previous month IPC records exist -> Geometric interpolation
-  if (prevRecord && currentRecord) {
-    const I_prev = prevRecord.index_value;
-    const I_curr = currentRecord.index_value;
-
-    // Total days in target month
-    const totalDaysInMonth = new Date(targetYear, targetMonth, 0).getDate();
-
-    // CER(M, d) = I_{M-1} * (I_M / I_{M-1}) ^ (d / N_M)
-    const ratio = I_curr / I_prev;
-    const exponent = dayOfMonth / totalDaysInMonth;
-    return I_prev * Math.pow(ratio, exponent);
-  }
-
-  // Case 2: Only current month record exists
-  if (currentRecord && !prevRecord) {
-    return currentRecord.index_value;
-  }
-
-  // Case 3: Target date is beyond latest published record -> Continuous geometric extrapolation
-  const latestRecord = sortedRecords[sortedRecords.length - 1];
-  const secondLatestRecord =
-    sortedRecords.length > 1 ? sortedRecords[sortedRecords.length - 2] : null;
-
-  if (currentMonthKey > latestRecord.month) {
-    const I_latest = latestRecord.index_value;
-    const monthlyRate =
-      secondLatestRecord
-        ? I_latest / secondLatestRecord.index_value
-        : 1 + (latestRecord.monthly_rate ?? 2.0) / 100;
-
-    const latestDateObj = parseLocalDate(latestRecord.month);
-    const diffTime = Math.max(0, targetDateObj.getTime() - latestDateObj.getTime());
-    const daysAfter = diffTime / (1000 * 60 * 60 * 24);
-
-    // Average days per month = 30.4375
-    return I_latest * Math.pow(monthlyRate, daysAfter / 30.4375);
-  }
-
-  // Case 4: Target date is before earliest published record
-  if (currentMonthKey < sortedRecords[0].month) {
-    return sortedRecords[0].index_value;
-  }
-
-  // Fallback to nearest record or default
-  return (currentRecord ?? latestRecord).index_value;
-}
-
-// ==========================================
-// 4. FX RATE RESOLUTION ENGINE
+// 3. FX RATE RESOLUTION ENGINE
 // ==========================================
 
 /**

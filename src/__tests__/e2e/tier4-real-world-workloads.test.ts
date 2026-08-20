@@ -13,7 +13,6 @@ import {
   verifyRestoration,
 } from '@/lib/backupSystem';
 import { adjustTradeForSplit } from '@/lib/corporateActions';
-import { calculateRealReturnsCore } from '@/lib/realReturns';
 import {
   TradeFixture,
   InflationIndexFixture,

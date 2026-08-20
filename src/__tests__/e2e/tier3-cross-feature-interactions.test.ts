@@ -7,7 +7,6 @@ import {
 } from '@/lib/gameReview';
 import { validatePreTradeThesis, PreTradeThesis } from '@/components/discipline/PreTradeThesisModal';
 import { processSellExecution, SellExecutionRequest } from '@/components/discipline/FrictionCoolingTimerModal';
-import { calculateRealReturns, calculateRealReturnsCore } from '@/lib/realReturns';
 import { computeUnifiedNetWorth, buildPersonalSankeyData } from '@/lib/financialMath';
 import { matchTradesFIFO } from '@/lib/tradeMatching';
 import { computeHoldings, computePerformance, computeCash, Trade as PortfolioTrade } from '@/hooks/usePortfolio';
@@ -94,16 +93,11 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
     expect(executionResult.success).toBe(true);
     expect(executionResult.coolingOffApplied).toBe(false);
 
-    // 5. Compute 3-Column Real Returns
-    const realReturns = calculateRealReturnsCore(initialAmount, 100.0, 110.0, 1200.0, 'to_end_date');
+    // 5. Realised P&L. Nominal only — inflation is no longer applied to portfolio figures.
     const sellProceeds = currentPrice * quantity; // 150,000 ARS
     const nominalPnl = sellProceeds - initialAmount; // +50,000 ARS
-    const realVsIPCPnl = Math.round((sellProceeds / 1.10 - initialAmount) * 100) / 100; // +36,363.64 ARS
-    const usdVsCCLPnl = Math.round((sellProceeds / 1200 - initialAmount / 1000) * 100) / 100; // +$25.00 USD
 
     expect(nominalPnl).toBe(50000);
-    expect(realVsIPCPnl).toBe(36363.64);
-    expect(usdVsCCLPnl).toBe(25.00);
 
     // 6. Game Review Audit Evaluation
     const auditResult = await auditClosedTrade({
@@ -170,16 +164,11 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
     expect(validAttempt.success).toBe(true);
     expect(validAttempt.coolingOffApplied).toBe(true);
 
-    // 3-Column P&L under high inflation (+25% IPC, 100 -> 125) and CCL (1000 -> 1250)
+    // Realised P&L, nominal only.
     const sellProceeds = currentPrice * quantity; // 75,000 ARS
     const nominalPnl = sellProceeds - initialAmount; // -25,000 ARS
-    const realVsIPCDeflatedValue = sellProceeds / 1.25; // 60,000 ARS
-    const realVsIPCDeflatedPnl = realVsIPCDeflatedValue - initialAmount; // -40,000 ARS
-    const usdVsCCLPnl = sellProceeds / 1250 - initialAmount / 1000; // 60 USD - 100 USD = -40 USD
 
     expect(nominalPnl).toBe(-25000);
-    expect(realVsIPCDeflatedPnl).toBe(-40000);
-    expect(usdVsCCLPnl).toBe(-40);
 
     // Counterfactual Game Review Audit: Asset recovered to 1200 ARS 30d later
     const auditResult = await auditClosedTrade({
@@ -306,48 +295,6 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
   /**
    * TC-T3-04: Concurrent Multi-Asset Trade Execution with Real-Time FX / IPC Cache Invalidation
    */
-  it('TC-T3-04: Concurrent Multi-Asset Trade Execution with Real-Time FX / IPC Cache Invalidation', async () => {
-    // 1. Initial snapshot trade execution for YPF @ 20,000 ARS (IPC = 100.0, CCL = 1000 ARS/USD)
-    const initialRealReturns = await calculateRealReturns(
-      { amountARS: 20000, startDate: '2024-01-01', endDate: '2024-01-01' },
-      { ipcStart: 100.0, ipcEnd: 100.0, cclRate: 1000.0 }
-    );
-    expect(initialRealReturns.nominalARS).toBe(20000);
-    expect(initialRealReturns.realVsIPC).toBe(20000);
-    expect(initialRealReturns.usdVsCCL).toBe(20);
-
-    // 2. Simulate daemon background update: IPC table updated to 105.0 (+5%), CCL to 1050 (+5%)
-    await env.mockSupabase.from('inflation_index').insert({
-      id: 'ipc-2024-02-updated',
-      period: '2024-02-01',
-      ipc_value: 105.0,
-      cer_value: 126.0,
-      source: 'argentina_datos',
-    });
-
-    await env.mockSupabase.from('fx_rates').insert({
-      id: 'fx-2024-02-01-updated',
-      rate_date: '2024-02-01',
-      ccl_sell: 1050.0,
-      ccl_buy: 1040.0,
-      source: 'dolar_api',
-    });
-
-    // 3. React Query Cache Invalidation re-fetch uses updated rates
-    const updatedRealReturns = await calculateRealReturns(
-      { amountARS: 20000, startDate: '2024-01-01', endDate: '2024-02-01' },
-      { ipcStart: 100.0, ipcEnd: 105.0, cclRate: 1050.0 }
-    );
-
-    // Deflated real returns update dynamically
-    expect(updatedRealReturns.nominalARS).toBe(20000);
-    expect(updatedRealReturns.realVsIPC).toBe(21000); // 20000 * (105 / 100)
-    expect(updatedRealReturns.usdVsCCL).toBe(19.05); // 20000 / 1050
-
-    // Execution snapshot preserves original values
-    expect(initialRealReturns.usdVsCCL).toBe(20);
-  });
-
   /**
    * TC-T3-05: Dynamic Pre-Trade Thesis Modification & Retrospective Audit Alignment
    */
@@ -430,21 +377,6 @@ describe('Tier 3: Pairwise Cross-Feature Interactions Test Suite', () => {
   /**
    * TC-T3-07: Real Return Deflator under Negative IPC Inflation (Deflationary Period)
    */
-  it('TC-T3-07: Real Return Deflator under Negative IPC Inflation (Deflationary Period)', () => {
-    const amountARS = 100000;
-    const ipcStart = 100.0;
-    const ipcEnd = 98.0; // -2.0% deflation
-    const cclRate = 1000.0;
-
-    const realReturns = calculateRealReturnsCore(amountARS, ipcStart, ipcEnd, cclRate, 'to_start_date');
-
-    expect(realReturns.nominalARS).toBe(100000);
-    // Real purchasing power increases under deflation: 100,000 * (100 / 98) = 102,040.82
-    expect(realReturns.realVsIPC).toBe(102040.82);
-    expect(realReturns.realVsIPC).toBeGreaterThan(realReturns.nominalARS);
-    expect(realReturns.usdVsCCL).toBe(100.0);
-  });
-
   /**
    * TC-T3-08: Cross-View Navigation State Synchronization
    */
