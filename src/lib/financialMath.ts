@@ -1,5 +1,5 @@
 import { Transaction, SankeyData, SankeyNode, SankeyLink, UnifiedNetWorthMetrics, Category, PaymentMethod, FinancialAccount } from "@/types/finance";
-import { Holding, PortfolioPerformance } from "@/hooks/usePortfolio";
+import { Holding, PortfolioPerformance, Trade } from "@/hooks/usePortfolio";
 
 export function parseTransactionLocalDate(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -178,18 +178,32 @@ export function computeUnifiedNetWorth(
   holdings: Holding[],
   portfolioPerformance: PortfolioPerformance,
   prices: Map<string, number>,
-  trades?: any[]
+  trades?: Pick<Trade, "trade_type" | "trade_date" | "created_at" | "total_amount" | "price_per_unit" | "quantity">[],
+  /** ARS per USD, for accounts denominated in pesos. Omitted, those accounts are skipped. */
+  arsPerUsd = 0
 ): UnifiedNetWorthMetrics {
   let liquidCashUSD = 0;
   let brokerCashUSD = 0;
 
   for (const acc of financialAccounts) {
     if (!acc.is_active) continue;
-    const bal = Number(acc.current_balance) || 0;
+
+    // An ARS account holds pesos. Summing its balance straight into a USD total counted, for
+    // example, AR$1.580.294 of broker cash as US$1.580.294. With no rate available the account
+    // is skipped rather than counted at face value.
+    const raw = Number(acc.current_balance) || 0;
+    let bal = raw;
+    if (acc.currency === "ARS") {
+      if (!(arsPerUsd > 0)) continue;
+      bal = raw / arsPerUsd;
+    }
+
     if (acc.type === "broker_cash") {
       brokerCashUSD += bal;
     } else {
-      liquidCashUSD += Math.max(0, bal);
+      // A negative balance is money owed and has to pull net worth down. Clamping it to zero
+      // made an overdrawn account silently disappear from the total.
+      liquidCashUSD += bal;
     }
   }
 
