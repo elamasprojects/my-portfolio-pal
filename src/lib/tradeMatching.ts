@@ -1,4 +1,4 @@
-import { Trade } from "@/hooks/usePortfolio";
+import { Trade, chronoCompare } from "@/hooks/usePortfolio";
 
 export interface ClosedTrade {
   buyDate: string;
@@ -10,17 +10,26 @@ export interface ClosedTrade {
   returnPct: number;
 }
 
+export interface OpenLot {
+  date: string;
+  price: number;
+  remainingQty: number;
+}
+
 export interface TradeMatchingResult {
   closedTrades: ClosedTrade[];
-  openLots: { date: string; price: number; remainingQty: number }[];
+  openLots: OpenLot[];
 }
 
 export function matchTradesFIFO(trades: Trade[]): TradeMatchingResult {
+  // `chronoCompare` breaks a same-timestamp tie by putting buys before sells. Sorting on
+  // `trade_date` alone let a same-day sell be replayed before the buy that funded it, which
+  // consumed older lots and left the newer buy sitting open.
   const sorted = [...trades]
     .filter((t) => t.trade_type === "buy" || t.trade_type === "sell")
-    .sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
+    .sort(chronoCompare);
 
-  const openLots: { date: string; price: number; remainingQty: number }[] = [];
+  const openLots: OpenLot[] = [];
   const closedTrades: ClosedTrade[] = [];
 
   for (const trade of sorted) {
@@ -59,4 +68,107 @@ export function matchTradesFIFO(trades: Trade[]): TradeMatchingResult {
   }
 
   return { closedTrades, openLots };
+}
+
+export interface ConsumedLots {
+  /** How much was actually taken from the open lots. */
+  quantity: number;
+  /** Quantity-weighted cost of exactly the shares being sold. */
+  weightedBuyPrice: number;
+  /**
+   * Purchase date of the oldest lot this sale consumes — the point the shares being sold were
+   * actually acquired. Null when there are no open lots to consume.
+   */
+  earliestBuyDate: string | null;
+  /** The lots touched, oldest first. */
+  lots: { date: string; price: number; quantity: number }[];
+}
+
+/**
+ * Walks `openLots` oldest-first and takes `quantity` out of them, without mutating the input.
+ *
+ * This is what a sale actually consumes. Reading "the first buy of this symbol" instead — as the
+ * closed-position summary did — dates a position back to a purchase that was sold off months
+ * ago: a stock bought and sold four times over reports the holding period of the very first
+ * entry rather than of the shares just sold.
+ */
+export function consumeOpenLotsFIFO(openLots: OpenLot[], quantity: number): ConsumedLots {
+  const lots: ConsumedLots["lots"] = [];
+  let remaining = Number(quantity);
+  let costTotal = 0;
+  let taken = 0;
+
+  for (const lot of openLots) {
+    if (remaining <= 0) break;
+    const consumed = Math.min(lot.remainingQty, remaining);
+    if (consumed <= 0) continue;
+
+    lots.push({ date: lot.date, price: lot.price, quantity: consumed });
+    costTotal += lot.price * consumed;
+    taken += consumed;
+    remaining -= consumed;
+  }
+
+  const earliest = lots.reduce<string | null>(
+    (acc, l) => (acc === null || l.date < acc ? l.date : acc),
+    null
+  );
+
+  return {
+    quantity: taken,
+    weightedBuyPrice: taken > 0 ? costTotal / taken : 0,
+    earliestBuyDate: earliest,
+    lots,
+  };
+}
+
+export interface ExitSummary {
+  symbol: string;
+  sellDate: string;
+  quantity: number;
+  /** Realised P&L of the whole exit, across every lot it consumed. */
+  pnl: number;
+}
+
+/**
+ * One entry per realised exit, across the whole ledger.
+ *
+ * Two things this gets right that reading `matchTradesFIFO(allTrades).closedTrades` does not:
+ * the replay is run per symbol, because `matchTradesFIFO` keeps a single lot queue and would
+ * otherwise let a sale of one ticker consume another ticker's buys; and the per-lot rows are
+ * folded back into the sale that produced them, so an exit spanning three lots counts once
+ * rather than three times.
+ */
+export function summariseExitsFIFO(trades: Trade[]): ExitSummary[] {
+  const bySymbol = new Map<string, Trade[]>();
+  for (const t of trades) {
+    if (t.trade_type !== "buy" && t.trade_type !== "sell") continue;
+    const key = t.symbol.toUpperCase();
+    const arr = bySymbol.get(key) ?? [];
+    arr.push(t);
+    bySymbol.set(key, arr);
+  }
+
+  const exits = new Map<string, ExitSummary>();
+  for (const [symbol, symbolTrades] of bySymbol) {
+    for (const lot of matchTradesFIFO(symbolTrades).closedTrades) {
+      const key = `${symbol}|${lot.sellDate}`;
+      const existing = exits.get(key);
+      if (existing) {
+        existing.quantity += lot.quantity;
+        existing.pnl += lot.pnl;
+      } else {
+        exits.set(key, {
+          symbol,
+          sellDate: lot.sellDate,
+          quantity: lot.quantity,
+          pnl: lot.pnl,
+        });
+      }
+    }
+  }
+
+  return [...exits.values()].sort(
+    (a, b) => new Date(a.sellDate).getTime() - new Date(b.sellDate).getTime()
+  );
 }

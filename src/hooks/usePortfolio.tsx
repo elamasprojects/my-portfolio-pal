@@ -575,6 +575,7 @@ export function useQuickSellTrade() {
       price,
       currency = "USD",
       mep_rate,
+      sellAll = false,
     }: {
       symbol: string;
       asset_name: string;
@@ -583,8 +584,29 @@ export function useQuickSellTrade() {
       price: number;
       currency?: "USD" | "ARS";
       mep_rate?: number | null;
+      /**
+       * Closing the whole position. The quantity is then resolved from the ledger rather than
+       * taken from `quantity`: the browser's running total is a float sum and lands a few
+       * femto-shares off the exact figure the sell trigger validates against, which rejected
+       * the sale outright and, when it did pass, left a dust position behind.
+       */
+      sellAll?: boolean;
     }) => {
       if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      let sellQuantity = quantity;
+      if (sellAll) {
+        const { data: exact, error: qtyError } = await supabase.rpc("position_quantity" as any, {
+          _user_id: user.id,
+          _portfolio_id: activeId,
+          _symbol: symbol.trim().toUpperCase(),
+        });
+        const exactQty = Number(exact);
+        // Only trust it when it is a usable number; otherwise fall back to what the caller had.
+        if (!qtyError && Number.isFinite(exactQty) && exactQty > 0) {
+          sellQuantity = exactQty;
+        }
+      }
 
       const isARS = currency === "ARS" && mep_rate && mep_rate > 0;
       const pricePerUnit = isARS ? price / mep_rate : price;
@@ -598,7 +620,7 @@ export function useQuickSellTrade() {
           asset_name: (asset_name || symbol).trim(),
           asset_type: (asset_type || "stock") as any,
           trade_type: "sell",
-          quantity,
+          quantity: sellQuantity,
           price_per_unit: pricePerUnit,
           trade_date: new Date().toISOString(),
           original_currency: isARS ? "ARS" : "USD",
