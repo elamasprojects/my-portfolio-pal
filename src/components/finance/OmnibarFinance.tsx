@@ -52,7 +52,10 @@ export function OmnibarFinance({
     if (!open) {
       // This component never unmounts, so without this the field stays revealed and the next
       // open remounts it with autoFocus — the keyboard-over-the-capture-zone problem again.
+      // The text has to go with it: collapsing alone left the previous draft alive but
+      // invisible, and the next submit sent it along with whatever was captured this time.
       setShowTextInput(false);
+      setInputVal("");
       return;
     }
     if (open) {

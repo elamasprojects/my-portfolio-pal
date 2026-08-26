@@ -348,7 +348,7 @@ async function syncLink(
       continue;
     }
 
-    if (prior) {
+    if (isLive) {
       skipped.push({ mercury_id: tx.id, reason: "ya_importada" });
       continue;
     }
@@ -385,7 +385,7 @@ async function syncLink(
     const category = matchCategory(haystack, tx.mercuryCategory, categories, type);
     const transactionDate = (tx.postedAt || tx.createdAt || new Date().toISOString()).slice(0, 10);
 
-    const { error: insErr } = await admin.from("transactions").insert({
+    const row = {
       user_id: link.user_id,
       type,
       name: merchant,
@@ -417,7 +417,39 @@ async function syncLink(
         bank_description: tx.bankDescription ?? null,
         posted_at: tx.postedAt ?? null,
       },
-    });
+    };
+
+    // A charge that fell out of `sent` was soft-deleted on an earlier run. Back in `sent`, it
+    // is real money again — but the partial unique index on (user_id, external_source,
+    // external_id) still holds its slot, so an insert would be rejected and the charge would
+    // never return to the ledger, leaving the card balance overstated. Revive the row instead,
+    // refreshing every field: a settled charge can differ from the authorisation it replaces.
+    if (prior) {
+      const { error: revErr } = await admin
+        .from("transactions")
+        .update({ ...row, deleted_at: null })
+        .eq("id", prior.id)
+        .eq("user_id", link.user_id);
+
+      if (revErr) {
+        console.error("revive fallo", tx.id, revErr);
+        skipped.push({ mercury_id: tx.id, reason: "error", detail: revErr.message });
+        continue;
+      }
+
+      imported.push({
+        mercury_id: tx.id,
+        type: row.type,
+        name: row.name,
+        amount: row.amount_usd,
+        transaction_date: row.transaction_date,
+        category: category?.name ?? null,
+        needs_review: row.needs_review,
+      });
+      continue;
+    }
+
+    const { error: insErr } = await admin.from("transactions").insert(row);
 
     if (insErr) {
       // 23505 = el indice unico (user_id, external_source, external_id) freno un
@@ -520,7 +552,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Las categorias se leen una sola vez y se comparten entre vinculos.
+    // One read, but kept partitioned by owner. A single shared list let `matchCategory` stamp
+    // one user's private category onto another user's transaction — latent while there is a
+    // single user, and silent the day there is not.
     const userIds = [...new Set((links as CardLink[]).map((l) => l.user_id))];
     const { data: cats, error: catsErr } = await admin
       .from("pf_categories")
@@ -529,12 +563,16 @@ Deno.serve(async (req) => {
       .or(`user_id.is.null,user_id.in.(${userIds.join(",")})`)
       .order("sort_order", { ascending: true });
     if (catsErr) throw new Error(`no se pudieron leer las categorias: ${catsErr.message}`);
-    const categories = (cats ?? []) as unknown as CategoryRow[];
+    const allCategories = (cats ?? []) as unknown as CategoryRow[];
+
+    // Shared (`user_id: null`) categories belong to everyone; the rest only to their owner.
+    const categoriesFor = (userId: string) =>
+      allCategories.filter((c) => c.user_id === null || c.user_id === userId);
 
     const results: LinkResult[] = [];
     for (const link of links as CardLink[]) {
       try {
-        results.push(await syncLink(admin, link, categories, mercuryToken, overrideStart, overrideEnd));
+        results.push(await syncLink(admin, link, categoriesFor(link.user_id), mercuryToken, overrideStart, overrideEnd));
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         console.error(`sync fallo para ${link.label}`, message);
