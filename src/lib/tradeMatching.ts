@@ -8,6 +8,12 @@ export interface ClosedTrade {
   quantity: number;
   pnl: number;
   returnPct: number;
+  /**
+   * The sell that consumed this lot. Callers grouping lots back onto their exit must key on
+   * this, not on `sellDate`: two sells of the same symbol on one day share a date, and matching
+   * by date hands each of them every lot closed that day — doubling quantity and P&L.
+   */
+  sellTradeId: string;
 }
 
 export interface OpenLot {
@@ -55,6 +61,7 @@ export function matchTradesFIFO(trades: Trade[]): TradeMatchingResult {
           quantity: consumed,
           pnl: (sellPrice - lot.price) * consumed,
           returnPct: lot.price > 0 ? ((sellPrice - lot.price) / lot.price) * 100 : 0,
+          sellTradeId: trade.id,
         });
 
         lot.remainingQty -= consumed;
@@ -152,7 +159,10 @@ export function summariseExitsFIFO(trades: Trade[]): ExitSummary[] {
   const exits = new Map<string, ExitSummary>();
   for (const [symbol, symbolTrades] of bySymbol) {
     for (const lot of matchTradesFIFO(symbolTrades).closedTrades) {
-      const key = `${symbol}|${lot.sellDate}`;
+      // Keyed on the sell that consumed the lot, not its date. Two sells of one symbol on the
+      // same day merged into a single exit, which skewed "top trade of the month" and the win
+      // streak — the same mistake `ClosedTrade.sellTradeId` exists to prevent.
+      const key = `${symbol}|${lot.sellTradeId}`;
       const existing = exits.get(key);
       if (existing) {
         existing.quantity += lot.quantity;

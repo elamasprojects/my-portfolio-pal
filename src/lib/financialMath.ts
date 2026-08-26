@@ -1,5 +1,5 @@
 import { Transaction, SankeyData, SankeyNode, SankeyLink, UnifiedNetWorthMetrics, Category, PaymentMethod, FinancialAccount } from "@/types/finance";
-import { Holding, PortfolioPerformance } from "@/hooks/usePortfolio";
+import { Holding, PortfolioPerformance, Trade } from "@/hooks/usePortfolio";
 
 export function parseTransactionLocalDate(dateStr: string): Date {
   if (!dateStr) return new Date();
@@ -177,18 +177,33 @@ export function computeUnifiedNetWorth(
   transactions: Transaction[],
   holdings: Holding[],
   portfolioPerformance: PortfolioPerformance,
-  prices: Map<string, number>
+  prices: Map<string, number>,
+  trades?: Pick<Trade, "trade_type" | "trade_date" | "created_at" | "total_amount" | "price_per_unit" | "quantity">[],
+  /** ARS per USD, for accounts denominated in pesos. Omitted, those accounts are skipped. */
+  arsPerUsd = 0
 ): UnifiedNetWorthMetrics {
   let liquidCashUSD = 0;
   let brokerCashUSD = 0;
 
   for (const acc of financialAccounts) {
     if (!acc.is_active) continue;
-    const bal = Number(acc.current_balance) || 0;
+
+    // An ARS account holds pesos. Summing its balance straight into a USD total counted, for
+    // example, AR$1.580.294 of broker cash as US$1.580.294. With no rate available the account
+    // is skipped rather than counted at face value.
+    const raw = Number(acc.current_balance) || 0;
+    let bal = raw;
+    if (acc.currency === "ARS") {
+      if (!(arsPerUsd > 0)) continue;
+      bal = raw / arsPerUsd;
+    }
+
     if (acc.type === "broker_cash") {
       brokerCashUSD += bal;
     } else {
-      liquidCashUSD += Math.max(0, bal);
+      // A negative balance is money owed and has to pull net worth down. Clamping it to zero
+      // made an overdrawn account silently disappear from the total.
+      liquidCashUSD += bal;
     }
   }
 
@@ -198,6 +213,10 @@ export function computeUnifiedNetWorth(
     portfolioMarketValueUSD += p ? p * h.net_quantity : h.total_invested;
   }
 
+  // Uninvested broker cash comes from the `financial_accounts` balances above, which are
+  // the authoritative, user-maintained figures. Deriving a second estimate from the trade
+  // ledger and adding it here counted the same pesos twice, and the running total it used
+  // clamped at zero on every buy-before-sell sequence, so it overstated cash on top of that.
   const netWorthUSD = liquidCashUSD + brokerCashUSD + portfolioMarketValueUSD;
 
   // Monthly flow (last 30 days)
@@ -205,6 +224,8 @@ export function computeUnifiedNetWorth(
   let monthlyIncomeUSD = 0;
   let monthlyExpensesUSD = 0;
   let monthlyBrokerInflowUSD = 0;
+  let investmentTransactionsUSD = 0;
+  let buyTradesUSD = 0;
 
   for (const t of transactions) {
     if (t.deleted_at) continue;
@@ -214,12 +235,33 @@ export function computeUnifiedNetWorth(
     const amt = Number(t.amount_usd) || 0;
     if (t.type === "income") monthlyIncomeUSD += amt;
     else if (t.type === "expense") monthlyExpensesUSD += amt;
-    else if (t.type === "investment") monthlyBrokerInflowUSD += amt;
+    else if (t.type === "investment") investmentTransactionsUSD += amt;
   }
 
+  // Buys and `investment` transactions describe the same money from two sides: the transfer
+  // into the broker and the purchase it funded. Adding both counted every peso twice. The
+  // executed buys are the stronger record of capital actually deployed, so they win when
+  // present and the transaction total stands in only when no buy was captured.
+  if (trades && Array.isArray(trades)) {
+    for (const tr of trades) {
+      if (tr.trade_type === "buy") {
+        const trDate = parseTransactionLocalDate(tr.trade_date || tr.created_at);
+        if (trDate >= thirtyDaysAgo) {
+          const amt = Number(tr.total_amount) || Number(tr.price_per_unit) * Number(tr.quantity) || 0;
+          buyTradesUSD += amt;
+        }
+      }
+    }
+  }
+
+  monthlyBrokerInflowUSD = buyTradesUSD > 0 ? buyTradesUSD : investmentTransactionsUSD;
+
   const monthlySavingsUSD = Math.max(0, monthlyIncomeUSD - monthlyExpensesUSD);
+  // Money saved is not money invested. Falling back to savings here reported an investment
+  // rate for a month in which nothing was bought — the one number this metric exists to catch.
+  const effectiveCapitalInvertedUSD = monthlyBrokerInflowUSD;
   const savingsRatePct = monthlyIncomeUSD > 0 ? (monthlySavingsUSD / monthlyIncomeUSD) * 100 : 0;
-  const investmentRatePct = monthlyIncomeUSD > 0 ? (monthlyBrokerInflowUSD / monthlyIncomeUSD) * 100 : 0;
+  const investmentRatePct = monthlyIncomeUSD > 0 ? (effectiveCapitalInvertedUSD / monthlyIncomeUSD) * 100 : 0;
   const monthlyBurnRateUSD = Math.max(1, monthlyExpensesUSD);
   const liquidRunwayMonths = liquidCashUSD / monthlyBurnRateUSD;
   const totalRunwayMonths = (liquidCashUSD + brokerCashUSD + portfolioMarketValueUSD) / monthlyBurnRateUSD;
@@ -233,7 +275,7 @@ export function computeUnifiedNetWorth(
     monthlyIncomeUSD,
     monthlyExpensesUSD,
     monthlySavingsUSD,
-    monthlyBrokerInflowUSD,
+    monthlyBrokerInflowUSD: effectiveCapitalInvertedUSD,
     savingsRatePct: Math.round(savingsRatePct * 10) / 10,
     investmentRatePct: Math.round(investmentRatePct * 10) / 10,
     monthlyBurnRateUSD,

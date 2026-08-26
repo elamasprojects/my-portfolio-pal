@@ -1,308 +1,345 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useTrades, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
+import { useTrades, computeHoldings, computePerformance, Trade } from "@/hooks/usePortfolio";
+import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { PriceChart } from "@/components/PriceChart";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
-import { useLanguage } from "@/i18n";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
-import { Trade } from "@/hooks/usePortfolio";
+import { ArrowLeft, TrendingUp, DollarSign, Target, Award, Calendar, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { PriceChart } from "@/components/PriceChart";
-import { matchTradesFIFO } from "@/lib/tradeMatching";
 
-const AssetDetail = () => {
-  const { symbol } = useParams<{ symbol: string }>();
+export default function AssetDetail() {
+  const { symbol = "" } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
-  const { data: trades = [], isLoading } = useTrades();
-  const [editTrade, setEditTrade] = useState<Trade | null>(null);
-  const { t } = useLanguage();
+  const { data: allTrades = [], isLoading: tradesLoading } = useTrades();
+  const { venta: mepRate = 1200 } = useDolarMEP();
 
+  const [editTrade, setEditTrade] = useState<Trade | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
 
-  const assetTrades = trades.filter((t) => t.symbol === symbol);
-  const holdings = computeHoldings(assetTrades);
-  const holding = holdings[0];
-  const perf = computePerformance(assetTrades);
-  const symbolPerf = perf.by_symbol[0];
+  // Filter trades for this symbol
+  const assetTrades = useMemo(() => {
+    return allTrades.filter(
+      (t) => t.symbol?.toUpperCase() === symbol.toUpperCase()
+    );
+  }, [allTrades, symbol]);
 
-  const { closedTrades, openLots } = useMemo(
-    () => matchTradesFIFO(assetTrades),
-    [assetTrades]
-  );
-  const totalOpenQty = openLots.reduce((s, l) => s + l.remainingQty, 0);
-  const avgOpenCost =
-    totalOpenQty > 0
-      ? openLots.reduce((s, l) => s + l.price * l.remainingQty, 0) / totalOpenQty
-      : 0;
+  // Performance & Holdings for this asset
+  const holdings = useMemo(() => computeHoldings(assetTrades), [assetTrades]);
+  const holding = holdings[0] || null;
+  const perf = useMemo(() => computePerformance(assetTrades), [assetTrades]);
+  const symbolPerf = perf.by_symbol[0] || null;
 
+  // Asset full name
+  const assetName = assetTrades[0]?.asset_name || symbol;
+
+  // Live price lookup. Every price on this page is USD, so a quote that arrives in another
+  // currency is converted here — a BYMA listing quotes in pesos, and taking that number at face
+  // value put a position's valuation and P&L out by roughly the exchange rate.
   useEffect(() => {
     if (!symbol) return;
     setPriceLoading(true);
     supabase.functions
-      .invoke("fetch-quote", { body: { symbol } })
+      .invoke("fetch-quote", { body: { symbol: symbol.toUpperCase() } })
       .then(({ data }) => {
-        if (data?.price && data.price > 0) {
-          setCurrentPrice(data.price);
-        }
-      })
-      .finally(() => setPriceLoading(false));
-  }, [symbol]);
+        const price = Number(data?.price);
+        if (!Number.isFinite(price) || price <= 0) return;
 
-  const unrealizedPnl =
-    currentPrice && holding ? (currentPrice - holding.avg_cost) * holding.net_quantity : null;
+        const quoteCurrency = String(data?.currency || "USD").toUpperCase();
+        if (quoteCurrency === "ARS") {
+          // Without a rate there is no honest USD figure; fall back to cost basis instead.
+          if (!(mepRate > 0)) return;
+          setCurrentPrice(price / mepRate);
+          return;
+        }
+        if (quoteCurrency !== "USD") return;
+
+        setCurrentPrice(price);
+      })
+      .catch((err) => console.warn("Failed to fetch quote:", err))
+      .finally(() => setPriceLoading(false));
+  }, [symbol, mepRate]);
+
+  const effectivePrice = currentPrice || holding?.avg_cost || 0;
+  const effectiveCcl = mepRate > 0 ? mepRate : 1200;
+
+  // Unrealized P&L
+  const unrealizedPnlUSD =
+    holding && holding.net_quantity > 0 && currentPrice
+      ? (currentPrice - holding.avg_cost) * holding.net_quantity
+      : null;
   const unrealizedPct =
-    currentPrice && holding && holding.avg_cost > 0
+    holding && holding.avg_cost > 0 && currentPrice
       ? ((currentPrice - holding.avg_cost) / holding.avg_cost) * 100
       : null;
-  const marketValue =
-    currentPrice && holding ? currentPrice * holding.net_quantity : null;
+  const marketValueUSD =
+    holding && holding.net_quantity > 0
+      ? effectivePrice * holding.net_quantity
+      : null;
 
-  if (isLoading) {
-    return <div className="animate-pulse text-muted-foreground text-center py-12">{t("common.loading")}</div>;
+  const realizedPnlUSD = symbolPerf?.realized_pnl || 0;
+  const totalReturnUSD = symbolPerf?.total_return || 0;
+  const dividendsUSD = symbolPerf?.dividends_received || 0;
+
+  if (tradesLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-pulse text-muted-foreground">Cargando datos del activo...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold font-mono tracking-tight">{symbol}</h1>
-          <p className="text-muted-foreground text-sm">{holding?.asset_name || t("asset.detail")}</p>
+    <div className="space-y-6 pb-24 max-w-6xl mx-auto">
+      {/* 1. HEADER ROW */}
+      <div className="flex items-center justify-between border-b border-border/40 pb-4">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="rounded-xl h-10 w-10">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-black font-mono tracking-tight text-foreground">{symbol}</h1>
+              {holding && (
+                <Badge variant="outline" className="text-xs font-mono uppercase bg-primary/10 text-primary border-primary/20">
+                  {holding.asset_type || "CEDEAR"}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">{assetName}</p>
+          </div>
+        </div>
+
+        {/* Live Price in Header */}
+        <div className="text-right font-mono">
+          <span className="text-xs text-muted-foreground uppercase tracking-wider block font-sans font-semibold">
+            Cotización Actual
+          </span>
+          {priceLoading ? (
+            <Skeleton className="h-7 w-24 ml-auto mt-1" />
+          ) : (
+            <div className="text-2xl font-black text-foreground">
+              US$ {effectivePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
+          <span className="text-xs text-muted-foreground block">
+            ≈ ${(effectivePrice * effectiveCcl).toLocaleString("es-AR", { maximumFractionDigits: 0 })} ARS
+          </span>
         </div>
       </div>
 
-      {holding && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.quantity")}</p>
-              <p className="text-xl font-bold font-mono mt-1">{holding.net_quantity}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.avgCost")}</p>
-              <p className="text-xl font-bold font-mono mt-1">${holding.avg_cost.toFixed(2)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.costBasis")}</p>
-              <p className="text-xl font-bold font-mono mt-1">${holding.total_invested.toFixed(2)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.type")}</p>
-              <p className="text-xl font-bold capitalize mt-1">{holding.asset_type}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Live Price & Unrealized P&L */}
+      {/* 2. HOLDING STATUS & LIVE METRICS (If currently open) */}
       {holding && holding.net_quantity > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.currentPrice")}</p>
-              {priceLoading ? (
-                <Skeleton className="h-7 w-20 mt-1" />
-              ) : currentPrice ? (
-                <p className="text-xl font-bold font-mono mt-1">${currentPrice.toFixed(2)}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1">—</p>
-              )}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Posición Abierta
+              </span>
+              <p className="text-xl font-bold font-mono text-foreground mt-1">
+                {holding.net_quantity.toLocaleString("en-US", { maximumFractionDigits: 4 })} u.
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                Costo Prom: US$ {holding.avg_cost.toFixed(2)}
+              </span>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.marketValue")}</p>
-              {priceLoading ? (
-                <Skeleton className="h-7 w-24 mt-1" />
-              ) : marketValue !== null ? (
-                <p className="text-xl font-bold font-mono mt-1">${marketValue.toFixed(2)}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1">—</p>
-              )}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Valuación de Mercado
+              </span>
+              <p className="text-xl font-bold font-mono text-foreground mt-1">
+                US$ {marketValueUSD ? marketValueUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                Cost Basis: US$ {holding.total_invested.toFixed(2)}
+              </span>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.unrealizedPnl")}</p>
-              {priceLoading ? (
-                <Skeleton className="h-7 w-24 mt-1" />
-              ) : unrealizedPnl !== null ? (
-                <p className={`text-xl font-bold font-mono mt-1 ${unrealizedPnl >= 0 ? "text-gain" : "text-loss"}`}>
-                  {unrealizedPnl >= 0 ? "+" : ""}${unrealizedPnl.toFixed(2)}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1">—</p>
-              )}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                P&L Latente (No Realizado)
+              </span>
+              <p className={`text-xl font-bold font-mono mt-1 ${unrealizedPnlUSD && unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {unrealizedPnlUSD !== null
+                  ? `${unrealizedPnlUSD >= 0 ? "+" : ""}US$ ${unrealizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : "—"}
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                {unrealizedPct !== null ? `${unrealizedPct >= 0 ? "+" : ""}${unrealizedPct.toFixed(1)}%` : "—"}
+              </span>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.unrealizedPct")}</p>
-              {priceLoading ? (
-                <Skeleton className="h-7 w-16 mt-1" />
-              ) : unrealizedPct !== null ? (
-                <p className={`text-xl font-bold font-mono mt-1 ${unrealizedPct >= 0 ? "text-gain" : "text-loss"}`}>
-                  {unrealizedPct >= 0 ? "+" : ""}{unrealizedPct.toFixed(2)}%
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1">—</p>
-              )}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Retorno Total Histórico
+              </span>
+              <p className={`text-xl font-bold font-mono mt-1 ${totalReturnUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {totalReturnUSD >= 0 ? "+" : ""}US$ {totalReturnUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                Realizado: US$ {realizedPnlUSD.toFixed(2)}
+              </span>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* P&L Cards */}
+      {/* 3. HISTORICAL PERFORMANCE CARDS (If closed or multi-trade) */}
       {symbolPerf && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.realizedPnl")}</p>
-              <p className={`text-xl font-bold font-mono mt-1 ${symbolPerf.realized_pnl >= 0 ? "text-gain" : "text-loss"}`}>
-                {symbolPerf.realized_pnl >= 0 ? "+" : ""}${symbolPerf.realized_pnl.toFixed(2)}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                P&L Realizado Cerrado
+              </span>
+              <p className={`text-lg font-bold font-mono mt-1 ${realizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {realizedPnlUSD >= 0 ? "+" : ""}US$ {realizedPnlUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </p>
             </CardContent>
           </Card>
-          {symbolPerf.dividends_received > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.dividends")}</p>
-                <p className="text-xl font-bold font-mono mt-1 text-gain">
-                  +${symbolPerf.dividends_received.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          <Card>
+
+          <Card className="bg-card border-border/70">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("asset.totalReturn")}</p>
-              <p className={`text-xl font-bold font-mono mt-1 ${symbolPerf.total_return >= 0 ? "text-gain" : "text-loss"}`}>
-                {symbolPerf.total_return >= 0 ? "+" : ""}${symbolPerf.total_return.toFixed(2)}
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Dividendos Cobrados
+              </span>
+              <p className="text-lg font-bold font-mono text-emerald-400 mt-1">
+                +US$ {dividendsUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border/70">
+            <CardContent className="p-4">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Win Rate en {symbol}
+              </span>
+              <p className="text-lg font-bold font-mono text-foreground mt-1">
+                {/*
+                  `SymbolPerformance` has no `win_rate`; reading it returned undefined and
+                  `.toFixed` threw, taking the whole asset page down. Derived from the two
+                  counts the type does carry.
+                */}
+                {symbolPerf.total_sells > 0
+                  ? ((symbolPerf.winning_sells / symbolPerf.total_sells) * 100).toFixed(0)
+                  : "0"}
+                %
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                {symbolPerf.winning_sells} de {symbolPerf.total_sells} ventas exitosas
+              </span>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border/70">
+            <CardContent className="p-4">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground block">
+                Total Operaciones
+              </span>
+              <p className="text-lg font-bold font-mono text-foreground mt-1">
+                {assetTrades.length} trades
+              </p>
+              <span className="text-[10px] text-muted-foreground block font-mono">
+                Compras, ventas y dividendos
+              </span>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Price History Chart */}
-      <PriceChart symbol={symbol || ""} trades={assetTrades} />
+      {/* 4. PRICE CHART WITH BUY / SELL ANNOTATION DOTS */}
+      <PriceChart symbol={symbol} trades={assetTrades} />
 
-      {/* Closed Trades (FIFO) */}
-      {closedTrades.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("asset.closedTrades")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {closedTrades.map((ct, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border p-3 ${
-                    ct.pnl >= 0 ? "border-gain/20 bg-gain/5" : "border-loss/20 bg-loss/5"
-                  }`}
-                >
-                  <div className="flex flex-col gap-0.5 text-sm">
-                    <span className="text-muted-foreground text-xs">
-                      {new Date(ct.buyDate).toLocaleDateString()} → {new Date(ct.sellDate).toLocaleDateString()}
-                    </span>
-                    <span className="font-mono">
-                      {ct.quantity} × ${ct.buyPrice.toFixed(2)} → ${ct.sellPrice.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`font-mono font-bold ${ct.pnl >= 0 ? "text-gain" : "text-loss"}`}>
-                      {ct.pnl >= 0 ? "+" : ""}${ct.pnl.toFixed(2)}
-                    </span>
-                    <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${
-                      ct.returnPct >= 0 ? "bg-gain/10 text-gain" : "bg-loss/10 text-loss"
-                    }`}>
-                      {ct.returnPct >= 0 ? "+" : ""}{ct.returnPct.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {totalOpenQty > 0 && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground border-t pt-3">
-                <span className="font-mono font-medium text-foreground">{totalOpenQty}</span>
-                <span>{t("common.shares")} @ ${avgOpenCost.toFixed(2)}</span>
-                <span className="text-xs">— {t("asset.stillOpen")}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("asset.tradeHistory")}</CardTitle>
+      {/* 5. HISTORICAL TRADE LOG FOR THIS ASSET */}
+      <Card className="bg-card border-border/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Historial de Operaciones en {symbol} ({assetTrades.length})
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Registro cronológico de compras, ventas y dividendos ejecutados.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {assetTrades.length > 0 ? (
+          {assetTrades.length === 0 ? (
+            <p className="text-center py-8 text-sm text-muted-foreground">No se registran operaciones en este activo.</p>
+          ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>{t("board.date")}</TableHead>
-                  <TableHead>{t("board.type")}</TableHead>
-                  <TableHead className="text-right">{t("board.qty")}</TableHead>
-                  <TableHead className="text-right">{t("board.price")}</TableHead>
-                  <TableHead className="text-right">{t("board.total")}</TableHead>
-                  <TableHead>{t("editTrade.notes")}</TableHead>
+                <TableRow className="hover:bg-transparent text-xs">
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Precio Unitario</TableHead>
+                  <TableHead className="text-right">Monto Total</TableHead>
+                  <TableHead>Tesis / Notas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assetTrades.map((t) => (
-                  <TableRow
-                    key={t.id}
-                    className="cursor-pointer hover:bg-accent/50"
-                    onClick={() => setEditTrade(t)}
-                  >
-                    <TableCell className="text-muted-foreground">{new Date(t.trade_date).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <span className={
-                        t.trade_type === "buy"
-                          ? "text-gain"
-                          : t.trade_type === "sell"
-                          ? "text-loss"
-                          : "text-primary"
-                      }>
-                        {t.trade_type.toUpperCase()}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {t.trade_type === "dividend" ? "—" : t.quantity}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {t.trade_type === "dividend" ? "—" : `$${Number(t.price_per_unit).toFixed(2)}`}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">${Number(t.total_amount).toFixed(2)}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{t.notes || "—"}</TableCell>
-                  </TableRow>
-                ))}
+                {assetTrades.map((t) => {
+                  const isBuy = t.trade_type === "buy";
+                  const isSell = t.trade_type === "sell";
+                  const isDiv = t.trade_type === "dividend";
+
+                  return (
+                    <TableRow
+                      key={t.id}
+                      className="cursor-pointer hover:bg-muted/40 text-xs"
+                      onClick={() => setEditTrade(t)}
+                    >
+                      <TableCell className="font-mono text-muted-foreground whitespace-nowrap">
+                        {new Date(t.trade_date || t.created_at).toLocaleDateString("es-AR")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-mono uppercase font-bold ${
+                            isBuy
+                              ? "bg-gain/10 text-gain border-gain/30"
+                              : isSell
+                              ? "bg-loss/10 text-loss border-loss/30"
+                              : "bg-primary/10 text-primary border-primary/30"
+                          }`}
+                        >
+                          {t.trade_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium">
+                        {isDiv ? "—" : Number(t.quantity).toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {isDiv ? "—" : `US$ ${Number(t.price_per_unit).toFixed(2)}`}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        US$ {Number(t.total_amount || t.price_per_unit * t.quantity).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs truncate max-w-[200px]">
+                        {t.entry_thesis || t.notes || "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
-          ) : (
-            <p className="text-muted-foreground text-sm text-center py-8">{t("asset.noTrades")}</p>
           )}
         </CardContent>
       </Card>
 
+      {/* Edit Trade Modal */}
       <EditTradeDialog trade={editTrade} open={!!editTrade} onOpenChange={(open) => !open && setEditTrade(null)} />
     </div>
   );
-};
-
-export default AssetDetail;
+}

@@ -8,9 +8,9 @@ interface SankeyFlowChartProps {
   data: SankeyData;
   transactions?: Transaction[];
   filterRange?: { start?: Date; end?: Date };
-  displayCurrency: "USD" | "ARS";
-  currencySymbol: string;
-  cx: (val: number) => number;
+  displayCurrency?: "USD" | "ARS";
+  currencySymbol?: string;
+  cx?: (val: number) => number;
 }
 
 interface SelectedSegmentState {
@@ -26,10 +26,11 @@ export function SankeyFlowChart({
   data,
   transactions = [],
   filterRange,
-  displayCurrency,
-  currencySymbol,
+  displayCurrency = "USD",
+  currencySymbol = "US$ ",
   cx,
 }: SankeyFlowChartProps) {
+  const convert = typeof cx === "function" ? cx : (val: number) => val;
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<SelectedSegmentState | null>(null);
 
@@ -275,7 +276,7 @@ export function SankeyFlowChart({
             </div>
             <h2 className="text-3xl font-black font-mono tracking-tight text-white mt-0.5">
               {currencySymbol}
-              {cx(totalIncome).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              {convert(totalIncome).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </h2>
             <p className="text-xs text-muted-foreground">
               De dónde entró cada peso y en qué se fue — Flujo de Caja Personal Consolidado
@@ -291,7 +292,7 @@ export function SankeyFlowChart({
               <span className="text-[10px] text-muted-foreground block">Excedente Neto</span>
               <span className="font-bold text-sm">
                 {currencySymbol}
-                {cx(netResult).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {convert(netResult).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -389,7 +390,7 @@ export function SankeyFlowChart({
                         className="fill-emerald-400 font-mono text-[11px]"
                       >
                         {currencySymbol}
-                        {cx(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}{" "}
+                        {convert(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}{" "}
                         · {node.pct}%
                       </tspan>
                     </text>
@@ -404,7 +405,7 @@ export function SankeyFlowChart({
                       className="font-mono text-[11px] font-bold fill-slate-200 tracking-wider select-none group-hover:fill-white"
                     >
                       CASH COLLECTED {currencySymbol}
-                      {cx(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      {convert(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </text>
                   )}
 
@@ -432,7 +433,7 @@ export function SankeyFlowChart({
                         }`}
                       >
                         {currencySymbol}
-                        {cx(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}{" "}
+                        {convert(node.value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}{" "}
                         · {node.pct}%
                       </tspan>
                     </text>
