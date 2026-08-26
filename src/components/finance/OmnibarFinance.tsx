@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
 import { toast } from "sonner";
@@ -198,15 +199,25 @@ export function OmnibarFinance({
         const numMatch = inputVal.match(/(\d+[\d\s.,]*)/);
         const rawAmount = numMatch ? parseFloat(numMatch[1].replace(/\s/g, "").replace(",", ".")) : 0;
         const isARS = !inputVal.toLowerCase().includes("usd") && rawAmount > 500;
-        const amountUSD = isARS && mepRate && mepRate > 0 ? rawAmount / mepRate : rawAmount;
+        const converted = resolveTransactionAmountUSD({
+          amount: rawAmount,
+          currency: isARS ? "ARS" : "USD",
+          arsPerUsd: mepRate,
+        });
 
-        if (rawAmount > 0) {
+        if (rawAmount > 0 && converted.status !== "ok") {
+          toast.error(converted.reason);
+          return;
+        }
+
+        if (rawAmount > 0 && converted.status === "ok") {
           await addTransaction.mutateAsync({
             name: inputVal.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto",
-            amount_usd: amountUSD,
+            amount_usd: converted.amountUSD,
             original_amount: rawAmount,
             original_currency: isARS ? "ARS" : "USD",
-            fx_rate: isARS ? mepRate : 1,
+            fx_rate: converted.fxRate,
+            fx_source: converted.fxSource,
             account_id: defaultAcc || null,
             payment_method_id: defaultPm || null,
             category_id: defaultCat || null,
@@ -224,7 +235,11 @@ export function OmnibarFinance({
         }
       }
 
-      // 2. Persist all extracted transactions
+      // 2. Persist all extracted transactions.
+      // Anything we cannot convert is collected and surfaced instead of being written at face
+      // value — a peso amount landing in a dollar column is invisible once it is stored.
+      const skipped: string[] = [];
+
       for (const item of extractedList) {
         // Match category
         let matchedCat = categories.find(
@@ -259,21 +274,29 @@ export function OmnibarFinance({
           matchedAccount = accounts[0];
         }
 
-        const isARS = item.currency === "ARS";
-        const rate = isARS && mepRate && mepRate > 0 ? mepRate : 1;
-        const finalAmountUSD =
-          item.amount_usd || (isARS ? item.amount / rate : item.amount);
+        // The rate we actually hold decides the amount. `item.amount_usd` is the extractor's
+        // own estimate and used to take precedence over this conversion.
+        const converted = resolveTransactionAmountUSD({
+          amount: item.amount,
+          currency: item.currency,
+          arsPerUsd: mepRate,
+        });
+
+        if (converted.status !== "ok") {
+          skipped.push(`${item.name || "Gasto"}: ${converted.reason}`);
+          continue;
+        }
 
         await addTransaction.mutateAsync({
           name: item.name || "Gasto",
           raw_merchant: item.raw_merchant || item.name,
-          amount_usd: Number(finalAmountUSD.toFixed(2)),
+          amount_usd: converted.amountUSD,
           type: item.type || "expense",
           transaction_date: item.transaction_date || new Date().toISOString().split("T")[0],
           original_amount: item.amount,
-          original_currency: item.currency || "USD",
-          fx_rate: rate,
-          fx_source: isARS ? "dolarapi_mep" : "native_usd",
+          original_currency: (item.currency || "USD").toUpperCase(),
+          fx_rate: converted.fxRate,
+          fx_source: converted.fxSource,
           category_id: matchedCat?.id || null,
           account_id: matchedAccount?.id || null,
           payment_method_id: matchedPm?.id || paymentMethods[0]?.id || null,
@@ -284,6 +307,18 @@ export function OmnibarFinance({
             ? `Sugerencia: Crear categoría '${item.suggested_new_category}'`
             : undefined,
         });
+      }
+
+      if (skipped.length > 0) {
+        toast.error(
+          skipped.length === 1
+            ? `No se registró ${skipped[0]}`
+            : `No se registraron ${skipped.length} movimientos: ${skipped.join(" · ")}`,
+          { duration: 8000 }
+        );
+        // Keep the input and the receipt on screen so the capture can be retried once a rate
+        // is available, rather than silently losing it.
+        return;
       }
 
       setInputVal("");
