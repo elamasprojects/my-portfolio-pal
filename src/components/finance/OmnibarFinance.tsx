@@ -12,11 +12,11 @@ import {
   Upload,
   Send,
   Loader2,
-  Sparkles,
   ClipboardPaste,
   Image as ImageIcon,
   Trash2,
   Plus,
+  Keyboard,
 } from "lucide-react";
 import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
@@ -42,12 +42,24 @@ export function OmnibarFinance({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(initialFile || null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // The typing field is opt-in: tapping the keyboard button reveals it. Kept collapsed by
+  // default so the sheet opens on the capture zone instead of on a keyboard.
+  const [showTextInput, setShowTextInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync initial props when opened
   useEffect(() => {
+    if (!open) {
+      // This component never unmounts, so without this the field stays revealed and the next
+      // open remounts it with autoFocus — the keyboard-over-the-capture-zone problem again.
+      setShowTextInput(false);
+      return;
+    }
     if (open) {
-      if (initialText) setInputVal(initialText);
+      if (initialText) {
+        setInputVal(initialText);
+        setShowTextInput(true);
+      }
       if (initialFile) {
         setSelectedFile(initialFile);
         setPreviewUrl(URL.createObjectURL(initialFile));
@@ -116,6 +128,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard?.readText?.();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.info("Usa Ctrl+V para pegar directamente tu captura");
@@ -144,6 +157,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard.readText();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.error("No se encontró ninguna imagen en el portapapeles. Copia una captura primero.");
@@ -339,13 +353,10 @@ export function OmnibarFinance({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl sm:rounded-2xl bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-2 font-serif text-lg text-primary">
-            <div className="flex min-w-0 items-center gap-2">
-              <Sparkles className="h-5 w-5 shrink-0 text-amber-500" />
-              <span className="truncate">Ingesta Rápida de Finanzas</span>
-            </div>
+            <span className="min-w-0 truncate">Ingesta Rápida de Finanzas</span>
             <span className="hidden sm:inline-block shrink-0 text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
               ⌘K / Ctrl+K
             </span>
@@ -417,17 +428,37 @@ export function OmnibarFinance({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <span className="h-px flex-1 bg-border/60" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              o escribilo
-            </span>
-            <span className="h-px flex-1 bg-border/60" />
+          {/* Two ways in besides the receipt, as equal-weight round buttons: type, or dictate. */}
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant={showTextInput ? "default" : "outline"}
+              size="icon"
+              onClick={() =>
+                setShowTextInput((v) => {
+                  // Collapsing discards what was typed. Keeping it hidden but live meant the
+                  // sheet submitted text the user believed they had dismissed.
+                  if (v) setInputVal("");
+                  return !v;
+                })
+              }
+              aria-expanded={showTextInput}
+              aria-controls="omnibar-text-input"
+              aria-label={showTextInput ? "Ocultar el campo de texto" : "Escribir el movimiento"}
+              title={showTextInput ? "Ocultar el campo de texto" : "Escribir el movimiento"}
+              className="h-10 w-10 shrink-0 rounded-full"
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
+            <AudioQuickRecorder onRecordedText={(txt) => {
+              setShowTextInput(true);
+              setInputVal((prev) => `${prev} ${txt}`.trim());
+            }} />
           </div>
 
-          {/* Text input with audio recorder */}
-          <div className="flex items-center gap-2">
+          {showTextInput && (
             <Input
+              id="omnibar-text-input"
               placeholder="Ej: 'Coto 45000', 'Uber 12 usd DolarApp'..."
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
@@ -438,10 +469,11 @@ export function OmnibarFinance({
                 }
               }}
               disabled={isLoading}
-              className="flex-1 font-mono text-sm"
+              // Focusing here is deliberate: the keyboard appears because the user asked for it.
+              autoFocus
+              className="w-full font-mono text-sm"
             />
-            <AudioQuickRecorder onRecordedText={(txt) => setInputVal((prev) => `${prev} ${txt}`.trim())} />
-          </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -450,35 +482,6 @@ export function OmnibarFinance({
             className="hidden"
             onChange={handleFileChange}
           />
-
-          {/* Quick Preset Buttons */}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <span className="text-[11px] text-muted-foreground mr-1 self-center">Presets:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Supermercado 35000")}
-            >
-              🛒 Super 35k
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Cena 25 usd DolarApp")}
-            >
-              🍔 Cena $25
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Uber 8500")}
-            >
-              🚗 Uber $8.5k
-            </Button>
-          </div>
 
           {/* Submit Action */}
           <Button
