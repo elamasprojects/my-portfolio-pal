@@ -341,12 +341,12 @@ export function OmnibarFinance({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between font-serif text-lg text-primary">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              <span>Ingesta Rápida de Finanzas</span>
+          <DialogTitle className="flex items-center justify-between gap-2 font-serif text-lg text-primary">
+            <div className="flex min-w-0 items-center gap-2">
+              <Sparkles className="h-5 w-5 shrink-0 text-amber-500" />
+              <span className="truncate">Ingesta Rápida de Finanzas</span>
             </div>
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
+            <span className="hidden sm:inline-block shrink-0 text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
               ⌘K / Ctrl+K
             </span>
           </DialogTitle>
@@ -356,25 +356,11 @@ export function OmnibarFinance({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Text input with audio recorder */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Ej: 'Coto 45000', 'Uber 12 usd DolarApp'..."
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  parseAndSubmit();
-                }
-              }}
-              disabled={isLoading}
-              className="flex-1 font-mono text-sm"
-              autoFocus
-            />
-            <AudioQuickRecorder onRecordedText={(txt) => setInputVal((prev) => `${prev} ${txt}`.trim())} />
-          </div>
-
+          {/*
+            Upload first, typing second. Opening this sheet used to focus the text field and
+            autoFocus popped the on-screen keyboard immediately, burying the capture zone —
+            and a receipt screenshot is the faster path for almost every entry.
+          */}
           {/* Screenshot Drop / Upload / Paste Zone */}
           {previewUrl ? (
             <div className="relative rounded-2xl border bg-muted/40 p-3 text-center space-y-2">
@@ -430,6 +416,32 @@ export function OmnibarFinance({
               </div>
             </div>
           )}
+
+          <div className="flex items-center gap-2">
+            <span className="h-px flex-1 bg-border/60" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              o escribilo
+            </span>
+            <span className="h-px flex-1 bg-border/60" />
+          </div>
+
+          {/* Text input with audio recorder */}
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Ej: 'Coto 45000', 'Uber 12 usd DolarApp'..."
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  parseAndSubmit();
+                }
+              }}
+              disabled={isLoading}
+              className="flex-1 font-mono text-sm"
+            />
+            <AudioQuickRecorder onRecordedText={(txt) => setInputVal((prev) => `${prev} ${txt}`.trim())} />
+          </div>
 
           <input
             ref={fileInputRef}

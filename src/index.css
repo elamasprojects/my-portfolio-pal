@@ -129,6 +129,21 @@
     @apply border-border;
   }
 
+  /*
+   * A page that overflows horizontally widens the layout viewport, and the fixed bottom nav is
+   * sized against that viewport — so one wide element anywhere makes the nav sit off-centre and
+   * clip on that page. This is the backstop; the overflow itself is still worth fixing where it
+   * appears, since content pushed past the edge is unreachable either way.
+   *
+   * On `html` only. Putting it on `body` as well makes `body` a scroll container, which
+   * silently breaks `position: sticky` for every descendant — including the top navbar, the
+   * only navigation on desktop. `html`'s value propagates to the viewport and `html` itself
+   * computes back to `visible`, so `body` stays a normal block and sticky keeps working.
+   */
+  html {
+    @apply overflow-x-hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
