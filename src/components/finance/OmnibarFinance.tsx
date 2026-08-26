@@ -270,6 +270,12 @@ export function OmnibarFinance({
         if (!matchedAccount && matchedPm?.account_id) {
           matchedAccount = accounts.find((a) => a.id === matchedPm!.account_id);
         }
+
+        // Falling back to the first account is a guess, and the balance trigger acts on it: an
+        // Edesur bill paid from Mercado Pago was debited from the ARQ broker account without a
+        // word. The guess still happens — leaving the account empty would strand the row — but
+        // it is flagged for review instead of passing as a matched account.
+        const accountWasGuessed = !matchedAccount;
         if (!matchedAccount) {
           matchedAccount = accounts[0];
         }
@@ -301,7 +307,7 @@ export function OmnibarFinance({
           account_id: matchedAccount?.id || null,
           payment_method_id: matchedPm?.id || paymentMethods[0]?.id || null,
           confidence: item.confidence || "high",
-          needs_review: item.needs_review || !matchedCat,
+          needs_review: item.needs_review || !matchedCat || accountWasGuessed,
           source: selectedFile ? "screenshot" : "text",
           notes: item.suggested_new_category
             ? `Sugerencia: Crear categoría '${item.suggested_new_category}'`
