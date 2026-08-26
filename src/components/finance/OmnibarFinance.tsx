@@ -49,6 +49,12 @@ export function OmnibarFinance({
 
   // Sync initial props when opened
   useEffect(() => {
+    if (!open) {
+      // This component never unmounts, so without this the field stays revealed and the next
+      // open remounts it with autoFocus — the keyboard-over-the-capture-zone problem again.
+      setShowTextInput(false);
+      return;
+    }
     if (open) {
       if (initialText) {
         setInputVal(initialText);
@@ -122,6 +128,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard?.readText?.();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.info("Usa Ctrl+V para pegar directamente tu captura");
@@ -150,6 +157,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard.readText();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.error("No se encontró ninguna imagen en el portapapeles. Copia una captura primero.");
@@ -345,7 +353,7 @@ export function OmnibarFinance({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl sm:rounded-2xl bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-2 font-serif text-lg text-primary">
             <span className="min-w-0 truncate">Ingesta Rápida de Finanzas</span>
@@ -426,7 +434,14 @@ export function OmnibarFinance({
               type="button"
               variant={showTextInput ? "default" : "outline"}
               size="icon"
-              onClick={() => setShowTextInput((v) => !v)}
+              onClick={() =>
+                setShowTextInput((v) => {
+                  // Collapsing discards what was typed. Keeping it hidden but live meant the
+                  // sheet submitted text the user believed they had dismissed.
+                  if (v) setInputVal("");
+                  return !v;
+                })
+              }
               aria-expanded={showTextInput}
               aria-controls="omnibar-text-input"
               aria-label={showTextInput ? "Ocultar el campo de texto" : "Escribir el movimiento"}
