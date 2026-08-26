@@ -204,6 +204,23 @@ Reglas que no conviene tocar sin entender por que estan:
 - **Lo que no se pudo categorizar entra con `needs_review = true`** y aparece en `/finance/review`.
   El match por keywords exige palabra completa (para que "bar" no matchee "BARBERSHOP"), y lo que
   se le escapa lo levanta el `mercuryCategory` que ya trae Mercury.
+- **Tambien se marca lo que se parece a una carga manual tuya.** El indice unico solo frena que
+  Mercury entre dos veces; una fila que tipeaste a mano no tiene `external_id` y es invisible para
+  esa regla. Antes de insertar se busca una fila manual con el mismo monto al centavo y fecha a
+  menos de 4 dias (`MANUAL_DUP_WINDOW_DAYS`), y si aparece se importa igual pero con
+  `needs_review` y una nota que dice de cual sospecha. Se importa y se avisa, no se descarta: un
+  gasto igual dos veces en la misma semana es perfectamente real.
+  **A proposito NO se acota por medio de pago ni por cuenta** — en los datos reales el instrumento
+  esta mal puesto (gastos de la tarjeta de Mercury anotados como "Banco Ciudad - ARS"), asi que
+  filtrar por ahi no encontraria justo los duplicados que importan.
+
+**Editar un movimiento:** `EditTransactionDialog` (lapiz en `/finance/timeline` y boton "Editar"
+en `/finance/review`). El monto es editable a proposito: si pagaste 200 por varias personas y te
+devolvieron 190, tu gasto real es 10. Para las filas importadas el dialogo muestra
+`extracted_fields.mercury_amount` — lo que el banco cobro de verdad — como referencia de solo
+lectura, asi corregir el tuyo no pierde ese dato. Editar pone `needs_review = false` y
+`confidence = "high"`: tocarlo a mano ES la decision. Los triggers de saldo corrigen solos el
+`current_balance` en el UPDATE.
 
 **Secreto requerido:** `MERCURY_API_TOKEN` (token *Read Only* de Mercury) en los secrets de este
 proyecto. El connector MCP no expone secrets: se setea desde el dashboard o con

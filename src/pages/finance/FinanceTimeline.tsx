@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Search,
+  Pencil,
   Trash2,
   Filter,
   ArrowDownRight,
@@ -18,11 +19,14 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
+import { EditTransactionDialog } from "@/components/finance/EditTransactionDialog";
+import { Transaction } from "@/types/finance";
 
 export default function FinanceTimeline() {
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [omnibarOpen, setOmnibarOpen] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const { transactions, isLoading, softDeleteTransaction } = useTransactions();
   const { categories } = useCategories();
@@ -184,6 +188,16 @@ export default function FinanceTimeline() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary hover:bg-primary/10"
+                    onClick={() => setEditing(tx)}
+                    title="Editar movimiento"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive hover:bg-destructive/10"
                     onClick={() => softDeleteTransaction.mutate(tx.id)}
                     title="Eliminar movimiento"
@@ -198,6 +212,12 @@ export default function FinanceTimeline() {
       </div>
 
       <OmnibarFinance open={omnibarOpen} onOpenChange={setOmnibarOpen} />
+
+      <EditTransactionDialog
+        transaction={editing}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+      />
     </div>
   );
 }

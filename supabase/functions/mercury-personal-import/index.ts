@@ -33,6 +33,11 @@ const IMPORTABLE_STATUS = "sent";
 const MAX_PAGES = 20;
 const PAGE_SIZE = 500;
 
+// Ventana para sospechar que un gasto ya se habia cargado a mano.
+// La fecha de la carga manual casi nunca coincide con la que Mercury liquida:
+// uno anota el dia que gasta, el banco postea uno o dos dias despues.
+const MANUAL_DUP_WINDOW_DAYS = 4;
+
 interface MercuryTx {
   id: string;
   amount: number;
@@ -77,6 +82,17 @@ interface ImportedRow {
   transaction_date: string;
   category: string | null;
   needs_review: boolean;
+  /** Fecha de la carga manual que se le parece, si se encontro una. */
+  possible_duplicate_of?: string;
+}
+
+/** Fila cargada a mano, candidata a ser el mismo gasto que uno de Mercury. */
+interface ManualRow {
+  id: string;
+  name: string;
+  amount_usd: number;
+  transaction_date: string;
+  payment_method?: { name?: string | null } | null;
 }
 
 interface SkippedRow {
@@ -267,6 +283,39 @@ function matchCategory(
   return byName ? { id: byName.id, name: byName.name } : null;
 }
 
+/**
+ * Busca una carga manual que probablemente sea el mismo gasto.
+ *
+ * La deduplicacion por `external_id` solo puede frenar que Mercury entre dos
+ * veces; una fila que el usuario tipeo no tiene ese ID y es invisible para esa
+ * regla. Sin esto, el primer import duplica todo lo que ya venia anotando a
+ * mano -- y como hay triggers de saldo por fila, duplica el saldo tambien.
+ *
+ * Empareja por monto exacto al centavo y fecha cercana. No decide por el
+ * usuario: quien llama importa igual pero marca `needs_review`, porque un gasto
+ * de 40 dolares dos martes seguidos en el mismo lugar es perfectamente real, y
+ * descartarlo por parecido perderia plata de verdad.
+ */
+function findManualDuplicate(
+  manualRows: ManualRow[],
+  amount: number,
+  transactionDate: string,
+): ManualRow | null {
+  const target = new Date(`${transactionDate}T00:00:00Z`).getTime();
+  if (!Number.isFinite(target)) return null;
+
+  for (const row of manualRows) {
+    // Los montos son numeric en Postgres y llegan como string o number segun el
+    // driver; el redondeo evita que 40 y 40.000001 se consideren distintos.
+    if (Math.round(Number(row.amount_usd) * 100) !== Math.round(amount * 100)) continue;
+    const rowTime = new Date(`${row.transaction_date}T00:00:00Z`).getTime();
+    if (!Number.isFinite(rowTime)) continue;
+    const diffDays = Math.abs(rowTime - target) / 86400000;
+    if (diffDays <= MANUAL_DUP_WINDOW_DAYS) return row;
+  }
+  return null;
+}
+
 async function syncLink(
   admin: AdminClient,
   link: CardLink,
@@ -323,6 +372,36 @@ async function syncLink(
     const r = row as { id: string; external_id: string; deleted_at: string | null };
     existing.set(r.external_id, { id: r.id, deleted_at: r.deleted_at });
   }
+
+  // Cargas manuales de la ventana, para no duplicar lo que el usuario ya venia
+  // anotando a mano. La ventana se estira a los dos lados por el desfasaje entre
+  // la fecha en que uno anota y la que postea el banco.
+  const manualFrom = new Date(
+    new Date(`${startDate}T00:00:00Z`).getTime() - MANUAL_DUP_WINDOW_DAYS * 86400000,
+  ).toISOString().slice(0, 10);
+  const manualTo = new Date(
+    new Date(`${endDate}T00:00:00Z`).getTime() + MANUAL_DUP_WINDOW_DAYS * 86400000,
+  ).toISOString().slice(0, 10);
+
+  // A proposito NO se acota por medio de pago ni por cuenta. Tentaba hacerlo
+  // ("un gasto igual pagado en efectivo no es esta compra"), pero en los datos
+  // reales el instrumento esta mal puesto: hay gastos de la tarjeta de Mercury
+  // anotados con el medio de pago de otro banco. Filtrar por ahi no encontraria
+  // justo los duplicados que importan.
+  //
+  // Se compara solo monto exacto al centavo y fecha cercana. Un falso positivo
+  // cuesta una mirada en la cola de revision; un duplicado que se escapa
+  // descuadra el saldo en silencio.
+  const { data: manualData, error: manualErr } = await admin
+    .from("transactions")
+    .select("id, name, amount_usd, transaction_date, payment_method:payment_methods!transactions_payment_method_id_fkey(name)")
+    .eq("user_id", link.user_id)
+    .is("external_source", null)
+    .is("deleted_at", null)
+    .gte("transaction_date", manualFrom)
+    .lte("transaction_date", manualTo);
+  if (manualErr) throw new Error(`lookup de cargas manuales fallo: ${manualErr.message}`);
+  const manualRows = (manualData ?? []) as unknown as ManualRow[];
 
   for (const tx of txs) {
     const status = (tx.status ?? "unknown").toLowerCase();
@@ -385,6 +464,19 @@ async function syncLink(
     const category = matchCategory(haystack, tx.mercuryCategory, categories, type);
     const transactionDate = (tx.postedAt || tx.createdAt || new Date().toISOString()).slice(0, 10);
 
+    // Se importa igual, pero marcada: descartarla perderia un gasto real cuando
+    // el parecido es casualidad, y meterla callada duplica el saldo cuando no lo
+    // es. La cola de revision es el lugar donde eso se decide con los dos a la
+    // vista.
+    const manualDup = findManualDuplicate(manualRows, amount, transactionDate);
+    const needsReview = !category || Boolean(manualDup);
+    const dupPm = manualDup?.payment_method?.name;
+    const dupNote = manualDup
+      ? `Posible duplicado de la carga manual "${manualDup.name}" del ${manualDup.transaction_date} por USD ${Number(manualDup.amount_usd).toFixed(2)}` +
+        (dupPm ? ` (medio de pago: ${dupPm})` : "") +
+        ". Revisa cual de las dos queda."
+      : null;
+
     const { error: insErr } = await admin.from("transactions").insert({
       user_id: link.user_id,
       type,
@@ -406,8 +498,8 @@ async function syncLink(
       // La categoria salio de una heuristica sobre el texto del comercio, no de
       // una decision del usuario: sin match va a la cola de revision.
       confidence: category ? "medium" : "low",
-      needs_review: !category,
-      notes: null,
+      needs_review: needsReview,
+      notes: dupNote,
       extracted_fields: {
         mercury_card_id: link.mercury_card_id,
         mercury_card_label: link.label,
@@ -416,6 +508,11 @@ async function syncLink(
         mercury_category: tx.mercuryCategory ?? null,
         bank_description: tx.bankDescription ?? null,
         posted_at: tx.postedAt ?? null,
+        // Lo que Mercury cobro de verdad. `amount_usd` es editable -- cuando
+        // pagas 200 y 190 te los devuelven, el gasto tuyo es 10 -- asi que sin
+        // esto se perderia cuanto salio del banco en realidad.
+        mercury_amount: rawAmount,
+        possible_duplicate_of: manualDup?.id ?? null,
       },
     });
 
@@ -439,7 +536,8 @@ async function syncLink(
       amount,
       transaction_date: transactionDate,
       category: category?.name ?? null,
-      needs_review: !category,
+      needs_review: needsReview,
+      ...(manualDup ? { possible_duplicate_of: manualDup.transaction_date } : {}),
     });
   }
 
@@ -548,6 +646,12 @@ Deno.serve(async (req) => {
       (acc, r) => acc + r.imported.filter((i) => i.needs_review).length,
       0,
     );
+    // Se informa aparte de `needs_review` porque no se resuelve igual: una
+    // categoria faltante se elige, un duplicado se borra.
+    const totalPossibleDuplicates = results.reduce(
+      (acc, r) => acc + r.imported.filter((i) => i.possible_duplicate_of).length,
+      0,
+    );
     // Solo suma gastos: mezclar reembolsos en el mismo total daria un neto que no
     // es ni lo gastado ni lo devuelto.
     const totalAmount = results.reduce(
@@ -565,6 +669,7 @@ Deno.serve(async (req) => {
       totalImported,
       totalReverted,
       totalNeedsReview,
+      totalPossibleDuplicates,
       totalAmount,
       failed: failed.length,
     }, status);

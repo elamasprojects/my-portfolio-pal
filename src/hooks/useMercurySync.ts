@@ -31,6 +31,8 @@ export interface MercuryImportedRow {
   transaction_date: string;
   category: string | null;
   needs_review: boolean;
+  /** Fecha de la carga manual parecida, si el import sospecha un duplicado. */
+  possible_duplicate_of?: string;
 }
 
 export interface MercuryLinkResult {
@@ -48,6 +50,7 @@ export interface MercurySyncResult {
   totalImported: number;
   totalReverted: number;
   totalNeedsReview: number;
+  totalPossibleDuplicates: number;
   totalAmount: number;
   failed?: number;
   message?: string;
@@ -126,6 +129,17 @@ export function useMercurySync() {
         toast.info("Mercury: nada nuevo para importar");
       } else {
         toast.success(`Mercury: ${parts.join(" · ")}`);
+      }
+
+      // Aparte y con su propio toast: un duplicado no se resuelve eligiendo una
+      // categoria, se resuelve borrando una de las dos filas. Mezclarlo en el
+      // conteo de "a revisar" haria que se pase por alto justo lo que descuadra
+      // el saldo.
+      if (res.totalPossibleDuplicates > 0) {
+        toast.warning(
+          `${res.totalPossibleDuplicates} podrían duplicar cargas manuales tuyas — revisalas en Revisión`,
+          { duration: 8000 },
+        );
       }
     },
     onError: (err: Error) => {

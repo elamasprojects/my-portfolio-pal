@@ -7,6 +7,8 @@ import { Transaction } from "@/types/finance";
 import { Button } from "@/components/ui/button";
 import {
   Check,
+  Pencil,
+  Copy,
   Trash2,
   Sparkles,
   AlertCircle,
@@ -17,9 +19,11 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EditTransactionDialog } from "@/components/finance/EditTransactionDialog";
 
 export default function ReviewQueuePage() {
   const { reviewQueue, updateTransaction, softDeleteTransaction, isLoading } = useTransactions();
+  const [editing, setEditing] = useState<Transaction | null>(null);
   const { categories, addCategory } = useCategories();
   const { paymentMethods } = usePaymentMethods();
 
@@ -89,6 +93,10 @@ export default function ReviewQueuePage() {
             const suggestedMatch = tx.notes?.match(/Sugerencia: Crear categoría '([^']+)'/);
             const suggestedCatName = suggestedMatch?.[1];
 
+            const isPossibleDuplicate = Boolean(
+              (tx.extracted_fields as Record<string, unknown> | undefined)?.possible_duplicate_of,
+            );
+
             return (
               <div
                 key={tx.id}
@@ -119,6 +127,21 @@ export default function ReviewQueuePage() {
                     )}
                   </div>
                 </div>
+
+                {/* Aviso de posible duplicado contra una carga manual. Se importa
+                    igual y se avisa: descartarlo solo perderia el gasto cuando el
+                    parecido es casualidad. */}
+                {isPossibleDuplicate && (
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-amber-500 font-semibold">
+                      <Copy className="h-4 w-4 shrink-0" />
+                      <span>Posible duplicado de una carga manual</span>
+                    </div>
+                    {tx.notes && (
+                      <p className="text-muted-foreground mt-1 leading-relaxed">{tx.notes}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* 1-Tap Category Suggestion Banner */}
                 {suggestedCatName && (
@@ -177,6 +200,16 @@ export default function ReviewQueuePage() {
                   </Button>
 
                   <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs hover:bg-primary/10 hover:text-primary gap-1"
+                    onClick={() => setEditing(tx)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span>Editar</span>
+                  </Button>
+
+                  <Button
                     size="sm"
                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1"
                     onClick={() => handleApprove(tx)}
@@ -190,6 +223,12 @@ export default function ReviewQueuePage() {
           })}
         </div>
       )}
+
+      <EditTransactionDialog
+        transaction={editing}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+      />
     </div>
   );
 }
