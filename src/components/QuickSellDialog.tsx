@@ -18,6 +18,19 @@ import { TrendingDown, Loader2 } from "lucide-react";
 import { FrictionCoolingTimerModal } from "@/components/discipline/FrictionCoolingTimerModal";
 import { ClosedPositionSummary } from "@/components/ClosedPositionSummaryDialog";
 import { Trade } from "@/hooks/usePortfolio";
+import { matchTradesFIFO, consumeOpenLotsFIFO, summariseExitsFIFO } from "@/lib/tradeMatching";
+
+/**
+ * Trims the float noise out of a share count for display.
+ *
+ * `net_quantity` is a running float sum, so it renders as 105.74550581601055 — digits past the
+ * eighth are accumulated error, not shares. The exact figure for a full exit comes from the
+ * ledger at submit time, so nothing depends on this string being complete.
+ */
+function formatQty(qty: number): string {
+  if (!Number.isFinite(qty)) return "";
+  return String(Number(qty.toFixed(8)));
+}
 
 interface QuickSellDialogProps {
   open: boolean;
@@ -52,7 +65,9 @@ export function QuickSellDialog({
   const { t } = useLanguage();
   const quickSellMutation = useQuickSellTrade();
 
-  const [selectedPct, setSelectedPct] = useState<100 | 50 | 25>(100);
+  // `null` means the user typed their own quantity, so no preset is highlighted and the sale is
+  // not treated as a full exit.
+  const [selectedPct, setSelectedPct] = useState<100 | 50 | 25 | null>(100);
   const [priceStr, setPriceStr] = useState<string>("");
   const [qtyStr, setQtyStr] = useState<string>("");
   const [coolingOffOpen, setCoolingOffOpen] = useState(false);
@@ -64,7 +79,7 @@ export function QuickSellDialog({
     const initialPrice = currentPrice ?? holding.avg_cost ?? 0;
     setPriceStr(initialPrice > 0 ? initialPrice.toString() : "");
 
-    setQtyStr(holding.net_quantity.toString());
+    setQtyStr(formatQty(holding.net_quantity));
     setSelectedPct(100);
   }, [open, holding, currentPrice]);
 
@@ -73,12 +88,16 @@ export function QuickSellDialog({
   const handlePctSelect = (pct: 100 | 50 | 25) => {
     setSelectedPct(pct);
     if (pct === 100) {
-      setQtyStr(holding.net_quantity.toString());
+      setQtyStr(formatQty(holding.net_quantity));
     } else {
       const calculatedQty = Number((holding.net_quantity * (pct / 100)).toFixed(4));
       setQtyStr(calculatedQty.toString());
     }
   };
+
+  // A full exit sends no quantity of its own: the mutation reads the exact figure off the
+  // ledger. Anything else sells what the field says.
+  const isSellAll = selectedPct === 100;
 
   const parsedPrice = parseFloat(priceStr.replace(",", ".")) || 0;
   const parsedQty = parseFloat(qtyStr.replace(",", ".")) || 0;
@@ -123,6 +142,7 @@ export function QuickSellDialog({
         mep_rate: mepRate,
         is_planned_exit: isPlannedExit,
         unplanned_rationale: unplannedRationale,
+        sellAll: isSellAll,
       });
 
       toast.success(`${t("board.sellSuccess")}: ${holding.symbol}`);
@@ -132,19 +152,27 @@ export function QuickSellDialog({
       const isFullClose = parsedQty >= holding.net_quantity - 0.001;
 
       if (isFullClose && onSuccessClosedSummary) {
-        // Calculate buy price & date from trades
-        const symbolTrades = trades
-          .filter((tr) => tr.symbol.toUpperCase() === holding.symbol.toUpperCase() && tr.trade_type === "buy")
-          .sort((a, b) => new Date(a.trade_date).getTime() - new Date(b.trade_date).getTime());
-
-        const earliestBuyDate = symbolTrades[0]?.trade_date || new Date().toISOString();
         const sellDate = new Date().toISOString();
+        const symbolTrades = trades.filter(
+          (tr) => tr.symbol.toUpperCase() === holding.symbol.toUpperCase()
+        );
 
-        const diffMs = new Date(sellDate).getTime() - new Date(earliestBuyDate).getTime();
+        // The lots this sale actually consumes, oldest first. `trades` is the pre-sale ledger,
+        // so its open lots are exactly what was on hand a moment ago. Reading "the first buy of
+        // this symbol" instead dated the position back to an entry that had already been sold
+        // off — a stock bought and sold four times reported the holding period of the very
+        // first purchase.
+        const { openLots } = matchTradesFIFO(symbolTrades);
+        const consumed = consumeOpenLotsFIFO(openLots, parsedQty);
+
+        const buyDate = consumed.earliestBuyDate ?? sellDate;
+        const diffMs = new Date(sellDate).getTime() - new Date(buyDate).getTime();
         const holdDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
 
         const isARS = displayCurrency === "ARS" && mepRate && mepRate > 0;
-        const avgBuyPrice = isARS ? holding.avg_cost * mepRate : holding.avg_cost;
+        // Cost of exactly the shares being sold, not the whole position's running average.
+        const buyPriceUSD = consumed.quantity > 0 ? consumed.weightedBuyPrice : holding.avg_cost;
+        const avgBuyPrice = isARS ? buyPriceUSD * mepRate : buyPriceUSD;
 
         const returnPnl = (parsedPrice - avgBuyPrice) * parsedQty;
         const returnPct = avgBuyPrice > 0 ? ((parsedPrice - avgBuyPrice) / avgBuyPrice) * 100 : 0;
@@ -154,19 +182,32 @@ export function QuickSellDialog({
           : returnPct;
         const annualizedReturnPct = Math.min(Math.max(rawAnnualized, -99.9), 999.9);
 
-        // Check if top trade of the month
+        // Realised exits across the ledger, one entry per sale. `matchTradesFIFO` replays a
+        // single lot queue, so it must be fed one symbol at a time — handing it every trade
+        // let a sale of one ticker consume another ticker's buy lots. Its rows are also
+        // per-lot, so they are folded back into the sale that produced them.
+        const exits = summariseExitsFIFO(trades);
+
         const now = new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const monthSellTrades = trades.filter(
-          (t_) => t_.trade_type === "sell" && new Date(t_.trade_date).getTime() >= firstDayOfMonth
-        );
-        const maxMonthPnl = monthSellTrades.reduce((max, t_) => {
-          const pnl = (t_.price_per_unit - (holding.avg_cost || 0)) * t_.quantity;
-          return Math.max(max, pnl);
-        }, 0);
+        const maxMonthPnl = exits
+          .filter((e) => new Date(e.sellDate).getTime() >= firstDayOfMonth)
+          .reduce((max, e) => Math.max(max, e.pnl), 0);
 
-        const returnPnlUSD = ((isARS ? parsedPrice / mepRate : parsedPrice) - holding.avg_cost) * parsedQty;
+        const returnPnlUSD =
+          ((isARS ? parsedPrice / mepRate : parsedPrice) - buyPriceUSD) * parsedQty;
         const isTopTradeOfMonth = returnPnlUSD > 0 && returnPnlUSD >= maxMonthPnl;
+
+        // Consecutive profitable exits ending with this one. The count was hardcoded to 3, so
+        // closing a single trade in the green announced a "3x winning streak".
+        let winStreakCount = 0;
+        if (returnPnlUSD > 0) {
+          winStreakCount = 1;
+          for (let i = exits.length - 1; i >= 0; i--) {
+            if (exits[i].pnl <= 0) break;
+            winStreakCount += 1;
+          }
+        }
 
         onSuccessClosedSummary({
           symbol: holding.symbol,
@@ -178,11 +219,11 @@ export function QuickSellDialog({
           returnPnl,
           holdDays,
           annualizedReturnPct,
-          buyDate: earliestBuyDate,
+          buyDate,
           sellDate,
           isTopTradeOfMonth,
-          isWinStreak: returnPct > 0,
-          winStreakCount: returnPct > 0 ? 3 : 0,
+          isWinStreak: winStreakCount > 1,
+          winStreakCount,
         });
       }
     } catch (err: any) {
@@ -275,7 +316,9 @@ export function QuickSellDialog({
                 value={qtyStr}
                 onChange={(e) => {
                   setQtyStr(e.target.value);
-                  setSelectedPct(100);
+                  // Typing a quantity used to leave the 100% preset highlighted, so a partial
+                  // sale was still submitted as a full exit.
+                  setSelectedPct(null);
                 }}
                 placeholder="0.00"
               />
