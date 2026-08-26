@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, ReactNode, useCallback } from "react";
 import { en, TranslationKey } from "./en";
 import { es } from "./es";
 
@@ -19,25 +19,15 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("language");
-      if (stored === "en" || stored === "es") return stored;
-    }
-    return "es";
-  });
+  const language: Language = "es";
 
-  useEffect(() => {
-    localStorage.setItem("language", language);
-  }, [language]);
-
-  const setLanguage = useCallback((lang: Language) => {
-    setLanguageState(lang);
+  const setLanguage = useCallback((_lang: Language) => {
+    // Locked to Spanish
   }, []);
 
   const t = useCallback(
     (key: TranslationKey, vars?: Record<string, string | number>): string => {
-      let text = translations[language][key] || translations.en[key] || key;
+      let text = translations.es[key] || translations.en[key] || key;
       if (vars) {
         Object.entries(vars).forEach(([k, v]) => {
           text = text.replace(`{${k}}`, String(v));
@@ -45,7 +35,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       }
       return text;
     },
-    [language]
+    []
   );
 
   return (

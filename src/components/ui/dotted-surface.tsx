@@ -31,10 +31,16 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
     );
     camera.position.set(0, 355, 1220);
 
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+      });
+    } catch {
+      // WebGL unavailable in JSDOM/SSR environment
+      return;
+    }
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x111318, 0);

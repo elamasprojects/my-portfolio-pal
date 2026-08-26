@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useState, useEffect, useCallback } from "react";
+import { buildTradeRow, type TradeEntryInput } from "@/lib/tradeEntry";
+import { processSellExecution } from "@/lib/disciplineFriction";
 
 export interface Trade {
   id: string;
@@ -25,6 +27,18 @@ export interface Trade {
   commission_amount: number;
   mep_rate: number | null;
   journal_notes: Record<string, string> | null;
+  /**
+   * Pre-trade thesis (R4). `target_price_usd` and `invalidation_price_usd` are normalised to
+   * USD like `price_per_unit`, so a thesis level and a live quote are always comparable
+   * without a currency guess.
+   */
+  entry_thesis: string | null;
+  target_price_usd: number | null;
+  invalidation_condition: string | null;
+  invalidation_price_usd: number | null;
+  is_planned_exit: boolean | null;
+  unplanned_rationale: string | null;
+  split_factor: number;
 }
 
 export interface Portfolio {
@@ -575,6 +589,8 @@ export function useQuickSellTrade() {
       price,
       currency = "USD",
       mep_rate,
+      is_planned_exit = false,
+      unplanned_rationale = null,
       sellAll = false,
     }: {
       symbol: string;
@@ -585,6 +601,14 @@ export function useQuickSellTrade() {
       currency?: "USD" | "ARS";
       mep_rate?: number | null;
       /**
+       * True only when the exit was taken against a declared thesis level. The Game Review
+       * audit and the weekly brief both read this to tell a planned exit from an impulse, so
+       * it has to be recorded at the point of sale — it cannot be reconstructed afterwards.
+       */
+      is_planned_exit?: boolean;
+      /** Written justification, required by the friction rules for an unplanned exit. */
+      unplanned_rationale?: string | null;
+      /**
        * Closing the whole position. The quantity is then resolved from the ledger rather than
        * taken from `quantity`: the browser's running total is a float sum and lands a few
        * femto-shares off the exact figure the sell trigger validates against, which rejected
@@ -593,6 +617,19 @@ export function useQuickSellTrade() {
       sellAll?: boolean;
     }) => {
       if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      // Friction rules first: an exit that the rules reject should never reach the ledger.
+      const frictionCheck = processSellExecution({
+        isPlannedExit: is_planned_exit,
+        unplannedRationale: unplanned_rationale ?? undefined,
+        // The dialog is what runs the timer; this write path re-checks the written
+        // justification. Passing 60 against a `< 60` rule can never trip the elapsed-time
+        // branch, so state that plainly rather than implying an enforcement that is not here.
+        coolingOffDurationSeconds: 60,
+      });
+      if (!frictionCheck.success) {
+        throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
+      }
 
       let sellQuantity = quantity;
       if (sellAll) {
@@ -628,6 +665,8 @@ export function useQuickSellTrade() {
           mep_rate: isARS ? mep_rate : null,
           commission_pct: 0,
           commission_amount: 0,
+          is_planned_exit,
+          unplanned_rationale: is_planned_exit ? null : unplanned_rationale,
         } as any)
         .select()
         .single();
@@ -642,6 +681,69 @@ export function useQuickSellTrade() {
         });
       } catch {
         /* ignore if RPC fails */
+      }
+
+      return data as Trade;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio_positions"] });
+      queryClient.invalidateQueries({ queryKey: ["portfolios"] });
+    },
+  });
+}
+
+export type { TradeEntryInput as AddTradeInput } from "@/lib/tradeEntry";
+
+/**
+ * Records a buy, sell or dividend.
+ *
+ * This is the only write path for opening a position or booking a dividend: the PR that
+ * introduced the 3-view architecture deleted AddTrade/ImportTrades and left `useQuickSellTrade`
+ * as the sole insert, so the app could close positions but never open one.
+ */
+export function useAddTrade() {
+  const { user } = useAuth();
+  const { activeId } = useActivePortfolio();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: TradeEntryInput) => {
+      if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      // A sell booked from the capture dialog is an exit like any other: the friction rules
+      // apply to it too. This path used to bypass them entirely and never recorded whether the
+      // exit was planned, so those sells reached the Game Review ungraded.
+      if (input.tradeType === "sell") {
+        const frictionCheck = processSellExecution({
+          isPlannedExit: input.isPlannedExit ?? false,
+          unplannedRationale: input.unplannedRationale ?? undefined,
+          coolingOffDurationSeconds: 60,
+        });
+        if (!frictionCheck.success) {
+          throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
+        }
+      }
+
+      const row = buildTradeRow(input, { userId: user.id, portfolioId: activeId });
+
+      const { data, error } = await supabase
+        .from("trades")
+        .insert(row as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Keep the cached `portfolio_positions` row in step with the ledger.
+      try {
+        await supabase.rpc("rebuild_position" as any, {
+          _user_id: user.id,
+          _portfolio_id: activeId,
+          _symbol: row.symbol,
+        });
+      } catch {
+        /* position cache rebuild is best-effort */
       }
 
       return data as Trade;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildPersonalSankeyData, computeUnifiedNetWorth } from "@/lib/financialMath";
-import { Transaction, Category, PaymentMethod } from "@/types/finance";
+import { Transaction, Category, PaymentMethod, FinancialAccount } from "@/types/finance";
 import { Holding, PortfolioPerformance } from "@/hooks/usePortfolio";
 
 describe("financialMath engine", () => {
@@ -154,14 +154,14 @@ describe("financialMath engine", () => {
     ];
 
     const mockPerformance: PortfolioPerformance = {
-      total_invested: 9000,
       total_cost_basis: 9000,
       total_realized_pnl: 1500,
       total_dividends: 120,
       total_return: 1620,
-      total_trades: 5,
-      winning_trades: 4,
+      total_sells: 5,
+      winning_sells: 4,
       win_rate: 80,
+      by_symbol: [],
     };
 
     const mockPrices = new Map<string, number>([["AAPL", 200]]);

@@ -3,6 +3,7 @@ import { useFinancialAccounts, usePaymentMethods, useTransactions, useCategories
 import { useTrades, useActivePortfolio, computeHoldings, computePerformance } from "@/hooks/usePortfolio";
 import { computeUnifiedNetWorth, buildPersonalSankeyData } from "@/lib/financialMath";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
+import { useDolarMEP } from "@/hooks/useDolarMEP";
 
 export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date }) {
   const { accounts: financialAccounts, isLoading: accLoading } = useFinancialAccounts();
@@ -17,6 +18,7 @@ export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date })
 
   const symbols = useMemo(() => holdings.map((h) => h.symbol), [holdings]);
   const { prices, previousCloses, isLoading: pricesLoading } = useMarketPrices(symbols);
+  const { venta: arsPerUsd = 0 } = useDolarMEP();
 
   const netWorthMetrics = useMemo(() => {
     return computeUnifiedNetWorth(
@@ -24,9 +26,11 @@ export function useUnifiedFinancials(filterRange?: { start?: Date; end?: Date })
       transactions,
       holdings,
       portfolioPerformance,
-      prices
+      prices,
+      trades,
+      arsPerUsd
     );
-  }, [financialAccounts, transactions, holdings, portfolioPerformance, prices]);
+  }, [financialAccounts, transactions, holdings, portfolioPerformance, prices, trades, arsPerUsd]);
 
   const sankeyData = useMemo(() => {
     return buildPersonalSankeyData(transactions, categories, filterRange);
