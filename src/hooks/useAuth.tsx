@@ -21,23 +21,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // onAuthStateChange is the single source of truth for the session. It also
+    // fires on SIGNED_OUT, so signing out must actually clear the session here.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setLoading(false);
+      (_event, currentSession) => {
+        if (isMounted) {
+          setSession(currentSession);
+          setLoading(false);
+        }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: currentSession } }) => {
+        if (isMounted) {
+          setSession(currentSession);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSession(null);
+          setLoading(false);
+        }
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
   };
 
   return (

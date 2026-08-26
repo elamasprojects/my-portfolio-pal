@@ -12,14 +12,15 @@ import {
   Upload,
   Send,
   Loader2,
-  Sparkles,
   ClipboardPaste,
   Image as ImageIcon,
   Trash2,
   Plus,
+  Keyboard,
 } from "lucide-react";
 import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
 import { toast } from "sonner";
@@ -41,12 +42,27 @@ export function OmnibarFinance({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(initialFile || null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // The typing field is opt-in: tapping the keyboard button reveals it. Kept collapsed by
+  // default so the sheet opens on the capture zone instead of on a keyboard.
+  const [showTextInput, setShowTextInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync initial props when opened
   useEffect(() => {
+    if (!open) {
+      // This component never unmounts, so without this the field stays revealed and the next
+      // open remounts it with autoFocus — the keyboard-over-the-capture-zone problem again.
+      // The text has to go with it: collapsing alone left the previous draft alive but
+      // invisible, and the next submit sent it along with whatever was captured this time.
+      setShowTextInput(false);
+      setInputVal("");
+      return;
+    }
     if (open) {
-      if (initialText) setInputVal(initialText);
+      if (initialText) {
+        setInputVal(initialText);
+        setShowTextInput(true);
+      }
       if (initialFile) {
         setSelectedFile(initialFile);
         setPreviewUrl(URL.createObjectURL(initialFile));
@@ -88,7 +104,9 @@ export function OmnibarFinance({
   const { categories } = useCategories();
   const { paymentMethods } = usePaymentMethods();
   const { addTransaction } = useTransactions();
-  const { mepRate } = useDolarMEP();
+  // useDolarMEP exposes the rate as `venta`; destructuring `mepRate` yielded undefined, so
+  // an ARS amount skipped conversion and was stored as if it were dollars.
+  const { venta: mepRate = 0 } = useDolarMEP();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,6 +131,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard?.readText?.();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.info("Usa Ctrl+V para pegar directamente tu captura");
@@ -141,6 +160,7 @@ export function OmnibarFinance({
         const text = await navigator.clipboard.readText();
         if (text?.trim()) {
           setInputVal((prev) => `${prev} ${text}`.trim());
+          setShowTextInput(true);
           toast.success("Texto pegado desde el portapapeles");
         } else {
           toast.error("No se encontró ninguna imagen en el portapapeles. Copia una captura primero.");
@@ -196,15 +216,25 @@ export function OmnibarFinance({
         const numMatch = inputVal.match(/(\d+[\d\s.,]*)/);
         const rawAmount = numMatch ? parseFloat(numMatch[1].replace(/\s/g, "").replace(",", ".")) : 0;
         const isARS = !inputVal.toLowerCase().includes("usd") && rawAmount > 500;
-        const amountUSD = isARS && mepRate && mepRate > 0 ? rawAmount / mepRate : rawAmount;
+        const converted = resolveTransactionAmountUSD({
+          amount: rawAmount,
+          currency: isARS ? "ARS" : "USD",
+          arsPerUsd: mepRate,
+        });
 
-        if (rawAmount > 0) {
+        if (rawAmount > 0 && converted.status !== "ok") {
+          toast.error(converted.reason);
+          return;
+        }
+
+        if (rawAmount > 0 && converted.status === "ok") {
           await addTransaction.mutateAsync({
             name: inputVal.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto",
-            amount_usd: amountUSD,
+            amount_usd: converted.amountUSD,
             original_amount: rawAmount,
             original_currency: isARS ? "ARS" : "USD",
-            fx_rate: isARS ? mepRate : 1,
+            fx_rate: converted.fxRate,
+            fx_source: converted.fxSource,
             account_id: defaultAcc || null,
             payment_method_id: defaultPm || null,
             category_id: defaultCat || null,
@@ -222,7 +252,11 @@ export function OmnibarFinance({
         }
       }
 
-      // 2. Persist all extracted transactions
+      // 2. Persist all extracted transactions.
+      // Anything we cannot convert is collected and surfaced instead of being written at face
+      // value — a peso amount landing in a dollar column is invisible once it is stored.
+      const skipped: string[] = [];
+
       for (const item of extractedList) {
         // Match category
         let matchedCat = categories.find(
@@ -253,35 +287,61 @@ export function OmnibarFinance({
         if (!matchedAccount && matchedPm?.account_id) {
           matchedAccount = accounts.find((a) => a.id === matchedPm!.account_id);
         }
+
+        // Falling back to the first account is a guess, and the balance trigger acts on it: an
+        // Edesur bill paid from Mercado Pago was debited from the ARQ broker account without a
+        // word. The guess still happens — leaving the account empty would strand the row — but
+        // it is flagged for review instead of passing as a matched account.
+        const accountWasGuessed = !matchedAccount;
         if (!matchedAccount) {
           matchedAccount = accounts[0];
         }
 
-        const isARS = item.currency === "ARS";
-        const rate = isARS && mepRate && mepRate > 0 ? mepRate : 1;
-        const finalAmountUSD =
-          item.amount_usd || (isARS ? item.amount / rate : item.amount);
+        // The rate we actually hold decides the amount. `item.amount_usd` is the extractor's
+        // own estimate and used to take precedence over this conversion.
+        const converted = resolveTransactionAmountUSD({
+          amount: item.amount,
+          currency: item.currency,
+          arsPerUsd: mepRate,
+        });
+
+        if (converted.status !== "ok") {
+          skipped.push(`${item.name || "Gasto"}: ${converted.reason}`);
+          continue;
+        }
 
         await addTransaction.mutateAsync({
           name: item.name || "Gasto",
           raw_merchant: item.raw_merchant || item.name,
-          amount_usd: Number(finalAmountUSD.toFixed(2)),
+          amount_usd: converted.amountUSD,
           type: item.type || "expense",
           transaction_date: item.transaction_date || new Date().toISOString().split("T")[0],
           original_amount: item.amount,
-          original_currency: item.currency || "USD",
-          fx_rate: rate,
-          fx_source: isARS ? "dolarapi_mep" : "native_usd",
+          original_currency: (item.currency || "USD").toUpperCase(),
+          fx_rate: converted.fxRate,
+          fx_source: converted.fxSource,
           category_id: matchedCat?.id || null,
           account_id: matchedAccount?.id || null,
           payment_method_id: matchedPm?.id || paymentMethods[0]?.id || null,
           confidence: item.confidence || "high",
-          needs_review: item.needs_review || !matchedCat,
+          needs_review: item.needs_review || !matchedCat || accountWasGuessed,
           source: selectedFile ? "screenshot" : "text",
           notes: item.suggested_new_category
             ? `Sugerencia: Crear categoría '${item.suggested_new_category}'`
             : undefined,
         });
+      }
+
+      if (skipped.length > 0) {
+        toast.error(
+          skipped.length === 1
+            ? `No se registró ${skipped[0]}`
+            : `No se registraron ${skipped.length} movimientos: ${skipped.join(" · ")}`,
+          { duration: 8000 }
+        );
+        // Keep the input and the receipt on screen so the capture can be retried once a rate
+        // is available, rather than silently losing it.
+        return;
       }
 
       setInputVal("");
@@ -296,14 +356,11 @@ export function OmnibarFinance({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl sm:rounded-2xl bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between font-serif text-lg text-primary">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              <span>Ingesta Rápida de Finanzas</span>
-            </div>
-            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
+          <DialogTitle className="flex items-center justify-between gap-2 font-serif text-lg text-primary">
+            <span className="min-w-0 truncate">Ingesta Rápida de Finanzas</span>
+            <span className="hidden sm:inline-block shrink-0 text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded border">
               ⌘K / Ctrl+K
             </span>
           </DialogTitle>
@@ -313,25 +370,11 @@ export function OmnibarFinance({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Text input with audio recorder */}
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="Ej: 'Coto 45000', 'Uber 12 usd DolarApp'..."
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  parseAndSubmit();
-                }
-              }}
-              disabled={isLoading}
-              className="flex-1 font-mono text-sm"
-              autoFocus
-            />
-            <AudioQuickRecorder onRecordedText={(txt) => setInputVal((prev) => `${prev} ${txt}`.trim())} />
-          </div>
-
+          {/*
+            Upload first, typing second. Opening this sheet used to focus the text field and
+            autoFocus popped the on-screen keyboard immediately, burying the capture zone —
+            and a receipt screenshot is the faster path for almost every entry.
+          */}
           {/* Screenshot Drop / Upload / Paste Zone */}
           {previewUrl ? (
             <div className="relative rounded-2xl border bg-muted/40 p-3 text-center space-y-2">
@@ -388,6 +431,53 @@ export function OmnibarFinance({
             </div>
           )}
 
+          {/* Two ways in besides the receipt, as equal-weight round buttons: type, or dictate. */}
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant={showTextInput ? "default" : "outline"}
+              size="icon"
+              onClick={() =>
+                setShowTextInput((v) => {
+                  // Collapsing discards what was typed. Keeping it hidden but live meant the
+                  // sheet submitted text the user believed they had dismissed.
+                  if (v) setInputVal("");
+                  return !v;
+                })
+              }
+              aria-expanded={showTextInput}
+              aria-controls="omnibar-text-input"
+              aria-label={showTextInput ? "Ocultar el campo de texto" : "Escribir el movimiento"}
+              title={showTextInput ? "Ocultar el campo de texto" : "Escribir el movimiento"}
+              className="h-10 w-10 shrink-0 rounded-full"
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
+            <AudioQuickRecorder onRecordedText={(txt) => {
+              setShowTextInput(true);
+              setInputVal((prev) => `${prev} ${txt}`.trim());
+            }} />
+          </div>
+
+          {showTextInput && (
+            <Input
+              id="omnibar-text-input"
+              placeholder="Ej: 'Coto 45000', 'Uber 12 usd DolarApp'..."
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  parseAndSubmit();
+                }
+              }}
+              disabled={isLoading}
+              // Focusing here is deliberate: the keyboard appears because the user asked for it.
+              autoFocus
+              className="w-full font-mono text-sm"
+            />
+          )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -395,35 +485,6 @@ export function OmnibarFinance({
             className="hidden"
             onChange={handleFileChange}
           />
-
-          {/* Quick Preset Buttons */}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <span className="text-[11px] text-muted-foreground mr-1 self-center">Presets:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Supermercado 35000")}
-            >
-              🛒 Super 35k
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Cena 25 usd DolarApp")}
-            >
-              🍔 Cena $25
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs rounded-full px-2.5 font-mono"
-              onClick={() => setInputVal("Uber 8500")}
-            >
-              🚗 Uber $8.5k
-            </Button>
-          </div>
 
           {/* Submit Action */}
           <Button
@@ -448,3 +509,36 @@ export function OmnibarFinance({
     </Dialog>
   );
 }
+
+/**
+ * Natural Language Parser for Omnibar Finance Input (R1)
+ */
+export function parseOmnibarInput(input: string): { amountARS: number; category: string; cleanText: string } {
+  // Strip emojis and unescaped quotes
+  const cleanText = input.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}'"]/gu, '').trim();
+
+  // Extract monetary amount: matches $15.500,50 or $15500.50 or 4500
+  const match = cleanText.match(/\$?\s*([\d\.,]+)/);
+  let amountARS = 0;
+  if (match) {
+    let rawNum = match[1];
+    if (rawNum.includes('.') && rawNum.includes(',')) {
+      // Argentine format 15.500,50 -> 15500.50
+      rawNum = rawNum.replace(/\./g, '').replace(',', '.');
+    } else if (rawNum.includes(',') && !rawNum.includes('.')) {
+      rawNum = rawNum.replace(',', '.');
+    }
+    amountARS = parseFloat(rawNum) || 0;
+  }
+
+  let category = 'Otros';
+  const lower = cleanText.toLowerCase();
+  if (lower.includes('supermercado') || lower.includes('coto') || lower.includes('comida') || lower.includes('almuerzo')) {
+    category = 'Comida';
+  } else if (lower.includes('paypal') || lower.includes('servicio')) {
+    category = 'Servicios';
+  }
+
+  return { amountARS, category, cleanText };
+}
+

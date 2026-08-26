@@ -96,7 +96,18 @@ export function useMercurySync() {
         let detail = error.message || "Error de la edge function";
         try {
           const body = await (error as { context?: Response }).context?.json();
-          if (body?.error) detail = body.error;
+          if (body?.error) {
+            detail = body.error;
+          } else if (Array.isArray(body?.results)) {
+            // Cuando fallan *todos* los vinculos la funcion responde 502, pero la
+            // causa no viaja en `error` de nivel raiz: cada vinculo trae la suya en
+            // `results[].error`. Sin leerlas, el 502 llegaba como el generico
+            // "Edge Function returned a non-2xx status code".
+            const reasons = (body.results as MercuryLinkResult[])
+              .filter((r) => r.error)
+              .map((r) => `${r.link}: ${r.error}`);
+            if (reasons.length > 0) detail = reasons.join(" · ");
+          }
         } catch {
           // el cuerpo no era JSON: nos quedamos con el mensaje original
         }
@@ -124,6 +135,21 @@ export function useMercurySync() {
       }
       if (res.totalNeedsReview > 0) parts.push(`${res.totalNeedsReview} a revisar`);
       if (res.totalReverted > 0) parts.push(`${res.totalReverted} revertido(s)`);
+
+      // Si un vinculo falla y otro anda, la funcion responde 200 y este `onSuccess`
+      // corre igual. Mirando solo los totales, una tarjeta caida se anunciaba como
+      // "nada nuevo para importar": el usuario leia que estaba al dia justo cuando
+      // le faltaban movimientos.
+      const failedLinks = (res?.results ?? []).filter((r) => r.error);
+      if (failedLinks.length > 0) {
+        const detail = failedLinks.map((r) => `${r.link}: ${r.error}`).join(" · ");
+        toast.error(
+          parts.length > 0
+            ? `Mercury (parcial): ${parts.join(" · ")}. Fallo ${detail}`
+            : `Mercury: fallo la sincronizacion. ${detail}`
+        );
+        return;
+      }
 
       if (parts.length === 0) {
         toast.info("Mercury: nada nuevo para importar");
