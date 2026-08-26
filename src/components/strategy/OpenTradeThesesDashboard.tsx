@@ -256,8 +256,13 @@ export function OpenTradeThesesDashboard() {
         isPlannedExit={sellIsPlanned}
       />
 
-      {/* PRE-TRADE THESIS MODAL FOR EDITING */}
+      {/*
+        Keyed by the trade being edited: the modal keeps its field state internally, so a single
+        un-keyed instance carried the previous row's thesis text into the next one — and that
+        text could then be saved onto a different holding.
+      */}
       <PreTradeThesisModal
+        key={targetTradeIdForThesis ?? "none"}
         open={editThesisOpen}
         onOpenChange={setEditThesisOpen}
         onSubmit={handleSaveThesis}

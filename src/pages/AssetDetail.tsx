@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTrades, computeHoldings, computePerformance, Trade } from "@/hooks/usePortfolio";
-import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { PriceChart } from "@/components/PriceChart";
 import { EditTradeDialog } from "@/components/EditTradeDialog";
@@ -39,20 +38,32 @@ export default function AssetDetail() {
   // Asset full name
   const assetName = assetTrades[0]?.asset_name || symbol;
 
-  // Live price lookup
+  // Live price lookup. Every price on this page is USD, so a quote that arrives in another
+  // currency is converted here — a BYMA listing quotes in pesos, and taking that number at face
+  // value put a position's valuation and P&L out by roughly the exchange rate.
   useEffect(() => {
     if (!symbol) return;
     setPriceLoading(true);
     supabase.functions
       .invoke("fetch-quote", { body: { symbol: symbol.toUpperCase() } })
       .then(({ data }) => {
-        if (data?.price && data.price > 0) {
-          setCurrentPrice(data.price);
+        const price = Number(data?.price);
+        if (!Number.isFinite(price) || price <= 0) return;
+
+        const quoteCurrency = String(data?.currency || "USD").toUpperCase();
+        if (quoteCurrency === "ARS") {
+          // Without a rate there is no honest USD figure; fall back to cost basis instead.
+          if (!(mepRate > 0)) return;
+          setCurrentPrice(price / mepRate);
+          return;
         }
+        if (quoteCurrency !== "USD") return;
+
+        setCurrentPrice(price);
       })
       .catch((err) => console.warn("Failed to fetch quote:", err))
       .finally(() => setPriceLoading(false));
-  }, [symbol]);
+  }, [symbol, mepRate]);
 
   const effectivePrice = currentPrice || holding?.avg_cost || 0;
   const effectiveCcl = mepRate > 0 ? mepRate : 1200;

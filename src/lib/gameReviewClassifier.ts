@@ -50,8 +50,12 @@ export function classifyTradeOutcome(
     return 'Blunder';
   }
 
-  // B2: Panic sell at a loss where holding would have yielded a profit or superior result
+  // B2: Panic sell at a loss where holding would have yielded a profit or superior result.
+  // Only an *unplanned* exit qualifies. A stop-loss taken at the level the user declared before
+  // entering is the discipline this app exists to reward; grading it a Blunder because the stock
+  // later recovered punishes following the plan and is exactly backwards.
   if (
+    !isPlannedExit &&
     actualReturnPct < 0 &&
     actualTotalReturnARS < doNothingReturnARS &&
     (trade.holdingPriceAtSellDateARS !== undefined || doNothingReturnARS > 0)

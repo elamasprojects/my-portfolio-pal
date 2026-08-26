@@ -159,7 +159,10 @@ export function summariseExitsFIFO(trades: Trade[]): ExitSummary[] {
   const exits = new Map<string, ExitSummary>();
   for (const [symbol, symbolTrades] of bySymbol) {
     for (const lot of matchTradesFIFO(symbolTrades).closedTrades) {
-      const key = `${symbol}|${lot.sellDate}`;
+      // Keyed on the sell that consumed the lot, not its date. Two sells of one symbol on the
+      // same day merged into a single exit, which skewed "top trade of the month" and the win
+      // streak — the same mistake `ClosedTrade.sellTradeId` exists to prevent.
+      const key = `${symbol}|${lot.sellTradeId}`;
       const existing = exits.get(key);
       if (existing) {
         existing.quantity += lot.quantity;

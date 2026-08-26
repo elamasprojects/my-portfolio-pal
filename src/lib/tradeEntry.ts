@@ -30,6 +30,13 @@ export interface TradeEntryInput {
   invalidationCondition?: string | null;
   /** Optional numeric stop level, entered in the same currency as `price`. */
   invalidationPrice?: number | null;
+  /**
+   * Friction inversion (R4), for sells. True only when the exit was taken against a declared
+   * thesis level. Recorded at the point of sale because it cannot be reconstructed later.
+   */
+  isPlannedExit?: boolean;
+  /** Written justification, required by the friction rules for an unplanned exit. */
+  unplannedRationale?: string | null;
 }
 
 export interface TradeEntryContext {
@@ -102,5 +109,10 @@ export function buildTradeRow(input: TradeEntryInput, ctx: TradeEntryContext) {
     target_price_usd: toUSD(input.targetPrice),
     invalidation_condition: input.invalidationCondition || null,
     invalidation_price_usd: toUSD(input.invalidationPrice),
+    is_planned_exit: input.tradeType === "sell" ? Boolean(input.isPlannedExit) : false,
+    unplanned_rationale:
+      input.tradeType === "sell" && !input.isPlannedExit
+        ? input.unplannedRationale || null
+        : null,
   };
 }

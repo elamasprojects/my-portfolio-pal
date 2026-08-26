@@ -47,9 +47,11 @@ export function adjustTradeForSplit<T extends ClosedTradeAuditInput>(
   const adjInvalidationPrice = trade.invalidationPriceARS
     ? trade.invalidationPriceARS / splitFactor
     : undefined;
-  const adjHoldingPrice = trade.holdingPriceAtSellDateARS
-    ? trade.holdingPriceAtSellDateARS / splitFactor
-    : undefined;
+  // Left alone on purpose. A split is recorded because it happened between the buy and the
+  // exit, so the "what if I had held" price is quoted post-split already — dividing it again
+  // marked the position down by the split factor and corrupted the do-nothing counterfactual.
+  // `sellPriceARS` is post-split for the same reason and is likewise untouched.
+  const adjHoldingPrice = trade.holdingPriceAtSellDateARS;
 
   return {
     ...trade,

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useTransactions, useCategories, useFinancialAccounts, usePaymentMethods } from "@/hooks/useFinance";
 import { useTrades } from "@/hooks/usePortfolio";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
+import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeToUnifiedEvents, UnifiedEventItem, UnifiedEventType } from "@/lib/unifiedEvents";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
@@ -148,21 +149,35 @@ export function MovimientosView() {
 
       const extracted = data?.transactions?.[0];
       if (extracted) {
+        // The extractor emits `amount` + `currency`; `original_amount`, `fx_rate` and
+        // `category_id` are fields it never returns, so they arrived undefined. The USD figure
+        // comes from the rate we hold, never from the model's own `amount_usd` estimate.
+        const converted = resolveTransactionAmountUSD({
+          amount: extracted.amount,
+          currency: extracted.currency,
+          arsPerUsd: mepRate,
+        });
+
+        if (converted.status !== "ok") {
+          toast.error(converted.reason, { id: toastId });
+          return;
+        }
+
         await addTransaction.mutateAsync({
           name: extracted.name || "Comprobante Extraído",
-          amount_usd: extracted.amount_usd,
-          original_amount: extracted.original_amount,
-          original_currency: extracted.original_currency || "ARS",
-          fx_rate: extracted.fx_rate,
-          category_id: extracted.category_id,
-          payment_method_id: extracted.payment_method_id,
+          amount_usd: converted.amountUSD,
+          original_amount: extracted.amount,
+          original_currency: (extracted.currency || "USD").toUpperCase(),
+          fx_rate: converted.fxRate,
+          fx_source: converted.fxSource,
+          type: extracted.type || "expense",
           transaction_date: extracted.transaction_date || new Date().toISOString().split("T")[0],
           confidence: extracted.confidence || "high",
           needs_review: true,
           source: "screenshot",
         });
 
-        toast.success(`✓ Movimiento registrado: ${extracted.name} ($${extracted.original_amount || extracted.amount_usd})`, {
+        toast.success(`✓ Movimiento registrado: ${extracted.name} (${extracted.amount})`, {
           id: toastId,
         });
       } else {
@@ -226,16 +241,28 @@ export function MovimientosView() {
 
       if (!error && data?.transactions?.length > 0) {
         const extracted = data.transactions[0];
+        const converted = resolveTransactionAmountUSD({
+          amount: extracted.amount,
+          currency: extracted.currency,
+          arsPerUsd: mepRate,
+        });
+
+        if (converted.status !== "ok") {
+          toast.error(converted.reason);
+          return;
+        }
+
         await addTransaction.mutateAsync({
           name: extracted.name || textToSubmit,
-          amount_usd: extracted.amount_usd,
-          original_amount: extracted.original_amount,
-          original_currency: extracted.original_currency || "ARS",
-          fx_rate: extracted.fx_rate,
-          category_id: extracted.category_id,
-          payment_method_id: extracted.payment_method_id,
+          amount_usd: converted.amountUSD,
+          original_amount: extracted.amount,
+          original_currency: (extracted.currency || "USD").toUpperCase(),
+          fx_rate: converted.fxRate,
+          fx_source: converted.fxSource,
+          type: extracted.type || "expense",
           confidence: extracted.confidence || "high",
-          needs_review: false,
+          // No category is resolved on this path, so the row is not settled.
+          needs_review: true,
           source: "text",
         });
         toast.success(`✓ Movimiento registrado: ${extracted.name}`);
@@ -247,16 +274,27 @@ export function MovimientosView() {
       const numMatch = textToSubmit.match(/(\d+[\d\s.,]*)/);
       const rawAmount = numMatch ? parseFloat(numMatch[1].replace(/\s/g, "").replace(",", ".")) : 0;
       const isARS = !textToSubmit.toLowerCase().includes("usd") && rawAmount > 500;
-      const effectiveRate = mepRate && mepRate > 0 ? mepRate : 1200;
-      const amountUSD = isARS ? rawAmount / effectiveRate : rawAmount;
+      // A hardcoded 1200 used to stand in when the live rate was missing, and it was written to
+      // `fx_rate` as though it were a real quote.
+      const converted = resolveTransactionAmountUSD({
+        amount: rawAmount,
+        currency: isARS ? "ARS" : "USD",
+        arsPerUsd: mepRate,
+      });
 
-      if (rawAmount > 0) {
+      if (rawAmount > 0 && converted.status !== "ok") {
+        toast.error(converted.reason);
+        return;
+      }
+
+      if (rawAmount > 0 && converted.status === "ok") {
         await addTransaction.mutateAsync({
           name: textToSubmit.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto Rápido",
-          amount_usd: amountUSD,
+          amount_usd: converted.amountUSD,
           original_amount: rawAmount,
           original_currency: isARS ? "ARS" : "USD",
-          fx_rate: isARS ? effectiveRate : 1,
+          fx_rate: converted.fxRate,
+          fx_source: converted.fxSource,
           confidence: "medium",
           needs_review: true,
           source: "text",

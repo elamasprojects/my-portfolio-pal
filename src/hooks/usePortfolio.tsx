@@ -622,9 +622,10 @@ export function useQuickSellTrade() {
       const frictionCheck = processSellExecution({
         isPlannedExit: is_planned_exit,
         unplannedRationale: unplanned_rationale ?? undefined,
-        // The dialog only calls through once its timer has elapsed; this re-checks the rule at
-        // the write path so no other caller can skip the cooling-off period.
-        coolingOffDurationSeconds: is_planned_exit ? 0 : 60,
+        // The dialog is what runs the timer; this write path re-checks the written
+        // justification. Passing 60 against a `< 60` rule can never trip the elapsed-time
+        // branch, so state that plainly rather than implying an enforcement that is not here.
+        coolingOffDurationSeconds: 60,
       });
       if (!frictionCheck.success) {
         throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
@@ -709,6 +710,20 @@ export function useAddTrade() {
   return useMutation({
     mutationFn: async (input: TradeEntryInput) => {
       if (!user || !activeId) throw new Error("User or active portfolio missing");
+
+      // A sell booked from the capture dialog is an exit like any other: the friction rules
+      // apply to it too. This path used to bypass them entirely and never recorded whether the
+      // exit was planned, so those sells reached the Game Review ungraded.
+      if (input.tradeType === "sell") {
+        const frictionCheck = processSellExecution({
+          isPlannedExit: input.isPlannedExit ?? false,
+          unplannedRationale: input.unplannedRationale ?? undefined,
+          coolingOffDurationSeconds: 60,
+        });
+        if (!frictionCheck.success) {
+          throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
+        }
+      }
 
       const row = buildTradeRow(input, { userId: user.id, portfolioId: activeId });
 

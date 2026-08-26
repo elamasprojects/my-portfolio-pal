@@ -191,11 +191,14 @@ export function PatrimonioView() {
 
       holdingDetails.sort((a, b) => b.marketValUSD - a.marketValUSD);
 
-      let matchedCashUSD = 0;
+      // Broker cash comes from the accounts the user maintains, or it is zero. The fallbacks
+      // here were one person's literal balances (21717 / 760 / 1580294) hardcoded into the
+      // component: with no matching account they invented cash and contradicted the hero total.
       const bLower = brokerName.toLowerCase();
-      if (bLower.includes("arq")) matchedCashUSD = brokerCashMap.get("arq") || 21717;
-      else if (bLower.includes("ibkr") || bLower.includes("interactive")) matchedCashUSD = brokerCashMap.get("ibkr") || 760;
-      else if (bLower.includes("ieb")) matchedCashUSD = brokerCashMap.get("ieb") || (1580294 / effectiveCclRate);
+      let matchedCashUSD = 0;
+      if (bLower.includes("arq")) matchedCashUSD = brokerCashMap.get("arq") ?? 0;
+      else if (bLower.includes("ibkr") || bLower.includes("interactive")) matchedCashUSD = brokerCashMap.get("ibkr") ?? 0;
+      else if (bLower.includes("ieb")) matchedCashUSD = brokerCashMap.get("ieb") ?? 0;
 
       result.push({
         brokerId: bId,

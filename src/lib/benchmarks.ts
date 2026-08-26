@@ -39,10 +39,18 @@ async function fetchSpyCandles(): Promise<Candle[]> {
 
 function getSpyCandles(): Promise<Candle[]> {
   if (!spyCandlesPromise) {
-    spyCandlesPromise = fetchSpyCandles().catch(() => {
-      spyCandlesPromise = null;
-      return [];
-    });
+    // An empty result is a failure, not an answer. Memoising it pinned the whole session to a
+    // missing SPY series, and with no benchmark to beat no trade could ever be graded
+    // Brillante. Clear the cache so the next caller retries.
+    spyCandlesPromise = fetchSpyCandles()
+      .then((candles) => {
+        if (candles.length === 0) spyCandlesPromise = null;
+        return candles;
+      })
+      .catch(() => {
+        spyCandlesPromise = null;
+        return [];
+      });
   }
   return spyCandlesPromise;
 }
