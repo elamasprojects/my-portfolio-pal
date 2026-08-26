@@ -512,7 +512,11 @@ export function GameReviewDashboard() {
 
           {/* Sort Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 mt-3">
-            <div className="flex items-center gap-1.5">
+            {/* Wraps on its own: as one non-wrapping row the label plus three sort buttons are
+                wider than a phone, and since a flex item is not allowed to shrink below its
+                content this pushed the whole document ~85px wide. That horizontal overflow is
+                what made the fixed bottom nav sit off-centre and clip on this page only. */}
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mr-1">
                 <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
                 Ordenar por:

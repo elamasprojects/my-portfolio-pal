@@ -129,6 +129,17 @@
     @apply border-border;
   }
 
+  /*
+   * A page that overflows horizontally widens the layout viewport, and the fixed bottom nav is
+   * sized against that viewport — so one wide element anywhere makes the nav sit off-centre and
+   * clip on that page. This is the backstop; the overflow itself is still worth fixing where it
+   * appears, since content pushed past the edge is unreachable either way.
+   */
+  html,
+  body {
+    @apply overflow-x-hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
