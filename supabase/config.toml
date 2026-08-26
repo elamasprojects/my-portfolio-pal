@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.extract-finance-input]
 verify_jwt = false
+
+# Importa los gastos de UNA tarjeta de Mercury a `transactions`.
+# Hace su propia auth (JWT del dueno, o x-cron-secret para la corrida diaria),
+# por eso verify_jwt = false: el cron no manda JWT.
+[functions.mercury-personal-import]
+verify_jwt = false

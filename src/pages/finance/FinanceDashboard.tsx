@@ -19,6 +19,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { MercurySyncButton } from "@/components/finance/MercurySyncButton";
 
 export default function FinanceDashboard() {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
@@ -76,6 +77,9 @@ export default function FinanceDashboard() {
               </Button>
             </NavLink>
           )}
+
+          {/* Se auto-oculta si no hay ninguna tarjeta de Mercury vinculada. */}
+          <MercurySyncButton />
 
           <Button
             onClick={() => setOmnibarOpen(true)}

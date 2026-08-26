@@ -8,7 +8,9 @@ export type IngestionSource =
   | "share_target"
   | "voice"
   | "manual"
-  | "migrated";
+  | "migrated"
+  // Importada automaticamente desde una tarjeta de Mercury vinculada.
+  | "mercury";
 
 export type AccountType = "bank" | "digital_wallet" | "crypto" | "broker_cash" | "cash_wallet";
 export type InstrumentType = "card_debit" | "card_credit" | "pix" | "qr" | "cash" | "transfer";
@@ -90,6 +92,15 @@ export interface Transaction {
 
   // Ingestion & Confidence
   source: IngestionSource;
+  /**
+   * Origen externo cuando la fila la creo un import automatico, y su ID en ese
+   * sistema. El par (user_id, external_source, external_id) tiene un indice
+   * unico: es lo que impide que reimportar duplique el gasto -- y, como hay
+   * triggers de saldo por fila, que descuadre el saldo de la cuenta.
+   * NULL en toda transaccion cargada a mano.
+   */
+  external_source?: string | null;
+  external_id?: string | null;
   receipt_url?: string | null;
   notes?: string | null;
   confidence: ConfidenceLevel;
