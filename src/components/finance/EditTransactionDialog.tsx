@@ -21,6 +21,7 @@ import {
 import { useTransactions, useCategories, usePaymentMethods } from "@/hooks/useFinance";
 import { Transaction } from "@/types/finance";
 import { Landmark, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 /** Sentinela para "sin categoría": Radix Select no acepta un value vacío. */
 const NONE = "__none__";
@@ -82,22 +83,48 @@ export function EditTransactionDialog({
 
   const handleSave = async () => {
     if (!canSave) return;
-    await updateTransaction.mutateAsync({
-      id: transaction.id,
-      updates: {
-        name: name.trim(),
-        amount_usd: parsedAmount,
-        transaction_date: date,
-        category_id: categoryId === NONE ? null : categoryId,
-        payment_method_id: paymentMethodId === NONE ? null : paymentMethodId,
-        notes: notes.trim() || null,
-        // Tocarla a mano es exactamente la señal de que ya no hay nada que
-        // revisar: el usuario acaba de decidir.
-        needs_review: false,
-        confidence: "high",
-      },
-    });
-    onOpenChange(false);
+
+    // El rastro FX es un triple que tiene que cerrar: original_amount / fx_rate
+    // = amount_usd. Si se cambia solo el monto en dólares, la fila queda diciendo
+    // "ARS 45.000" al lado de "US$ 10" y los agrupamientos por monto original
+    // siguen usando el valor viejo. Se reexpresa el importe original a la misma
+    // proporción: lo editado es tu parte, y tu parte también existe en la moneda
+    // en que se pagó.
+    const rate = Number(transaction.fx_rate) || 1;
+    const restatedOriginal = Number((parsedAmount * rate).toFixed(2));
+
+    // La marca de posible duplicado la pone el import; editar la fila ES la
+    // resolución. Sin sacarla, el chip ámbar queda pegado para siempre porque
+    // nada más en la app la limpia.
+    const { possible_duplicate_of: _dropped, ...keptFields } =
+      (transaction.extracted_fields as Record<string, unknown> | null) ?? {};
+
+    try {
+      await updateTransaction.mutateAsync({
+        id: transaction.id,
+        updates: {
+          name: name.trim(),
+          amount_usd: parsedAmount,
+          original_amount: restatedOriginal,
+          transaction_date: date,
+          category_id: categoryId === NONE ? null : categoryId,
+          payment_method_id: paymentMethodId === NONE ? null : paymentMethodId,
+          notes: notes.trim() || null,
+          // Tocarla a mano es exactamente la señal de que ya no hay nada que
+          // revisar: el usuario acaba de decidir.
+          needs_review: false,
+          confidence: "high",
+          extracted_fields: keptFields,
+        },
+      });
+      onOpenChange(false);
+    } catch (err) {
+      // `updateTransaction` no define onError, así que sin esto un guardado
+      // fallido no dice nada: el diálogo queda abierto y parece que anduvo.
+      toast.error(
+        err instanceof Error ? `No se pudo guardar: ${err.message}` : "No se pudo guardar el movimiento",
+      );
+    }
   };
 
   const relevantCategories = categories.filter(

@@ -31,8 +31,10 @@ export interface MercuryImportedRow {
   transaction_date: string;
   category: string | null;
   needs_review: boolean;
-  /** Fecha de la carga manual parecida, si el import sospecha un duplicado. */
+  /** Id de la carga manual parecida, si el import sospecha un duplicado. */
   possible_duplicate_of?: string;
+  /** La fecha de esa carga, para mostrarla sin ir a buscarla. */
+  possible_duplicate_date?: string;
 }
 
 export interface MercuryLinkResult {
@@ -163,7 +165,7 @@ export function useMercurySync() {
       // el saldo.
       if (res.totalPossibleDuplicates > 0) {
         toast.warning(
-          `${res.totalPossibleDuplicates} podrían duplicar cargas manuales tuyas — revisalas en Revisión`,
+          `${res.totalPossibleDuplicates} podrían duplicar cargas manuales tuyas — miralas en Movimientos, filtro "Pendientes"`,
           { duration: 8000 },
         );
       }

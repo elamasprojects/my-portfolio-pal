@@ -38,6 +38,32 @@ const PAGE_SIZE = 500;
 // uno anota el dia que gasta, el banco postea uno o dos dias despues.
 const MANUAL_DUP_WINDOW_DAYS = 4;
 
+// Marca que la reconciliacion deja al borrar en blando una fila cuyo cobro se
+// cayo. Es lo unico que distingue "lo borro el sync" de "lo borro el usuario", y
+// esa distincion es la que impide resucitar una fila que la persona descarto a
+// proposito -- por ejemplo al resolver un duplicado, que es justo lo que la app
+// le pide hacer.
+const REVERTED_BY_SYNC = "reverted_by_sync";
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Las fechas del body llegan sin validar y terminan en aritmetica de `Date`.
+ * Una basura como "not-a-date" da NaN y `new Date(NaN).toISOString()` tira
+ * `RangeError: Invalid time value` -- despues de haber llamado a Mercury al
+ * pedo, y con un mensaje que no dice que estuvo mal.
+ */
+function parseDateOverride(value: unknown, field: string): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string" || !ISO_DATE.test(value)) {
+    throw new Error(`${field} tiene que ser una fecha YYYY-MM-DD`);
+  }
+  if (Number.isNaN(new Date(`${value}T00:00:00Z`).getTime())) {
+    throw new Error(`${field} no es una fecha valida: ${value}`);
+  }
+  return value;
+}
+
 interface MercuryTx {
   id: string;
   amount: number;
@@ -79,6 +105,18 @@ interface CategoryRow {
   user_id: string | null;
 }
 
+interface CompiledTerm {
+  length: number;
+  pattern: RegExp;
+}
+
+interface CompiledCategory {
+  id: string;
+  name: string;
+  type: string;
+  terms: CompiledTerm[];
+}
+
 interface ImportedRow {
   mercury_id: string;
   type: "expense" | "income";
@@ -87,14 +125,21 @@ interface ImportedRow {
   transaction_date: string;
   category: string | null;
   needs_review: boolean;
-  /** Fecha de la carga manual que se le parece, si se encontro una. */
+  /**
+   * Id de la carga manual que se le parece. Mismo nombre y mismo significado
+   * que en `extracted_fields`: antes uno guardaba el id y el otro la fecha, asi
+   * que cualquiera que leyera el persistido esperando la fecha imprimia un UUID.
+   */
   possible_duplicate_of?: string;
+  /** La fecha de esa carga, para mostrar sin tener que ir a buscarla. */
+  possible_duplicate_date?: string;
 }
 
 /** Fila cargada a mano, candidata a ser el mismo gasto que uno de Mercury. */
 interface ManualRow {
   id: string;
   name: string;
+  type: string;
   amount_usd: number;
   transaction_date: string;
   payment_method?: { name?: string | null } | null;
@@ -102,7 +147,7 @@ interface ManualRow {
 
 interface SkippedRow {
   mercury_id: string;
-  reason: "ya_importada" | "no_liquidada" | "monto_cero" | "error";
+  reason: "ya_importada" | "no_liquidada" | "monto_cero" | "borrada_por_el_usuario" | "error";
   status?: string;
   detail?: string;
 }
@@ -110,6 +155,16 @@ interface SkippedRow {
 interface RevertedRow {
   mercury_id: string;
   status: string;
+}
+
+/** Lo que ya existe en la base para una transaccion de Mercury. */
+interface PriorRow {
+  id: string;
+  deleted_at: string | null;
+  /** La borro la reconciliacion (true) o la persona (false). */
+  revertedBySync: boolean;
+  /** Se conserva para no pisar mercury_card_id y el resto al estampar la marca. */
+  extractedFields: Record<string, unknown>;
 }
 
 interface LinkResult {
@@ -251,10 +306,35 @@ const MERCURY_CATEGORY_MAP: Record<string, string> = {
  * Devuelve null cuando no hay match, y el que llama marca `needs_review` para
  * que la fila caiga en la cola de revision en vez de quedar mal clasificada.
  */
+/**
+ * Prepara los patrones una sola vez por corrida.
+ *
+ * `matchCategory` corre una vez por transaccion y recorre todas las categorias
+ * por sus keywords y alias. Compilando ahi adentro, una ventana de 100 cobros
+ * paga miles de `new RegExp` sobre un set de terminos que no cambia en toda la
+ * corrida.
+ */
+function compileCategoryTerms(categories: CategoryRow[]): CompiledCategory[] {
+  const compiled: CompiledCategory[] = [];
+  for (const cat of categories) {
+    const terms: CompiledTerm[] = [];
+    for (const rawTerm of [...(cat.keywords ?? []), ...(cat.aliases ?? [])]) {
+      const term = normalize(String(rawTerm ?? "")).trim();
+      if (term.length < 3) continue;
+      terms.push({
+        length: term.length,
+        pattern: new RegExp(`(^|[^a-z0-9])${escapeRegex(term)}([^a-z0-9]|$)`, "u"),
+      });
+    }
+    compiled.push({ id: cat.id, name: cat.name, type: cat.type, terms });
+  }
+  return compiled;
+}
+
 function matchCategory(
   haystack: string,
   mercuryCategory: string | null | undefined,
-  categories: CategoryRow[],
+  categories: CompiledCategory[],
   wantedType: "expense" | "income",
 ): { id: string; name: string } | null {
   const text = normalize(haystack);
@@ -262,12 +342,8 @@ function matchCategory(
 
   for (const cat of categories) {
     if (cat.type !== wantedType && cat.type !== "both") continue;
-    const terms = [...(cat.keywords ?? []), ...(cat.aliases ?? [])];
-    for (const rawTerm of terms) {
-      const term = normalize(String(rawTerm ?? "")).trim();
-      if (term.length < 3) continue;
-      const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(term)}([^a-z0-9]|$)`, "u");
-      if (!pattern.test(text)) continue;
+    for (const term of cat.terms) {
+      if (!term.pattern.test(text)) continue;
       if (!best || term.length > best.length) {
         best = { id: cat.id, name: cat.name, length: term.length };
       }
@@ -303,6 +379,7 @@ function matchCategory(
  */
 function findManualDuplicate(
   manualRows: ManualRow[],
+  type: "expense" | "income",
   amount: number,
   transactionDate: string,
 ): ManualRow | null {
@@ -310,6 +387,10 @@ function findManualDuplicate(
   if (!Number.isFinite(target)) return null;
 
   for (const row of manualRows) {
+    // Un ingreso y un gasto del mismo monto no son el mismo movimiento, son
+    // opuestos. Sin esto, un reembolso de 40 marcaria como duplicado un gasto
+    // real de 40 de la misma semana.
+    if (row.type !== type) continue;
     // Los montos son numeric en Postgres y llegan como string o number segun el
     // driver; el redondeo evita que 40 y 40.000001 se consideren distintos.
     if (Math.round(Number(row.amount_usd) * 100) !== Math.round(amount * 100)) continue;
@@ -321,10 +402,22 @@ function findManualDuplicate(
   return null;
 }
 
+/**
+ * Sella la corrida. No corta el import si falla -- los gastos ya se importaron y
+ * perderlos por un timestamp seria peor -- pero deja rastro, que antes no habia.
+ */
+async function touchLastSynced(admin: AdminClient, link: CardLink): Promise<void> {
+  const { error } = await admin
+    .from("mercury_card_links")
+    .update({ last_synced_at: new Date().toISOString() })
+    .eq("id", link.id);
+  if (error) console.error(`no se pudo sellar last_synced_at de ${link.label}`, error);
+}
+
 async function syncLink(
   admin: AdminClient,
   link: CardLink,
-  categories: CategoryRow[],
+  categories: CompiledCategory[],
   mercuryToken: string,
   overrideStart?: string,
   overrideEnd?: string,
@@ -359,6 +452,10 @@ async function syncLink(
   }
 
   if (txs.length === 0) {
+    // Igual se sella la corrida: una tarjeta sin movimientos en la ventana es una
+    // sincronizacion exitosa. Sin esto el boton diria "hace 3 meses" para siempre
+    // y pareceria roto justo cuando esta andando.
+    await touchLastSynced(admin, link);
     return { link: link.label, startDate, endDate, imported, skipped, reverted, foreign };
   }
 
@@ -366,16 +463,26 @@ async function syncLink(
   const ids = txs.map((t) => t.id);
   const { data: existingRows, error: existingErr } = await admin
     .from("transactions")
-    .select("id, external_id, deleted_at")
+    .select("id, external_id, deleted_at, extracted_fields")
     .eq("user_id", link.user_id)
     .eq("external_source", "mercury")
     .in("external_id", ids);
   if (existingErr) throw new Error(`lookup de duplicados fallo: ${existingErr.message}`);
 
-  const existing = new Map<string, { id: string; deleted_at: string | null }>();
+  const existing = new Map<string, PriorRow>();
   for (const row of existingRows ?? []) {
-    const r = row as { id: string; external_id: string; deleted_at: string | null };
-    existing.set(r.external_id, { id: r.id, deleted_at: r.deleted_at });
+    const r = row as {
+      id: string;
+      external_id: string;
+      deleted_at: string | null;
+      extracted_fields: Record<string, unknown> | null;
+    };
+    existing.set(r.external_id, {
+      id: r.id,
+      deleted_at: r.deleted_at,
+      revertedBySync: Boolean(r.extracted_fields?.[REVERTED_BY_SYNC]),
+      extractedFields: r.extracted_fields ?? {},
+    });
   }
 
   // Cargas manuales de la ventana, para no duplicar lo que el usuario ya venia
@@ -399,7 +506,7 @@ async function syncLink(
   // descuadra el saldo en silencio.
   const { data: manualData, error: manualErr } = await admin
     .from("transactions")
-    .select("id, name, amount_usd, transaction_date, payment_method:payment_methods!transactions_payment_method_id_fkey(name)")
+    .select("id, name, type, amount_usd, transaction_date, payment_method:payment_methods!transactions_payment_method_id_fkey(name)")
     .eq("user_id", link.user_id)
     .is("external_source", null)
     .is("deleted_at", null)
@@ -421,7 +528,12 @@ async function syncLink(
     if (isLive && status !== IMPORTABLE_STATUS) {
       const { error: delErr } = await admin
         .from("transactions")
-        .update({ deleted_at: new Date().toISOString() })
+        .update({
+          deleted_at: new Date().toISOString(),
+          // Sin esta marca, el revive de mas abajo no puede saber que esta fila
+          // la saco el sync y no la persona.
+          extracted_fields: { ...prior!.extractedFields, [REVERTED_BY_SYNC]: true },
+        })
         .eq("id", prior!.id)
         .eq("user_id", link.user_id);
       if (delErr) {
@@ -434,6 +546,16 @@ async function syncLink(
 
     if (isLive) {
       skipped.push({ mercury_id: tx.id, reason: "ya_importada" });
+      continue;
+    }
+
+    // Existe pero esta borrada, y no la borro el sync: la borro la persona. Se
+    // queda borrada. La app le pide resolver un posible duplicado borrando una
+    // de las dos filas, y sin este chequeo la corrida siguiente devolvia justo
+    // esa -- re-debitando el saldo -- todos los dias hasta que saliera de la
+    // ventana.
+    if (prior && !prior.revertedBySync) {
+      skipped.push({ mercury_id: tx.id, reason: "borrada_por_el_usuario" });
       continue;
     }
 
@@ -472,7 +594,7 @@ async function syncLink(
     // Se importa igual, pero marcada: descartarla perderia un gasto real cuando
     // el parecido es casualidad, y meterla callada duplica el saldo cuando no lo
     // es. La revision es el lugar donde eso se decide con los dos a la vista.
-    const manualDup = findManualDuplicate(manualRows, amount, transactionDate);
+    const manualDup = findManualDuplicate(manualRows, type, amount, transactionDate);
     const needsReview = !category || Boolean(manualDup);
     const dupPm = manualDup?.payment_method?.name;
     const dupNote = manualDup
@@ -525,10 +647,11 @@ async function syncLink(
     // external_id) still holds its slot, so an insert would be rejected and the charge would
     // never return to the ledger, leaving the card balance overstated. Revive the row instead,
     // refreshing every field: a settled charge can differ from the authorisation it replaces.
+    //
     if (prior) {
       const { error: revErr } = await admin
         .from("transactions")
-        .update({ ...row, deleted_at: null })
+        .update({ ...row, deleted_at: null })  // `row` trae extracted_fields sin la marca
         .eq("id", prior.id)
         .eq("user_id", link.user_id);
 
@@ -546,7 +669,9 @@ async function syncLink(
         transaction_date: row.transaction_date,
         category: category?.name ?? null,
         needs_review: row.needs_review,
-        ...(manualDup ? { possible_duplicate_of: manualDup.transaction_date } : {}),
+        ...(manualDup
+          ? { possible_duplicate_of: manualDup.id, possible_duplicate_date: manualDup.transaction_date }
+          : {}),
       });
       continue;
     }
@@ -574,14 +699,13 @@ async function syncLink(
       transaction_date: transactionDate,
       category: category?.name ?? null,
       needs_review: needsReview,
-      ...(manualDup ? { possible_duplicate_of: manualDup.transaction_date } : {}),
+      ...(manualDup
+        ? { possible_duplicate_of: manualDup.id, possible_duplicate_date: manualDup.transaction_date }
+        : {}),
     });
   }
 
-  await admin
-    .from("mercury_card_links")
-    .update({ last_synced_at: new Date().toISOString() })
-    .eq("id", link.id);
+  await touchLastSynced(admin, link);
 
   return { link: link.label, startDate, endDate, imported, skipped, reverted, foreign };
 }
@@ -631,8 +755,16 @@ Deno.serve(async (req) => {
     }
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const overrideStart: string | undefined = body?.startDate;
-    const overrideEnd: string | undefined = body?.endDate;
+
+    let overrideStart: string | undefined;
+    let overrideEnd: string | undefined;
+    try {
+      overrideStart = parseDateOverride(body?.startDate, "startDate");
+      overrideEnd = parseDateOverride(body?.endDate, "endDate");
+    } catch (e) {
+      // 400 y no 500: el problema esta en lo que mandaron, no en el servidor.
+      return jsonResponse({ error: e instanceof Error ? e.message : "Fechas invalidas" }, 400);
+    }
 
     let linkQuery = admin
       .from("mercury_card_links")
@@ -669,8 +801,18 @@ Deno.serve(async (req) => {
     const allCategories = (cats ?? []) as unknown as CategoryRow[];
 
     // Shared (`user_id: null`) categories belong to everyone; the rest only to their owner.
-    const categoriesFor = (userId: string) =>
-      allCategories.filter((c) => c.user_id === null || c.user_id === userId);
+    // Se compila por dueno y se memoiza: varios vinculos del mismo usuario
+    // comparten el set y no lo recompilan.
+    const compiledByUser = new Map<string, CompiledCategory[]>();
+    const categoriesFor = (userId: string) => {
+      const cached = compiledByUser.get(userId);
+      if (cached) return cached;
+      const built = compileCategoryTerms(
+        allCategories.filter((c) => c.user_id === null || c.user_id === userId),
+      );
+      compiledByUser.set(userId, built);
+      return built;
+    };
 
     const results: LinkResult[] = [];
     for (const link of links as CardLink[]) {

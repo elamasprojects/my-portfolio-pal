@@ -75,13 +75,6 @@ export function MovimientosView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Transaction | null>(null);
 
-  // El feed mezcla gastos y operaciones; solo los gastos son editables aca, y el
-  // dialogo necesita la fila entera, no la proyeccion del feed.
-  const transactionsById = useMemo(
-    () => new Map(transactions.map((t) => [t.id, t])),
-    [transactions],
-  );
-
   // Count of pending review items
   const reviewQueueCount = reviewQueue.length;
 
@@ -327,10 +320,20 @@ export function MovimientosView() {
   const handleApproveTransaction = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateTransaction.mutateAsync({
-        id,
-        updates: { needs_review: false },
-      });
+      // Aprobar ES la resolución del posible duplicado, así que la marca se va
+      // con ella. Si sólo se limpiara `needs_review`, el chip ámbar quedaría en
+      // la fila para siempre: nada más en la app lo saca.
+      const existing = transactions.find((t) => t.id === id)?.extracted_fields as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      const updates: Record<string, unknown> = { needs_review: false };
+      if (existing?.possible_duplicate_of) {
+        const { possible_duplicate_of: _dropped, ...kept } = existing;
+        updates.extracted_fields = kept;
+      }
+
+      await updateTransaction.mutateAsync({ id, updates });
       toast.success("✓ Movimiento aprobado");
     } catch (err: any) {
       toast.error("Error al aprobar movimiento");
@@ -653,9 +656,13 @@ export function MovimientosView() {
                 ) : (
                   filteredEvents.map((item) => {
                     const isSelected = selectedIds.has(item.id);
+                    // `normalizeToUnifiedEvents` ya adjunta la fila entera en
+                    // `rawRecord`; rearmarla desde otro lado agregaba una segunda
+                    // fuente de verdad que podía quedar desfasada de lo que se
+                    // está renderizando.
                     const editable =
                       item.sourceTable === "transactions"
-                        ? transactionsById.get(item.rawId) ?? null
+                        ? (item.rawRecord as Transaction)
                         : null;
                     // El import marca asi lo que se parece a algo que ya cargaste a
                     // mano. Sin mostrarlo, el aviso queda solo en la nota y el
