@@ -139,7 +139,8 @@ Routes under `/` are wrapped in `ProtectedRoute` (redirects to `/auth` when no s
 - **Generated types:** `src/integrations/supabase/types.ts` — regenerate with
   `npx supabase gen types typescript --linked`. **Do not hand-edit.**
 - **Edge functions (Deno):** `fetch-quote`, `search-symbol`, `stock-history`, `dca-history`,
-  `check-dividends`, `analyze-trade-image`, `chess-chat` (all `verify_jwt = false`).
+  `check-dividends`, `analyze-trade-image`, `chess-chat`, `extract-finance-input`,
+  `mercury-personal-import` (all `verify_jwt = false`).
   Deploy with `npx supabase functions deploy <name>`.
 - **Migrations:** `supabase/migrations/*.sql`.
 
@@ -175,6 +176,70 @@ for Supabase work** (in cloud sessions use the `portfolio-tracker` connector ins
   **`trade_tag_assignments`**, **`discipline_rules`**, **`achievements`**.
 - Social: **`profiles`**, **`follow_requests`**, **`leaderboards`** / **`leaderboard_members`**,
   **`notifications`**, **`shared_exports`**.
+
+## Importacion de gastos desde Mercury
+
+`mercury-personal-import` trae los gastos de **una tarjeta especifica** de Mercury a
+`transactions`. Corre solo, todos los dias a las 12:00 UTC (09:00 BA) via `pg_cron`, y a
+demanda desde el boton "Mercury" de `PatrimonioView` (ruta `/finance`, que renderiza
+`Patrimonio`).
+
+**La extraccion esta acotada a la tarjeta, no a la cuenta.** Que tarjeta se importa lo decide
+`mercury_card_links`; sin una fila activa ahi no se trae nada. El recorte se hace con el
+parametro `cardId` de `GET /api/v1/transactions` (es un filtro real del endpoint, repetible),
+y ademas se vuelve a chequear `tx.cardId` sobre la respuesta — si Mercury alguna vez ignorara
+el parametro, sin ese segundo chequeo entrarian los gastos de la empresa en tus finanzas
+personales.
+
+Reglas que no conviene tocar sin entender por que estan:
+
+- **Solo se importa `status = "sent"`.** `pending` es una autorizacion que el comercio puede no
+  capturar; `failed` / `cancelled` / `reversed` son cobros que nunca pasaron. Cada corrida
+  reconcilia: lo que se habia importado y ya no esta en `sent` se borra en blando.
+- **El signo define el tipo.** Mercury firma en negativo la plata que sale: negativo → `expense`,
+  positivo → `income` (un reembolso). Tomar el valor absoluto de todo cobraria los reembolsos
+  como gastos.
+- **La deduplicacion es un indice unico**, `(user_id, external_source, external_id)` sobre
+  `transactions`. Importa porque hay triggers de saldo por fila: un duplicado no ensucia solo
+  la lista, descuadra `current_balance`.
+- **Lo que no se pudo categorizar entra con `needs_review = true`** y aparece bajo el filtro
+  "Pendientes" de `MovimientosView` (ruta `/movements`). `/finance/review` ya no existe: la
+  arquitectura de 3 vistas absorbio esa pantalla.
+  El match por keywords exige palabra completa (para que "bar" no matchee "BARBERSHOP"), y lo que
+  se le escapa lo levanta el `mercuryCategory` que ya trae Mercury.
+- **Tambien se marca lo que se parece a una carga manual tuya.** El indice unico solo frena que
+  Mercury entre dos veces; una fila que tipeaste a mano no tiene `external_id` y es invisible para
+  esa regla. Antes de insertar se busca una fila manual con el mismo monto al centavo y fecha a
+  menos de 4 dias (`MANUAL_DUP_WINDOW_DAYS`), y si aparece se importa igual pero con
+  `needs_review` y una nota que dice de cual sospecha. Se importa y se avisa, no se descarta: un
+  gasto igual dos veces en la misma semana es perfectamente real.
+  **A proposito NO se acota por medio de pago ni por cuenta** — en los datos reales el instrumento
+  esta mal puesto (gastos de la tarjeta de Mercury anotados como "Banco Ciudad - ARS"), asi que
+  filtrar por ahi no encontraria justo los duplicados que importan.
+
+**Editar un movimiento:** `EditTransactionDialog`, desde el lapiz de cada fila de gasto en el
+feed de `/movements` (`src/components/views/MovimientosView.tsx`). Solo las filas de
+`transactions` lo tienen; una operacion se edita por su propio flujo. El monto es editable a
+proposito: si pagaste 200 por varias personas y te
+devolvieron 190, tu gasto real es 10. Para las filas importadas el dialogo muestra
+`extracted_fields.mercury_amount` — lo que el banco cobro de verdad — como referencia de solo
+lectura, asi corregir el tuyo no pierde ese dato. Editar pone `needs_review = false`,
+`confidence = "high"` y saca `extracted_fields.possible_duplicate_of`: tocarlo a mano ES la
+decision, y sin sacar esa marca el chip de "posible duplicado" quedaria pegado para siempre
+(aprobar desde el feed hace lo mismo). Al cambiar el monto se reexpresa `original_amount` con el
+`fx_rate` de la fila, para que el triple del rastro FX siga cerrando. Los triggers de saldo
+corrigen solos el `current_balance` en el UPDATE.
+
+**Borrar una fila importada es definitivo.** La reconciliacion marca sus propios soft-deletes con
+`extracted_fields.reverted_by_sync`, y el revive solo actua sobre esos. Una fila que borraste vos
+—resolviendo un duplicado, por ejemplo— no vuelve: sin esa distincion la corrida siguiente
+devolvia justo la que habias descartado, re-debitando el saldo, todos los dias hasta que saliera
+de la ventana.
+
+**Secreto requerido:** `MERCURY_API_TOKEN` (token *Read Only* de Mercury) en los secrets de este
+proyecto. El connector MCP no expone secrets: se setea desde el dashboard o con
+`npx supabase secrets set MERCURY_API_TOKEN=... --project-ref yimbswiaqmuggmqygicf`. Sin eso la
+funcion devuelve 500 con ese mensaje exacto.
 
 ## Deployment
 

@@ -7,6 +7,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
+import { MercurySyncButton } from "@/components/finance/MercurySyncButton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -256,7 +257,13 @@ export function PatrimonioView() {
             Valuación total consolidada, composición de activos y saldos verificados por cuenta.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/*
+            The Mercury import button was written against `pages/finance/FinanceDashboard`, which
+            the 3-view refactor deleted; `/finance` renders this view now. It hides itself when no
+            card is linked.
+          */}
+          <MercurySyncButton />
           <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 text-primary bg-primary/10 font-mono">
             Dólar CCL/MEP: ${formatARS(effectiveCclRate)}
           </Badge>

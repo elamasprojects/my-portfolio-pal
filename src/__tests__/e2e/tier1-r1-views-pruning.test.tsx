@@ -100,6 +100,14 @@ describe("Tier 1 - Requirement 1 (R1): 3-View Architecture, Pruning, Dark Mode &
     expect(searchBtn).toBeInTheDocument();
     fireEvent.click(searchBtn);
 
+    // The sheet leads with the receipt capture; typing is opt-in behind a button, so the text
+    // field is deliberately absent until asked for.
+    const uploadZone = await screen.findByText(/sube una captura de comprobante/i);
+    expect(uploadZone).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/coto|uber/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /escribir el movimiento/i }));
+
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/coto|uber/i)).toBeInTheDocument();
     });

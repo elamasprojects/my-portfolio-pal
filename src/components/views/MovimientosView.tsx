@@ -5,6 +5,8 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeToUnifiedEvents, UnifiedEventItem, UnifiedEventType } from "@/lib/unifiedEvents";
+import { EditTransactionDialog } from "@/components/finance/EditTransactionDialog";
+import { Transaction } from "@/types/finance";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
 import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 
@@ -28,6 +30,8 @@ import {
   ClipboardPaste,
   Upload,
   Trash2,
+  Pencil,
+  Copy,
   Download,
   ArrowUpDown,
   Check,
@@ -69,6 +73,7 @@ export function MovimientosView() {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   // Count of pending review items
   const reviewQueueCount = reviewQueue.length;
@@ -315,10 +320,20 @@ export function MovimientosView() {
   const handleApproveTransaction = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateTransaction.mutateAsync({
-        id,
-        updates: { needs_review: false },
-      });
+      // Aprobar ES la resolución del posible duplicado, así que la marca se va
+      // con ella. Si sólo se limpiara `needs_review`, el chip ámbar quedaría en
+      // la fila para siempre: nada más en la app lo saca.
+      const existing = transactions.find((t) => t.id === id)?.extracted_fields as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      const updates: Record<string, unknown> = { needs_review: false };
+      if (existing?.possible_duplicate_of) {
+        const { possible_duplicate_of: _dropped, ...kept } = existing;
+        updates.extracted_fields = kept;
+      }
+
+      await updateTransaction.mutateAsync({ id, updates });
       toast.success("✓ Movimiento aprobado");
     } catch (err: any) {
       toast.error("Error al aprobar movimiento");
@@ -641,6 +656,21 @@ export function MovimientosView() {
                 ) : (
                   filteredEvents.map((item) => {
                     const isSelected = selectedIds.has(item.id);
+                    // `normalizeToUnifiedEvents` ya adjunta la fila entera en
+                    // `rawRecord`; rearmarla desde otro lado agregaba una segunda
+                    // fuente de verdad que podía quedar desfasada de lo que se
+                    // está renderizando.
+                    const editable =
+                      item.sourceTable === "transactions"
+                        ? (item.rawRecord as Transaction)
+                        : null;
+                    // El import marca asi lo que se parece a algo que ya cargaste a
+                    // mano. Sin mostrarlo, el aviso queda solo en la nota y el
+                    // duplicado se aprueba sin querer.
+                    const isPossibleDuplicate = Boolean(
+                      (editable?.extracted_fields as Record<string, unknown> | undefined)
+                        ?.possible_duplicate_of,
+                    );
 
                     return (
                       <TableRow key={item.id} className={item.needsReview ? "bg-amber-500/5 hover:bg-amber-500/10" : "hover:bg-muted/40"}>
@@ -653,28 +683,57 @@ export function MovimientosView() {
                         <TableCell>
                           <ChessBadge eventType={item.type} size="sm" />
                         </TableCell>
-                        <TableCell className="font-semibold text-foreground text-sm">{item.title}</TableCell>
+                        <TableCell className="font-semibold text-foreground text-sm">
+                          <span className="flex items-center gap-1.5">
+                            {item.title}
+                            {isPossibleDuplicate && (
+                              <span
+                                title={editable?.notes ?? "Posible duplicado de una carga manual"}
+                                className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-500 whitespace-nowrap"
+                              >
+                                <Copy className="h-2.5 w-2.5" />
+                                Posible duplicado
+                              </span>
+                            )}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold whitespace-nowrap">
                           US$ {item.amountUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{item.subtitle || "—"}</TableCell>
                         <TableCell className="text-center">
-                          {item.needsReview ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => handleApproveTransaction(item.rawId, e)}
-                              className="h-6 text-[11px] px-2 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-400 font-semibold"
-                            >
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Aprobar
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
-                              <Check className="h-3 w-3 text-emerald-400" />
-                              Confirmado
-                            </span>
-                          )}
+                          <div className="flex items-center justify-center gap-1">
+                            {item.needsReview ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => handleApproveTransaction(item.rawId, e)}
+                                className="h-6 text-[11px] px-2 bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-400 font-semibold"
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Aprobar
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+                                <Check className="h-3 w-3 text-emerald-400" />
+                                Confirmado
+                              </span>
+                            )}
+
+                            {/* Solo los gastos son editables: una operacion se edita
+                                por su propio flujo, con su cantidad y precio. */}
+                            {editable && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditing(editable)}
+                                title="Editar movimiento"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -687,6 +746,12 @@ export function MovimientosView() {
       </Card>
 
       <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen} />
+
+      <EditTransactionDialog
+        transaction={editing}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+      />
     </div>
   );
 }

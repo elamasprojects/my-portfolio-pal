@@ -52,7 +52,18 @@ export function OmnibarFinance({
     if (!open) {
       // This component never unmounts, so without this the field stays revealed and the next
       // open remounts it with autoFocus — the keyboard-over-the-capture-zone problem again.
+      // The text has to go with it: collapsing alone left the previous draft alive but
+      // invisible, and the next submit sent it along with whatever was captured this time.
       setShowTextInput(false);
+      setInputVal("");
+      // El adjunto es el mismo bug con otra cara, y peor: un recibo que quedó vivo
+      // se manda con el próximo movimiento y encima lo estampa `source:
+      // "screenshot"`. Limpiar sólo el texto dejaba justo eso.
+      setSelectedFile(null);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       return;
     }
     if (open) {
@@ -62,7 +73,12 @@ export function OmnibarFinance({
       }
       if (initialFile) {
         setSelectedFile(initialFile);
-        setPreviewUrl(URL.createObjectURL(initialFile));
+        // Revocar la anterior: cada apertura por share-target creaba una blob URL
+        // que vivía hasta que se cerrara la pestaña.
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(initialFile);
+        });
       }
     }
   }, [open, initialText, initialFile]);
