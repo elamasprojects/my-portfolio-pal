@@ -23,6 +23,30 @@ Object.defineProperty(window, "matchMedia", {
 // scroll reset logs a noisy "Not implemented" error on every navigation assertion.
 Object.defineProperty(window, "scrollTo", { writable: true, value: () => {} });
 
+// jsdom ships no PointerEvent at all, so fireEvent.pointerDown falls back to a plain Event and
+// silently drops clientX — a drag handler reads NaN and no gesture test can ever pass. Deriving
+// the stub from MouseEvent is what restores the coordinates, since that is where they live.
+if (typeof window.PointerEvent === "undefined") {
+  class PointerEventStub extends MouseEvent {
+    readonly pointerId: number;
+    readonly pointerType: string;
+    readonly isPrimary: boolean;
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId ?? 0;
+      this.pointerType = params.pointerType ?? "mouse";
+      this.isPrimary = params.isPrimary ?? true;
+    }
+  }
+  window.PointerEvent = PointerEventStub as unknown as typeof window.PointerEvent;
+}
+
+// jsdom has no layout engine, so scrollIntoView is unimplemented; Radix's Select calls it on
+// every open and the rejection surfaced as an unhandled error that could fail unrelated tests.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // jsdom ships no ResizeObserver, which recharts' ResponsiveContainer constructs on mount.
 // Without this, every test that renders a chart threw an uncaught ReferenceError during the
 // commit phase and the runner hung instead of failing — which is why the suite never finished.

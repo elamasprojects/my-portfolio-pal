@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAddTrade } from "@/hooks/usePortfolio";
 import { useBrokers } from "@/hooks/useBrokers";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight, Banknote, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Banknote, Loader2, Upload, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 type TradeType = "buy" | "sell" | "dividend";
 
@@ -72,6 +73,59 @@ export function AddTradeDialog({
   const [invalidationCondition, setInvalidationCondition] = useState(defaultInvalidationCondition);
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Subir el comprobante del broker y dejar que la IA lo lea. Sólo se permitía para gastos,
+  // así que una orden ejecutada había que tipearla entera desde la captura que ya tenías.
+  const [receipt, setReceipt] = useState<{ url: string; name: string } | null>(null);
+  const [isReading, setIsReading] = useState(false);
+  const receiptInput = useRef<HTMLInputElement>(null);
+
+  const clearReceipt = () => {
+    setReceipt((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    if (receiptInput.current) receiptInput.current.value = "";
+  };
+
+  const readReceipt = async (file: File) => {
+    clearReceipt();
+    setReceipt({ url: URL.createObjectURL(file), name: file.name });
+    setIsReading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke("analyze-trade-image", {
+        body: { image: base64 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Lo leído se propone, no se guarda: los campos quedan editables y el alta sigue
+      // siendo el mismo botón de siempre.
+      if (data?.trade_type) setTradeType(data.trade_type as TradeType);
+      if (data?.symbol) setSymbol(String(data.symbol).toUpperCase());
+      if (data?.asset_name) setAssetName(String(data.asset_name));
+      if (data?.quantity != null) setQuantity(String(data.quantity));
+      if (data?.price_per_unit != null) setPrice(String(data.price_per_unit));
+      if (data?.currency === "ARS" || data?.currency === "USD") setCurrency(data.currency);
+      if (data?.trade_date) setTradeDate(String(data.trade_date).slice(0, 10));
+
+      toast.success("Comprobante leído. Revisá los campos antes de guardar.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo leer el comprobante"
+      );
+      clearReceipt();
+    } finally {
+      setIsReading(false);
+    }
+  };
 
   const isDividend = tradeType === "dividend";
   const isBuy = tradeType === "buy";
@@ -200,6 +254,56 @@ export function AddTradeDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-1">
+          {/* Comprobante primero: leerlo llena el formulario y evita tipear la orden entera. */}
+          <input
+            ref={receiptInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) readReceipt(f);
+            }}
+          />
+          {receipt ? (
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-2.5">
+              <img
+                src={receipt.url}
+                alt="Comprobante de la operación"
+                className="h-14 w-14 rounded-lg border object-cover"
+              />
+              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {isReading ? "Leyendo el comprobante…" : receipt.name}
+              </p>
+              {isReading ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={clearReceipt}
+                  aria-label="Quitar comprobante"
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => receiptInput.current?.click()}
+              className="group w-full rounded-xl border-2 border-dashed border-border/70 bg-muted/15 p-3 text-center transition-colors hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <Upload className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
+              <span className="mt-1 block text-xs font-semibold">
+                Subí la captura de la orden
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                Se completan los campos y los revisás antes de guardar
+              </span>
+            </button>
+          )}
+
           {errors.length > 0 && (
             <ul className="text-xs text-destructive font-medium bg-destructive/10 p-2.5 rounded space-y-1 list-disc list-inside">
               {errors.map((e) => (

@@ -23,7 +23,24 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
+import { ReviewExtractedSheet, type ReviewRow } from "@/components/finance/ReviewExtractedSheet";
 import { toast } from "sonner";
+
+/** Una fila tal como la devuelve `extract-finance-input`. Todo es opcional a propósito: es
+ *  salida de un modelo, no un contrato. */
+interface ExtractedItem {
+  name?: string;
+  raw_merchant?: string;
+  amount?: number | string;
+  currency?: string;
+  type?: string;
+  transaction_date?: string;
+  category_name?: string;
+  account_name?: string;
+  payment_method_name?: string;
+  confidence?: string;
+  suggested_new_category?: string;
+}
 
 interface OmnibarFinanceProps {
   open: boolean;
@@ -45,6 +62,10 @@ export function OmnibarFinance({
   // The typing field is opt-in: tapping the keyboard button reveals it. Kept collapsed by
   // default so the sheet opens on the capture zone instead of on a keyboard.
   const [showTextInput, setShowTextInput] = useState(false);
+  // Lo extraído espera acá hasta que se confirma. Antes se escribía derecho a la base.
+  const [reviewRows, setReviewRows] = useState<ReviewRow[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync initial props when opened
@@ -241,23 +262,21 @@ export function OmnibarFinance({
         }
 
         if (rawAmount > 0 && converted.status === "ok") {
-          await addTransaction.mutateAsync({
-            name: inputVal.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto",
-            amount_usd: converted.amountUSD,
-            original_amount: rawAmount,
-            original_currency: isARS ? "ARS" : "USD",
-            fx_rate: converted.fxRate,
-            fx_source: converted.fxSource,
-            account_id: defaultAcc || null,
-            payment_method_id: defaultPm || null,
-            category_id: defaultCat || null,
-            confidence: "medium",
-            needs_review: true,
-            source: selectedFile ? "screenshot" : "text",
-          });
-          setInputVal("");
-          handleClearFile();
-          onOpenChange(false);
+          openReview([
+            {
+              key: "h0",
+              name: inputVal.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto",
+              amount: String(rawAmount),
+              currency: isARS ? "ARS" : "USD",
+              type: "expense",
+              transactionDate: new Date().toISOString().split("T")[0],
+              categoryId: defaultCat || null,
+              accountId: defaultAcc || null,
+              paymentMethodId: defaultPm || null,
+              confidence: "medium",
+              accountWasGuessed: true,
+            },
+          ]);
           return;
         } else {
           toast.error("No se detectó monto válido. Intenta con 'Comercio 15000'");
@@ -265,101 +284,62 @@ export function OmnibarFinance({
         }
       }
 
-      // 2. Persist all extracted transactions.
-      // Anything we cannot convert is collected and surfaced instead of being written at face
-      // value — a peso amount landing in a dollar column is invisible once it is stored.
-      const skipped: string[] = [];
-
-      for (const item of extractedList) {
-        // Match category
-        let matchedCat = categories.find(
-          (c) => c.name.toLowerCase() === item.category_name?.toLowerCase()
-        );
-        if (!matchedCat && item.category_name) {
-          matchedCat = categories.find((c) =>
-            (c.keywords || []).some((kw) => item.name?.toLowerCase().includes(kw.toLowerCase()))
+      // 2. En vez de escribir, se arma el borrador y se abre la revisión. El matcheo de
+      // categoría, cuenta y medio de pago sigue igual, pero ahora es una propuesta editable:
+      // lo que antes entraba mal a la base y movía saldos por trigger, ahora se corrige antes.
+      openReview(
+        extractedList.map((item: ExtractedItem, idx: number) => {
+          let matchedCat = categories.find(
+            (c) => c.name.toLowerCase() === item.category_name?.toLowerCase()
           );
-        }
+          if (!matchedCat && item.category_name) {
+            matchedCat = categories.find((c) =>
+              (c.keywords || []).some((kw) => item.name?.toLowerCase().includes(kw.toLowerCase()))
+            );
+          }
 
-        // Match account directly or via payment method
-        let matchedAccount = accounts.find(
-          (acc) =>
-            acc.name.toLowerCase() === (item.account_name || "").toLowerCase() ||
-            acc.name.toLowerCase() === (item.payment_method_name || "").toLowerCase() ||
-            (acc.detection_patterns || []).some(
-              (p) =>
-                (item.name || "").toLowerCase().includes(p.toLowerCase()) ||
-                (item.payment_method_name || "").toLowerCase().includes(p.toLowerCase())
-            )
-        );
+          let matchedAccount = accounts.find(
+            (acc) =>
+              acc.name.toLowerCase() === (item.account_name || "").toLowerCase() ||
+              acc.name.toLowerCase() === (item.payment_method_name || "").toLowerCase() ||
+              (acc.detection_patterns || []).some(
+                (pat) =>
+                  (item.name || "").toLowerCase().includes(pat.toLowerCase()) ||
+                  (item.payment_method_name || "").toLowerCase().includes(pat.toLowerCase())
+              )
+          );
 
-        let matchedPm = paymentMethods.find(
-          (pm) => pm.name.toLowerCase() === item.payment_method_name?.toLowerCase()
-        );
+          const matchedPm = paymentMethods.find(
+            (pm) => pm.name.toLowerCase() === item.payment_method_name?.toLowerCase()
+          );
 
-        if (!matchedAccount && matchedPm?.account_id) {
-          matchedAccount = accounts.find((a) => a.id === matchedPm!.account_id);
-        }
+          if (!matchedAccount && matchedPm?.account_id) {
+            matchedAccount = accounts.find((acc) => acc.id === matchedPm.account_id);
+          }
 
-        // Falling back to the first account is a guess, and the balance trigger acts on it: an
-        // Edesur bill paid from Mercado Pago was debited from the ARQ broker account without a
-        // word. The guess still happens — leaving the account empty would strand the row — but
-        // it is flagged for review instead of passing as a matched account.
-        const accountWasGuessed = !matchedAccount;
-        if (!matchedAccount) {
-          matchedAccount = accounts[0];
-        }
+          // Caer en la primera cuenta es una suposición y el trigger de saldos actúa sobre
+          // ella: una boleta de Edesur pagada por Mercado Pago descontó del broker sin avisar.
+          // Se sigue proponiendo, pero marcada, y ahora hay dónde corregirla antes de guardar.
+          const accountWasGuessed = !matchedAccount;
 
-        // The rate we actually hold decides the amount. `item.amount_usd` is the extractor's
-        // own estimate and used to take precedence over this conversion.
-        const converted = resolveTransactionAmountUSD({
-          amount: item.amount,
-          currency: item.currency,
-          arsPerUsd: mepRate,
-        });
-
-        if (converted.status !== "ok") {
-          skipped.push(`${item.name || "Gasto"}: ${converted.reason}`);
-          continue;
-        }
-
-        await addTransaction.mutateAsync({
-          name: item.name || "Gasto",
-          raw_merchant: item.raw_merchant || item.name,
-          amount_usd: converted.amountUSD,
-          type: item.type || "expense",
-          transaction_date: item.transaction_date || new Date().toISOString().split("T")[0],
-          original_amount: item.amount,
-          original_currency: (item.currency || "USD").toUpperCase(),
-          fx_rate: converted.fxRate,
-          fx_source: converted.fxSource,
-          category_id: matchedCat?.id || null,
-          account_id: matchedAccount?.id || null,
-          payment_method_id: matchedPm?.id || paymentMethods[0]?.id || null,
-          confidence: item.confidence || "high",
-          needs_review: item.needs_review || !matchedCat || accountWasGuessed,
-          source: selectedFile ? "screenshot" : "text",
-          notes: item.suggested_new_category
-            ? `Sugerencia: Crear categoría '${item.suggested_new_category}'`
-            : undefined,
-        });
-      }
-
-      if (skipped.length > 0) {
-        toast.error(
-          skipped.length === 1
-            ? `No se registró ${skipped[0]}`
-            : `No se registraron ${skipped.length} movimientos: ${skipped.join(" · ")}`,
-          { duration: 8000 }
-        );
-        // Keep the input and the receipt on screen so the capture can be retried once a rate
-        // is available, rather than silently losing it.
-        return;
-      }
-
-      setInputVal("");
-      handleClearFile();
-      onOpenChange(false);
+          const draft: ReviewRow = {
+            key: `x${idx}`,
+            name: item.name || "Gasto",
+            rawMerchant: item.raw_merchant || item.name,
+            amount: String(item.amount ?? ""),
+            currency: (item.currency || "USD").toUpperCase(),
+            type: item.type === "income" ? "income" : "expense",
+            transactionDate: item.transaction_date || new Date().toISOString().split("T")[0],
+            categoryId: matchedCat?.id ?? null,
+            accountId: (matchedAccount ?? accounts[0])?.id ?? null,
+            paymentMethodId: matchedPm?.id ?? paymentMethods[0]?.id ?? null,
+            confidence: item.confidence || "high",
+            accountWasGuessed,
+            suggestedCategory: item.suggested_new_category ?? null,
+          };
+          return draft;
+        })
+      );
     } catch (err: any) {
       toast.error(err?.message || "Error al procesar la entrada");
     } finally {
@@ -367,7 +347,68 @@ export function OmnibarFinance({
     }
   };
 
+  /** Cierra la captura y pasa a la revisión, sin descartar todavía el comprobante. */
+  const openReview = (rows: ReviewRow[]) => {
+    setReviewRows(rows);
+    setReviewOpen(true);
+    onOpenChange(false);
+  };
+
+  const handleConfirmReview = async (rows: ReviewRow[]) => {
+    setIsSaving(true);
+    try {
+      for (const row of rows) {
+        const conv = resolveTransactionAmountUSD({
+          amount: Number(row.amount),
+          currency: row.currency,
+          arsPerUsd: mepRate,
+        });
+        // La revisión ya bloquea el guardado con filas sin cotización; este chequeo es el que
+        // impide que un cambio futuro allá deje pasar pesos a la columna de dólares.
+        if (conv.status !== "ok") {
+          toast.error(`No se registró ${row.name}: ${conv.reason}`);
+          continue;
+        }
+
+        await addTransaction.mutateAsync({
+          name: row.name || "Gasto",
+          raw_merchant: row.rawMerchant || row.name,
+          amount_usd: conv.amountUSD,
+          type: row.type,
+          transaction_date: row.transactionDate,
+          original_amount: Number(row.amount),
+          original_currency: row.currency,
+          fx_rate: conv.fxRate,
+          fx_source: conv.fxSource,
+          category_id: row.categoryId,
+          account_id: row.accountId,
+          payment_method_id: row.paymentMethodId,
+          confidence: (row.confidence as "high" | "medium" | "low") || "high",
+          // Pasó por revisión: lo que quedó, quedó porque alguien lo miró.
+          needs_review: false,
+          source: selectedFile ? "screenshot" : "text",
+          notes: row.suggestedCategory
+            ? `Sugerencia: Crear categoría '${row.suggestedCategory}'`
+            : undefined,
+        });
+      }
+
+      toast.success(
+        rows.length === 1 ? "Movimiento registrado" : `${rows.length} movimientos registrados`
+      );
+      setReviewOpen(false);
+      setReviewRows([]);
+      setInputVal("");
+      handleClearFile();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar los movimientos");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl sm:rounded-2xl bg-card p-4 sm:p-6 shadow-2xl border border-border/60">
         <DialogHeader>
@@ -520,6 +561,33 @@ export function OmnibarFinance({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ReviewExtractedSheet
+      open={reviewOpen}
+      onOpenChange={(v) => {
+        setReviewOpen(v);
+        // Cerrar la revisión descarta el borrador; el comprobante se limpia con él para que
+        // la próxima apertura no arrastre la captura anterior.
+        if (!v) {
+          setReviewRows([]);
+          handleClearFile();
+          setInputVal("");
+        }
+      }}
+      rows={reviewRows}
+      categories={categories}
+      accounts={accounts}
+      paymentMethods={paymentMethods}
+      mepRate={mepRate}
+      isSaving={isSaving}
+      onConfirm={handleConfirmReview}
+      onBack={() => {
+        // Volver a la captura conservando el comprobante ya subido.
+        setReviewOpen(false);
+        onOpenChange(true);
+      }}
+    />
+    </>
   );
 }
 
