@@ -354,12 +354,23 @@ export function GameReviewDashboard() {
             Sin operaciones cerradas, las cuatro tarjetas repetían la misma frase con cuatro
             marcos distintos. Un solo estado vacío dice lo mismo una vez.
           */}
-          {aggregateMetrics.totalClosedTrades === 0 ? (
+          {tradesLoading ? (
+            /* Sin este guardia, alguien con 214 operaciones leía "no hay nada que auditar"
+               mientras la tabla de abajo decía "Calculando…". */
             <div className="rounded-xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-center">
-              <p className="text-sm font-medium text-foreground">Todavía no hay nada que auditar</p>
+              <p className="text-sm text-muted-foreground">Calculando auditorías contrafácticas…</p>
+            </div>
+          ) : aggregateMetrics.totalClosedTrades === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">
+                {trades.length > 0
+                  ? "No hay ventas auditables todavía"
+                  : "Todavía no hay nada que auditar"}
+              </p>
               <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-                El Game Review compara cada venta contra haberla conservado. Las métricas
-                aparecen con tu primera operación cerrada.
+                {trades.length > 0
+                  ? "El Game Review compara cada venta contra haberla conservado, y para eso necesita el precio de mercado del activo. Tus operaciones están cargadas; falta la cotización."
+                  : "El Game Review compara cada venta contra haberla conservado. Las métricas aparecen con tu primera operación cerrada."}
               </p>
             </div>
           ) : (

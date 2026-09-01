@@ -13,6 +13,7 @@ import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIngest } from "@/hooks/useIngest";
+import { parseTransactionLocalDate } from "@/lib/financialMath";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,13 +77,9 @@ export function MovimientosView() {
     return normalizeToUnifiedEvents(transactions, trades, categoriesMap);
   }, [transactions, trades, categoriesMap]);
 
-  // Omnibar State
-  const [omnibarText, setOmnibarText] = useState("");
-  const [addTradeOpen, setAddTradeOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const reviewQueueCount = reviewQueue.length;
 
-  // Filtering States
+  // Filtros y selección del feed.
   const [filterReviewOnly, setFilterReviewOnly] = useState(false);
   // 554 movimientos y 214 operaciones entran al mismo feed y se dibujaban todos, siempre.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -93,246 +90,12 @@ export function MovimientosView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Transaction | null>(null);
 
-  // Count of pending review items
-  const reviewQueueCount = reviewQueue.length;
-
-  // ══════════════════════════════════════════════════════════════════════
-  // FREQUENT EXPENSES PRESETS (Repetidos > 4 veces Y en los últimos 14 días)
-  // Máximo 3 en una sola fila
-  // ══════════════════════════════════════════════════════════════════════
-  const frequentPresets = useMemo(() => {
-    const now = Date.now();
-    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-
-    const map = new Map<
-      string,
-      { name: string; amount: number; currency: string; count: number; latestDate: Date }
-    >();
-
-    for (const t of transactions) {
-      if (!t.name || t.deleted_at) continue;
-      const cleanName = t.name.trim();
-      const origAmount = Number(t.original_amount || t.amount_usd || 0);
-      const key = `${cleanName.toLowerCase()}_${origAmount}`;
-      const txDate = new Date(t.transaction_date || t.created_at || now);
-
-      const curr = map.get(key);
-      if (curr) {
-        curr.count += 1;
-        if (txDate > curr.latestDate) {
-          curr.latestDate = txDate;
-        }
-      } else {
-        map.set(key, {
-          name: cleanName,
-          amount: origAmount,
-          currency: t.original_currency || "ARS",
-          count: 1,
-          latestDate: txDate,
-        });
-      }
-    }
-
-    // Must be > 4 occurrences AND occurred within the last 14 days
-    const qualified = Array.from(map.values()).filter((item) => {
-      const isRepeated = item.count > 4;
-      const isRecent = now - item.latestDate.getTime() <= FOURTEEN_DAYS_MS;
-      return isRepeated && isRecent;
-    });
-
-    // Maximum 3 presets
-    return qualified.sort((a, b) => b.count - a.count).slice(0, 3);
-  }, [transactions]);
-
-  // ══════════════════════════════════════════════════════════════════════
-  // AUTOMATIC OCR / AI EXTRACTION ON FILE OR CLIPBOARD IMAGE
-  // ══════════════════════════════════════════════════════════════════════
-  const handleAutoProcessFile = async (file: File) => {
-    setIsSubmitting(true);
-    const toastId = toast.loading("Analizando comprobante automáticamente con IA...");
-
-    try {
-      const imageBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const { data, error } = await supabase.functions.invoke("extract-finance-input", {
-        body: {
-          image: imageBase64,
-          userCategories: categories,
-          userPaymentMethods: paymentMethods,
-          userAccounts: accounts,
-        },
-      });
-
-      if (error) throw error;
-
-      const extracted = data?.transactions?.[0];
-      if (extracted) {
-        // The extractor emits `amount` + `currency`; `original_amount`, `fx_rate` and
-        // `category_id` are fields it never returns, so they arrived undefined. The USD figure
-        // comes from the rate we hold, never from the model's own `amount_usd` estimate.
-        const converted = resolveTransactionAmountUSD({
-          amount: extracted.amount,
-          currency: extracted.currency,
-          arsPerUsd: mepRate,
-        });
-
-        if (converted.status !== "ok") {
-          toast.error(converted.reason, { id: toastId });
-          return;
-        }
-
-        await addTransaction.mutateAsync({
-          name: extracted.name || "Comprobante Extraído",
-          amount_usd: converted.amountUSD,
-          original_amount: extracted.amount,
-          original_currency: (extracted.currency || "USD").toUpperCase(),
-          fx_rate: converted.fxRate,
-          fx_source: converted.fxSource,
-          type: extracted.type || "expense",
-          transaction_date: extracted.transaction_date || new Date().toISOString().split("T")[0],
-          confidence: extracted.confidence || "high",
-          needs_review: true,
-          source: "screenshot",
-        });
-
-        toast.success(`✓ Movimiento registrado: ${extracted.name} (${extracted.amount})`, {
-          id: toastId,
-        });
-      } else {
-        toast.error("No se detectó el monto en la imagen. Intenta con texto directo.", { id: toastId });
-      }
-    } catch (err: any) {
-      console.warn("AI extraction fallback:", err);
-      toast.error("Error al procesar la imagen con IA.", { id: toastId });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // ══════════════════════════════════════════════════════════════════════
-  // CLIPBOARD PASTE HANDLER (Detects Image or Text Automatically)
-  // ══════════════════════════════════════════════════════════════════════
-  const handlePasteFromClipboard = async () => {
-    try {
-      if (navigator.clipboard?.read) {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          const imageType = item.types.find((t) => t.startsWith("image/"));
-          if (imageType) {
-            const blob = await item.getType(imageType);
-            const file = new File([blob], `comprobante_${Date.now()}.png`, { type: imageType });
-            await handleAutoProcessFile(file);
-            return;
-          }
-        }
-      }
-
-      // Text clipboard
-      const text = await navigator.clipboard.readText();
-      if (text?.trim()) {
-        setOmnibarText(text.trim());
-        toast.info("Texto pegado. Presiona Registrar o Enter.");
-      } else {
-        toast.info("Portapapeles vacío");
-      }
-    } catch (err) {
-      toast.info("Usa Ctrl+V para pegar directamente tu texto o captura");
-    }
-  };
-
-  // Submit Text Input
-  const handleSubmitOmnibar = async (overrideText?: string) => {
-    const textToSubmit = (overrideText !== undefined ? overrideText : omnibarText).trim();
-    if (!textToSubmit) return;
-
-    setIsSubmitting(true);
-    try {
-      // 1. Try AI Extractor
-      const { data, error } = await supabase.functions.invoke("extract-finance-input", {
-        body: {
-          text: textToSubmit,
-          userCategories: categories,
-          userPaymentMethods: paymentMethods,
-          userAccounts: accounts,
-        },
-      });
-
-      if (!error && data?.transactions?.length > 0) {
-        const extracted = data.transactions[0];
-        const converted = resolveTransactionAmountUSD({
-          amount: extracted.amount,
-          currency: extracted.currency,
-          arsPerUsd: mepRate,
-        });
-
-        if (converted.status !== "ok") {
-          toast.error(converted.reason);
-          return;
-        }
-
-        await addTransaction.mutateAsync({
-          name: extracted.name || textToSubmit,
-          amount_usd: converted.amountUSD,
-          original_amount: extracted.amount,
-          original_currency: (extracted.currency || "USD").toUpperCase(),
-          fx_rate: converted.fxRate,
-          fx_source: converted.fxSource,
-          type: extracted.type || "expense",
-          confidence: extracted.confidence || "high",
-          // No category is resolved on this path, so the row is not settled.
-          needs_review: true,
-          source: "text",
-        });
-        toast.success(`✓ Movimiento registrado: ${extracted.name}`);
-        setOmnibarText("");
-        return;
-      }
-
-      // 2. Fallback Local parsing
-      const numMatch = textToSubmit.match(/(\d+[\d\s.,]*)/);
-      const rawAmount = numMatch ? parseFloat(numMatch[1].replace(/\s/g, "").replace(",", ".")) : 0;
-      const isARS = !textToSubmit.toLowerCase().includes("usd") && rawAmount > 500;
-      // A hardcoded 1200 used to stand in when the live rate was missing, and it was written to
-      // `fx_rate` as though it were a real quote.
-      const converted = resolveTransactionAmountUSD({
-        amount: rawAmount,
-        currency: isARS ? "ARS" : "USD",
-        arsPerUsd: mepRate,
-      });
-
-      if (rawAmount > 0 && converted.status !== "ok") {
-        toast.error(converted.reason);
-        return;
-      }
-
-      if (rawAmount > 0 && converted.status === "ok") {
-        await addTransaction.mutateAsync({
-          name: textToSubmit.replace(/(\d+[\d\s.,]*)/, "").trim() || "Gasto Rápido",
-          amount_usd: converted.amountUSD,
-          original_amount: rawAmount,
-          original_currency: isARS ? "ARS" : "USD",
-          fx_rate: converted.fxRate,
-          fx_source: converted.fxSource,
-          confidence: "medium",
-          needs_review: true,
-          source: "text",
-        });
-        toast.success(`✓ Movimiento registrado: $${rawAmount}`);
-        setOmnibarText("");
-      } else {
-        toast.error("Monto no detectado. Ej: 'Coto 15000'");
-      }
-    } catch (err: any) {
-      toast.error("Error al registrar movimiento");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  /*
+    Acá vivían el estado y los manejadores de la captura propia de esta vista —texto,
+    portapapeles, archivo, presets—. Al pasar a una sola entrada quedaron sin nadie que los
+    llamara, y eso es peor que código de más: era un camino de escritura que iba derecho a la
+    base salteándose la revisión que ahora decide qué se guarda.
+  */
 
   // Inline Approval
   const handleApproveTransaction = async (id: string, e: React.MouseEvent) => {
@@ -360,11 +123,15 @@ export function MovimientosView() {
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
-    const days = DATE_WINDOWS.find((w) => w.value === dateWindow)?.days ?? null;
+    // Con "Pendientes" activo la ventana no aplica: el badge cuenta toda la cola, y un
+    // movimiento de hace dos meses esperando aprobación tiene que poder aprobarse.
+    const days = filterReviewOnly
+      ? null
+      : DATE_WINDOWS.find((w) => w.value === dateWindow)?.days ?? null;
     const floor = days === null ? null : Date.now() - days * 86400000;
     return unifiedEvents.filter((item) => {
       if (floor !== null) {
-        const t = new Date(item.date).getTime();
+        const t = parseTransactionLocalDate(item.date).getTime();
         // Una fecha ilegible no se esconde: se muestra para que se vea que está mal.
         if (Number.isFinite(t) && t < floor) return false;
       }
@@ -382,11 +149,15 @@ export function MovimientosView() {
   }, [unifiedEvents, filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
 
   // Bulk Actions
+  /**
+   * Sólo lo que está en pantalla. Abarcar `filteredEvents` marcaba las 554 filas que la
+   * paginación todavía no dibujó, y el botón de al lado las borra.
+   */
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredEvents.length) {
+    if (selectedIds.size === visibleEvents.length && visibleEvents.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredEvents.map((e) => e.id)));
+      setSelectedIds(new Set(visibleEvents.map((e) => e.id)));
     }
   };
 
@@ -441,6 +212,8 @@ export function MovimientosView() {
   // Cambiar un filtro devuelve a la primera página: seguir en la 4 de otra lista no significa nada.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    // Y se suelta la selección: lo marcado en otra lista no es lo que está en pantalla.
+    setSelectedIds(new Set());
   }, [filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
 
   const visibleEvents = filteredEvents.slice(0, visibleCount);
@@ -565,7 +338,7 @@ export function MovimientosView() {
                 <TableRow className="hover:bg-transparent text-xs">
                   <TableHead className="w-[36px]">
                     <Checkbox
-                      checked={selectedIds.size === filteredEvents.length && filteredEvents.length > 0}
+                      checked={selectedIds.size === visibleEvents.length && visibleEvents.length > 0}
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
@@ -675,6 +448,11 @@ export function MovimientosView() {
             </div>
 
             {/* Y en el teléfono, una tarjeta por movimiento con el monto a la vista. */}
+            {visibleEvents.length === 0 && (
+              <p className="py-12 text-center text-sm text-muted-foreground md:hidden">
+                No se encontraron movimientos.
+              </p>
+            )}
             <ul className="space-y-2 md:hidden">
               {visibleEvents.map((item) => {
                 const editable =
@@ -769,8 +547,6 @@ export function MovimientosView() {
           )}
         </CardContent>
       </Card>
-
-      <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen} />
 
       <EditTransactionDialog
         transaction={editing}

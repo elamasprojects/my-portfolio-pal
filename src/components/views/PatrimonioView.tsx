@@ -62,10 +62,15 @@ export function PatrimonioView() {
   const [denom, setDenom] = useState<Denom>("USD");
 
   /** Un monto en dólares, escrito en la moneda que el usuario eligió mirar. */
-  const money = (usd: number) =>
-    denom === "USD"
-      ? `US$ ${formatUSD(usd)}`
-      : `$ ${formatARS(usd * effectiveCclRate)}`;
+  const money = (usd: number) => {
+    const v = denom === "USD" ? usd : usd * effectiveCclRate;
+    const loc = denom === "USD" ? "en-US" : "es-AR";
+    const n =
+      v !== 0 && Math.abs(v) < 10
+        ? v.toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+        : Math.floor(v).toLocaleString(loc);
+    return `${denom === "USD" ? "US$" : "$"} ${n}`;
+  };
 
   const { brokerAccounts, liquidBankAccounts, totalBrokerCashUSD, totalLiquidUSD, totalLiquidARS } = useMemo(() => {
     const brokers: typeof activeAccounts = [];
@@ -339,6 +344,25 @@ export function PatrimonioView() {
                 title={`Bancos ARS: ${Math.floor(liquidArsWeightPct)}%`}
               />
             </div>
+
+            {/* La leyenda que reemplaza a las tres tarjetas: mismo dato, un renglón. */}
+            <ul className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
+              {[
+                { color: "bg-primary", label: "Brokers", pct: brokerWeightPct, usd: totalBrokerUSD },
+                { color: "bg-emerald-400", label: "Bancos USD", pct: liquidUsdWeightPct, usd: totalLiquidUSD },
+                { color: "bg-sky-400", label: "Bancos ARS", pct: liquidArsWeightPct, usd: totalLiquidARS_inUSD },
+              ]
+                // Un grupo en cero no se dibuja: una tarjeta entera decía US$ 0 · 0%.
+                .filter((g) => g.usd !== 0)
+                .map((g) => (
+                  <li key={g.label} className="flex items-center gap-1.5 text-[11px]">
+                    <span className={`h-2 w-2 shrink-0 rounded-sm ${g.color}`} aria-hidden="true" />
+                    <span className="text-muted-foreground">{g.label}</span>
+                    <span className="font-mono font-semibold text-foreground">{money(g.usd)}</span>
+                    <span className="font-mono text-muted-foreground">{Math.floor(g.pct)}%</span>
+                  </li>
+                ))}
+            </ul>
           </div>
         </CardContent>
       </Card>
@@ -440,7 +464,7 @@ export function PatrimonioView() {
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/10">
-                Total Portfolio: US$ {formatUSD(portfolioInvestedUSD)}
+                Total Portfolio: {money(portfolioInvestedUSD)}
               </Badge>
             </div>
 
@@ -460,15 +484,15 @@ export function PatrimonioView() {
                           </Badge>
                         </div>
                         <span className="text-[11px] text-muted-foreground font-mono">
-                          Efectivo Comitente: US$ {formatUSD(b.cashUSD)}
+                          Efectivo Comitente: {money(b.cashUSD)}
                         </span>
                       </div>
                       <div className="text-right font-mono">
                         <span className="text-sm font-black text-foreground block">
-                          US$ {formatUSD(b.totalMarketValUSD)}
+                          {money(b.totalMarketValUSD)}
                         </span>
                         <span className={`text-[11px] font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {b.unrealizedPnlUSD >= 0 ? "+US$" : "-US$"} {formatUSD(Math.abs(b.unrealizedPnlUSD))} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{Math.floor(b.unrealizedPnlPct)}%)
+                          {b.unrealizedPnlUSD >= 0 ? "+" : "-"}{money(Math.abs(b.unrealizedPnlUSD))} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{Math.floor(b.unrealizedPnlPct)}%)
                         </span>
                       </div>
                     </CardHeader>
@@ -507,16 +531,16 @@ export function PatrimonioView() {
                                   {Number.isInteger(h.quantity) ? h.quantity.toString() : h.quantity.toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-muted-foreground">
-                                  US$ {h.avgCostUSD < 1 ? h.avgCostUSD.toFixed(3) : formatUSD(h.avgCostUSD)}
+                                  {money(h.avgCostUSD)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-bold text-foreground">
-                                  US$ {h.livePriceUSD < 1 ? h.livePriceUSD.toFixed(3) : formatUSD(h.livePriceUSD)}
+                                  {money(h.livePriceUSD)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-bold">
-                                  US$ {formatUSD(h.marketValUSD)}
+                                  {money(h.marketValUSD)}
                                 </TableCell>
                                 <TableCell className={`text-right font-mono font-bold ${isPnlPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {isPnlPositive ? "+US$" : "-US$"} {formatUSD(Math.abs(h.pnlUSD))}
+                                  {isPnlPositive ? "+" : "-"}{money(Math.abs(h.pnlUSD))}
                                   <span className="block text-[10px] opacity-80">
                                     {isPnlPositive ? "+" : ""}{Math.floor(h.pnlPct)}%
                                   </span>
