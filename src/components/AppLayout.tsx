@@ -4,9 +4,14 @@ import { ChessNavbar } from "@/components/navigation/ChessNavbar";
 import { ChessMobileNav } from "@/components/navigation/ChessMobileNav";
 import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
 import { useShareTargetListener, SharedData } from "@/hooks/useShareTargetListener";
+import { IngestChoiceDialog } from "@/components/IngestChoiceDialog";
+import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
+  // El "+" ya no cae derecho en la ingesta de finanzas: primero pregunta qué se registra.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [tradeOpen, setTradeOpen] = useState(false);
   const [sharedText, setSharedText] = useState<string | undefined>();
   const [sharedFile, setSharedFile] = useState<File | null>(null);
   const location = useLocation();
@@ -17,6 +22,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [location.pathname]);
 
   // PWA Share Target Listener
+  // Compartir a la app salta el selector: lo compartido ya es un comprobante.
   useShareTargetListener((data: SharedData) => {
     if (data.text) setSharedText(data.text);
     if (data.files && data.files.length > 0) setSharedFile(data.files[0]);
@@ -28,7 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOmnibarOpen((prev) => !prev);
+        setPickerOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -38,7 +44,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col w-full bg-background text-foreground">
       {/* Top 3-View Chess Spanish Navbar */}
-      <ChessNavbar onOpenOmnibar={() => setOmnibarOpen(true)} />
+      <ChessNavbar onOpenOmnibar={() => setPickerOpen(true)} />
 
       {/* Main Content Viewport */}
       <main className="flex-1 mx-auto w-full max-w-7xl p-4 md:p-6 pb-32 md:pb-8">
@@ -46,7 +52,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Mobile 3-View Bottom Nav */}
-      <ChessMobileNav onOpenOmnibar={() => setOmnibarOpen(true)} />
+      <ChessMobileNav onOpenOmnibar={() => setPickerOpen(true)} />
+
+      {/* Paso 0: operación o movimiento */}
+      <IngestChoiceDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPickTrade={() => setTradeOpen(true)}
+        onPickTransaction={() => setOmnibarOpen(true)}
+      />
+
+      {/* Compra / venta */}
+      <AddTradeDialog open={tradeOpen} onOpenChange={setTradeOpen} />
 
       {/* Global Natural-Language Omnibar */}
       <OmnibarFinance

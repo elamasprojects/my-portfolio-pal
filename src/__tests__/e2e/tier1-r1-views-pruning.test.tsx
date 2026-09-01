@@ -100,6 +100,11 @@ describe("Tier 1 - Requirement 1 (R1): 3-View Architecture, Pruning, Dark Mode &
     expect(searchBtn).toBeInTheDocument();
     fireEvent.click(searchBtn);
 
+    // El botón ya no cae derecho en la ingesta de finanzas: primero pregunta qué se registra,
+    // porque una compra y un gasto van a ledgers distintos.
+    await screen.findByText(/qué querés registrar/i);
+    fireEvent.click(screen.getByRole("button", { name: /movimiento/i }));
+
     // The sheet leads with the receipt capture; typing is opt-in behind a button, so the text
     // field is deliberately absent until asked for.
     const uploadZone = await screen.findByText(/sube una captura de comprobante/i);
@@ -111,6 +116,23 @@ describe("Tier 1 - Requirement 1 (R1): 3-View Architecture, Pruning, Dark Mode &
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/coto|uber/i)).toBeInTheDocument();
     });
+  });
+
+  /**
+   * T1-R1-05b: el otro camino del selector, que era el que faltaba — el formulario de
+   * compra/venta seguía en el código pero ningún acceso lo abría.
+   */
+  it("T1-R1-05b: el selector del + también abre el alta de operaciones", async () => {
+    render(<App />);
+    await screen.findByText("CHESS");
+
+    fireEvent.click(screen.getByRole("button", { name: /buscar \/ registrar/i }));
+    await screen.findByText(/qué querés registrar/i);
+    fireEvent.click(screen.getByRole("button", { name: /operación/i }));
+
+    await screen.findByText(/registrar operación/i);
+    // Y acepta el comprobante del broker, no sólo tipeo.
+    expect(screen.getByText(/subí la captura de la orden/i)).toBeInTheDocument();
   });
 
   /**
