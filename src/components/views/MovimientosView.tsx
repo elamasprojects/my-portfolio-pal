@@ -149,17 +149,6 @@ export function MovimientosView() {
   }, [unifiedEvents, filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
 
   // Bulk Actions
-  /**
-   * Sólo lo que está en pantalla. Abarcar `filteredEvents` marcaba las 554 filas que la
-   * paginación todavía no dibujó, y el botón de al lado las borra.
-   */
-  const toggleSelectAll = () => {
-    if (selectedIds.size === visibleEvents.length && visibleEvents.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(visibleEvents.map((e) => e.id)));
-    }
-  };
 
   const toggleSelectId = (id: string) => {
     const next = new Set(selectedIds);
@@ -217,6 +206,18 @@ export function MovimientosView() {
   }, [filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
 
   const visibleEvents = filteredEvents.slice(0, visibleCount);
+
+  /**
+   * Sólo lo que está en pantalla. Abarcar `filteredEvents` marcaba las 554 filas que la
+   * paginación todavía no dibujó, y el botón de al lado las borra.
+   */
+  const toggleSelectAll = () => {
+    if (selectedIds.size === visibleEvents.length && visibleEvents.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visibleEvents.map((e) => e.id)));
+    }
+  };
 
   return (
     <div className="space-y-6 pb-24">
