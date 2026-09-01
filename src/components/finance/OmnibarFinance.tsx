@@ -23,7 +23,11 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
-import { ReviewExtractedSheet, type ReviewRow } from "@/components/finance/ReviewExtractedSheet";
+import {
+  ReviewExtractedSheet,
+  type ReviewRow,
+  type TransactionType,
+} from "@/components/finance/ReviewExtractedSheet";
 import { toast } from "sonner";
 
 /** Una fila tal como la devuelve `extract-finance-input`. Todo es opcional a propósito: es
@@ -66,6 +70,10 @@ export function OmnibarFinance({
   const [reviewRows, setReviewRows] = useState<ReviewRow[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Pasar a revisión cierra esta hoja, y el efecto de cierre limpia texto y comprobante: el
+  // "volver" prometía conservarlo y devolvía una pantalla vacía, y al guardar la fila salía
+  // marcada como tipeada porque para entonces `selectedFile` ya era null.
+  const handingToReview = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync initial props when opened
@@ -76,6 +84,9 @@ export function OmnibarFinance({
       // The text has to go with it: collapsing alone left the previous draft alive but
       // invisible, and the next submit sent it along with whatever was captured this time.
       setShowTextInput(false);
+      // Salvo cuando el cierre es el pase a la revisión, que necesita texto y comprobante
+      // intactos para poder volver.
+      if (handingToReview.current) return;
       setInputVal("");
       // El adjunto es el mismo bug con otra cara, y peor: un recibo que quedó vivo
       // se manda con el próximo movimiento y encima lo estampa `source:
@@ -275,6 +286,7 @@ export function OmnibarFinance({
               paymentMethodId: defaultPm || null,
               confidence: "medium",
               accountWasGuessed: true,
+              source: selectedFile ? "screenshot" : "text",
             },
           ]);
           return;
@@ -328,7 +340,13 @@ export function OmnibarFinance({
             rawMerchant: item.raw_merchant || item.name,
             amount: String(item.amount ?? ""),
             currency: (item.currency || "USD").toUpperCase(),
-            type: item.type === "income" ? "income" : "expense",
+            // El extractor emite cuatro tipos y el trigger de saldos los distingue: forzar
+            // todo a `expense` debitaba el origen de una transferencia sin acreditar destino.
+            type: (["income", "expense", "investment", "transfer"] as const).includes(
+              item.type as TransactionType
+            )
+              ? (item.type as TransactionType)
+              : "expense",
             transactionDate: item.transaction_date || new Date().toISOString().split("T")[0],
             categoryId: matchedCat?.id ?? null,
             accountId: (matchedAccount ?? accounts[0])?.id ?? null,
@@ -336,6 +354,7 @@ export function OmnibarFinance({
             confidence: item.confidence || "high",
             accountWasGuessed,
             suggestedCategory: item.suggested_new_category ?? null,
+            source: selectedFile ? "screenshot" : "text",
           };
           return draft;
         })
@@ -351,11 +370,20 @@ export function OmnibarFinance({
   const openReview = (rows: ReviewRow[]) => {
     setReviewRows(rows);
     setReviewOpen(true);
+    handingToReview.current = true;
     onOpenChange(false);
+    // Se baja en el tick siguiente: para entonces el efecto de cierre ya corrió, y un cierre
+    // posterior vuelve a limpiar como corresponde.
+    window.setTimeout(() => {
+      handingToReview.current = false;
+    }, 0);
   };
 
   const handleConfirmReview = async (rows: ReviewRow[]) => {
     setIsSaving(true);
+    // Un fallo a mitad de tanda dejaba el borrador entero en pantalla: reintentar volvía a
+    // insertar las que ya estaban y movía sus saldos dos veces. Lo guardado sale del borrador.
+    const saved = new Set<string>();
     try {
       for (const row of rows) {
         const conv = resolveTransactionAmountUSD({
@@ -367,6 +395,11 @@ export function OmnibarFinance({
         // impide que un cambio futuro allá deje pasar pesos a la columna de dólares.
         if (conv.status !== "ok") {
           toast.error(`No se registró ${row.name}: ${conv.reason}`);
+          continue;
+        }
+        // Una transferencia mueve dos cuentas; la revisión la bloquea y acá no entra.
+        if (row.type === "transfer") {
+          toast.error(`No se registró ${row.name}: las transferencias van por su propio flujo.`);
           continue;
         }
 
@@ -384,13 +417,17 @@ export function OmnibarFinance({
           account_id: row.accountId,
           payment_method_id: row.paymentMethodId,
           confidence: (row.confidence as "high" | "medium" | "low") || "high",
-          // Pasó por revisión: lo que quedó, quedó porque alguien lo miró.
-          needs_review: false,
-          source: selectedFile ? "screenshot" : "text",
+          // Pasó por revisión, pero eso no borra lo que sigue sin resolver: una cuenta que
+          // quedó adivinada mueve un saldo real y tiene que seguir apareciendo en Pendientes.
+          needs_review: Boolean(row.accountWasGuessed) || !row.categoryId,
+          // El origen viaja en la fila: para acá, la hoja de captura ya se cerró y limpió su
+          // archivo, así que leerlo ahora estampaba "text" a todo lo que vino de una captura.
+          source: row.source ?? "text",
           notes: row.suggestedCategory
             ? `Sugerencia: Crear categoría '${row.suggestedCategory}'`
             : undefined,
         });
+        saved.add(row.key);
       }
 
       toast.success(
@@ -401,6 +438,8 @@ export function OmnibarFinance({
       setInputVal("");
       handleClearFile();
     } catch (err: unknown) {
+      // Sólo queda pendiente lo que no llegó a entrar, así que reintentar no duplica.
+      setReviewRows(rows.filter((r) => !saved.has(r.key)));
       toast.error(err instanceof Error ? err.message : "Error al guardar los movimientos");
     } finally {
       setIsSaving(false);

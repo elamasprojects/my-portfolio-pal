@@ -28,6 +28,9 @@ import type { Category, FinancialAccount, PaymentMethod } from "@/types/finance"
  * descartan las que no van; recién el botón del pie escribe.
  */
 
+/** Los cuatro que emite el extractor y que el trigger de saldos distingue. */
+export type TransactionType = "expense" | "income" | "investment" | "transfer";
+
 export interface ReviewRow {
   /** Sólo para React y para el descarte; no viaja a la base. */
   key: string;
@@ -35,7 +38,7 @@ export interface ReviewRow {
   /** Monto en su moneda original, tal como lo leyó el extractor. */
   amount: string;
   currency: string;
-  type: "expense" | "income";
+  type: TransactionType;
   transactionDate: string;
   categoryId: string | null;
   accountId: string | null;
@@ -45,6 +48,8 @@ export interface ReviewRow {
   /** La cuenta no se pudo identificar y quedó la primera de la lista. */
   accountWasGuessed?: boolean;
   suggestedCategory?: string | null;
+  /** Congelado al extraer: al guardar, la hoja de captura ya se cerró y limpió su archivo. */
+  source?: "screenshot" | "text";
 }
 
 interface ReviewExtractedSheetProps {
@@ -108,22 +113,41 @@ export function ReviewExtractedSheet({
       return prev.slice(0, -1);
     });
 
-  /** Un monto que no se puede convertir no se guarda: iría a la columna de dólares en pesos. */
-  const converted = useMemo(
+  /**
+   * Qué bloquea una fila. `Number("")` es 0, no NaN: borrar el monto pasaba la conversión
+   * como válida y escribía un movimiento de US$ 0,00 con el botón habilitado.
+   *
+   * Una transferencia se frena aparte: mueve dos saldos y necesita cuenta destino, que esta
+   * pantalla no pide. Dejarla pasar como gasto debitaba el origen sin acreditar el destino.
+   */
+  const checked = useMemo(
     () =>
-      draft.map((r) =>
-        resolveTransactionAmountUSD({
-          amount: Number(r.amount),
+      draft.map((r) => {
+        const amount = Number(r.amount);
+        if (r.amount.trim() === "" || !Number.isFinite(amount) || amount <= 0) {
+          return { status: "blocked" as const, why: "El monto tiene que ser un número mayor a cero." };
+        }
+        if (r.type === "transfer") {
+          return {
+            status: "blocked" as const,
+            why: "Las transferencias mueven dos cuentas y se cargan desde su propio flujo.",
+          };
+        }
+        const conv = resolveTransactionAmountUSD({
+          amount,
           currency: r.currency,
           arsPerUsd: mepRate,
-        })
-      ),
+        });
+        return conv.status === "ok"
+          ? { status: "ok" as const, amountUSD: conv.amountUSD }
+          : { status: "blocked" as const, why: conv.reason };
+      }),
     [draft, mepRate]
   );
 
-  const blocked = converted.filter((c) => c.status !== "ok").length;
-  const total = converted.reduce((s, c) => (c.status === "ok" ? s + c.amountUSD : s), 0);
-  const canSave = draft.length > 0 && blocked === 0 && !isSaving;
+  const problems = checked.filter((c) => c.status === "blocked");
+  const total = checked.reduce((sum, c) => (c.status === "ok" ? sum + c.amountUSD : sum), 0);
+  const canSave = draft.length > 0 && problems.length === 0 && !isSaving;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,7 +182,7 @@ export function ReviewExtractedSheet({
             <SwipeableRow
               key={row.key}
               row={row}
-              conversion={converted[i]}
+              check={checked[i]}
               categories={categories}
               accounts={accounts}
               paymentMethods={paymentMethods}
@@ -181,13 +205,13 @@ export function ReviewExtractedSheet({
         </div>
 
         <div className="space-y-2 border-t border-border/50 px-4 py-3 sm:px-5">
-          {blocked > 0 && (
+          {problems.length > 0 && (
             <p className="flex items-start gap-2 text-xs text-amber-500">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {blocked === 1 ? "Un movimiento no se puede" : `${blocked} movimientos no se pueden`}{" "}
-                convertir a dólares. Corregí la moneda o el monto — guardar el número en pesos
-                dentro de la columna de dólares es justo lo que no queremos.
+                {problems.length === 1
+                  ? (problems[0] as { why: string }).why
+                  : `Hay ${problems.length} movimientos con problemas. Corregilos o descartalos.`}
               </span>
             </p>
           )}
@@ -217,7 +241,7 @@ export function ReviewExtractedSheet({
 
 function SwipeableRow({
   row,
-  conversion,
+  check,
   categories,
   accounts,
   paymentMethods,
@@ -225,7 +249,7 @@ function SwipeableRow({
   onDiscard,
 }: {
   row: ReviewRow;
-  conversion: ReturnType<typeof resolveTransactionAmountUSD>;
+  check: { status: "ok"; amountUSD: number } | { status: "blocked"; why: string };
   categories: Category[];
   accounts: FinancialAccount[];
   paymentMethods: PaymentMethod[];
@@ -241,7 +265,7 @@ function SwipeableRow({
   // y la tarjeta volvía a su lugar en vez de descartarse.
   const dxRef = useRef(0);
 
-  const catsForType = categories.filter((c) => c.type === row.type);
+  const catsForType = categories.filter((c) => c.type === row.type || c.type === "both");
 
   const onPointerDown = (e: React.PointerEvent) => {
     // Arrastrar sobre un campo tiene que dejar seleccionar texto y mover el cursor, no barrer
@@ -332,6 +356,8 @@ function SwipeableRow({
             <SelectContent>
               <SelectItem value="expense">Gasto</SelectItem>
               <SelectItem value="income">Ingreso</SelectItem>
+              <SelectItem value="investment">Inversión</SelectItem>
+              {row.type === "transfer" && <SelectItem value="transfer">Transferencia</SelectItem>}
             </SelectContent>
           </Select>
 
@@ -382,7 +408,32 @@ function SwipeableRow({
           />
         </div>
 
-        <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          <Select
+            value={row.paymentMethodId ?? "none"}
+            onValueChange={(v) => {
+              // El saldo lo mueve el medio de pago, no la cuenta. Al elegirlo se arrastra su
+              // cuenta para que las dos cosas cuenten la misma historia.
+              const pm = paymentMethods.find((m) => m.id === v);
+              onPatch({
+                paymentMethodId: v === "none" ? null : v,
+                ...(pm?.account_id ? { accountId: pm.account_id, accountWasGuessed: false } : {}),
+              });
+            }}
+          >
+            <SelectTrigger className="h-7 min-w-0 flex-1 text-[11px]" aria-label="Medio de pago">
+              <SelectValue placeholder="Sin medio de pago" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sin medio de pago</SelectItem>
+              {paymentMethods.map((pm) => (
+                <SelectItem key={pm.id} value={pm.id}>
+                  {pm.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select
             value={row.accountId ?? "none"}
             onValueChange={(v) =>
@@ -408,15 +459,22 @@ function SwipeableRow({
           </Select>
 
           <span className="shrink-0 font-mono text-xs tabular-nums">
-            {conversion.status === "ok" ? (
+            {check.status === "ok" ? (
               <span className="text-muted-foreground">
-                US$ <span className="font-medium text-foreground">{money(conversion.amountUSD)}</span>
+                US$ <span className="font-medium text-foreground">{money(check.amountUSD)}</span>
               </span>
             ) : (
-              <span className="text-amber-500">sin cotización</span>
+              <span className="text-amber-500">—</span>
             )}
           </span>
         </div>
+
+        {check.status === "blocked" && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-500">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>{check.why}</span>
+          </p>
+        )}
 
         {row.accountWasGuessed && (
           <p className="text-[11px] text-amber-500">

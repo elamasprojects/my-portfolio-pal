@@ -23,6 +23,7 @@ const categories = [
   { id: "c-food", name: "Food", type: "expense", keywords: [] },
   { id: "c-travel", name: "Travel", type: "expense", keywords: [] },
   { id: "c-salary", name: "Sueldo", type: "income", keywords: [] },
+  { id: "c-both", name: "Ajustes", type: "both", keywords: [] },
 ] as unknown as Category[];
 
 const accounts = [
@@ -152,7 +153,44 @@ describe("ReviewExtractedSheet", () => {
     setup([row({ amount: "15000", currency: "ARS" })], { mepRate: 0 });
 
     expect(screen.getByRole("button", { name: /registrar/i })).toBeDisabled();
-    expect(screen.getByText(/no se puede.*convertir a dólares/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no hay cotización/i).length).toBeGreaterThan(0);
+  });
+
+  it("borrar el monto bloquea, en vez de guardar un movimiento de cero", () => {
+    setup([row({ amount: "10" })]);
+    // `Number("")` es 0, no NaN: la conversión daba "ok" y el botón seguía habilitado.
+    fireEvent.change(screen.getByDisplayValue("10"), { target: { value: "" } });
+
+    expect(screen.getByRole("button", { name: /registrar/i })).toBeDisabled();
+    expect(screen.getAllByText(/número mayor a cero/i).length).toBeGreaterThan(0);
+  });
+
+  it("una transferencia no se guarda como si fuera un gasto", () => {
+    // El trigger debita el origen y acredita el destino; sin cuenta destino, dejarla pasar
+    // como gasto sacaba la plata de un lado y no la ponía en ninguno.
+    setup([row({ type: "transfer" })]);
+
+    expect(screen.getByRole("button", { name: /registrar/i })).toBeDisabled();
+    expect(screen.getAllByText(/transferencias/i).length).toBeGreaterThan(0);
+  });
+
+  it("las categorías 'both' aparecen para gastos y para ingresos", async () => {
+    setup([row({ categoryId: null })]);
+
+    fireEvent.keyDown(screen.getByLabelText("Categoría"), { key: "Enter" });
+    expect(await screen.findByRole("option", { name: "Ajustes" })).toBeInTheDocument();
+  });
+
+  it("elegir el medio de pago arrastra su cuenta, que es la que termina moviéndose", async () => {
+    const { onConfirm } = setup([row({ accountId: null, paymentMethodId: null })]);
+
+    fireEvent.keyDown(screen.getByLabelText("Medio de pago"), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: "DolarApp Credit Card" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /registrar 1 movimiento/i }));
+    const saved = onConfirm.mock.calls[0][0] as ReviewRow[];
+    expect(saved[0].paymentMethodId).toBe("p-1");
+    expect(saved[0].accountId).toBe("a-1");
   });
 
   it("cambiar el tipo limpia la categoría, que pertenecía al tipo anterior", async () => {

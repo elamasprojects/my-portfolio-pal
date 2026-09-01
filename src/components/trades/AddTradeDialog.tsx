@@ -159,6 +159,9 @@ export function AddTradeDialog({
     setTargetPrice(defaultTargetPrice);
     setInvalidationCondition(defaultInvalidationCondition);
     setErrors([]);
+    // El comprobante también: si no, la captura de la orden anterior queda colgada arriba
+    // del formulario en blanco —y su object URL sin revocar— como si fuera de esta.
+    clearReceipt();
   }
 
   function validate(): string[] {
