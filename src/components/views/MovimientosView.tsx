@@ -12,6 +12,7 @@ import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIngest } from "@/hooks/useIngest";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,9 +38,22 @@ import {
   Check,
   RotateCcw,
   Sparkles,
+  Plus,
 } from "lucide-react";
 
+const PAGE_SIZE = 50;
+
+type DateWindow = "30d" | "90d" | "365d" | "all";
+
+const DATE_WINDOWS: { value: DateWindow; label: string; days: number | null }[] = [
+  { value: "30d", label: "Últimos 30 días", days: 30 },
+  { value: "90d", label: "Últimos 3 meses", days: 90 },
+  { value: "365d", label: "Último año", days: 365 },
+  { value: "all", label: "Todo el historial", days: null },
+];
+
 export function MovimientosView() {
+  const { openPicker } = useIngest();
   // Data hooks
   const { transactions, reviewQueue, updateTransaction, softDeleteTransaction, addTransaction, isLoading: txLoading } = useTransactions();
   const { categories } = useCategories();
@@ -70,6 +84,10 @@ export function MovimientosView() {
 
   // Filtering States
   const [filterReviewOnly, setFilterReviewOnly] = useState(false);
+  // 554 movimientos y 214 operaciones entran al mismo feed y se dibujaban todos, siempre.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // El historial completo casi nunca es lo que uno viene a mirar.
+  const [dateWindow, setDateWindow] = useState<DateWindow>("30d");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -342,7 +360,14 @@ export function MovimientosView() {
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
+    const days = DATE_WINDOWS.find((w) => w.value === dateWindow)?.days ?? null;
+    const floor = days === null ? null : Date.now() - days * 86400000;
     return unifiedEvents.filter((item) => {
+      if (floor !== null) {
+        const t = new Date(item.date).getTime();
+        // Una fecha ilegible no se esconde: se muestra para que se vea que está mal.
+        if (Number.isFinite(t) && t < floor) return false;
+      }
       if (filterReviewOnly && !item.needsReview) return false;
       if (selectedTypeFilter !== "all" && item.type !== selectedTypeFilter) return false;
       if (searchQuery.trim()) {
@@ -354,7 +379,7 @@ export function MovimientosView() {
       }
       return true;
     });
-  }, [unifiedEvents, filterReviewOnly, selectedTypeFilter, searchQuery]);
+  }, [unifiedEvents, filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
 
   // Bulk Actions
   const toggleSelectAll = () => {
@@ -413,144 +438,36 @@ export function MovimientosView() {
     }
   };
 
-  const isTyping = omnibarText.trim().length > 0;
+  // Cambiar un filtro devuelve a la primera página: seguir en la 4 de otra lista no significa nada.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filterReviewOnly, selectedTypeFilter, searchQuery, dateWindow]);
+
+  const visibleEvents = filteredEvents.slice(0, visibleCount);
 
   return (
     <div className="space-y-6 pb-24">
-      {/* 1. SIMPLE & CLEAN INPUT CARD */}
-      <Card className="bg-card border border-border/80 shadow-md">
-        <CardContent className="p-4 sm:p-5 space-y-3">
-          {/* Main Input Row: Text Input + Audio Recorder with dynamic disappearance */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                placeholder="Ingresa un gasto o movimiento... (ej: Coto 45000, Uber 15 usd)"
-                value={omnibarText}
-                onChange={(e) => setOmnibarText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmitOmnibar();
-                  }
-                }}
-                className="h-12 text-sm font-medium px-4 bg-background/90 border-border/80 rounded-xl shadow-inner font-sans"
-              />
-            </div>
-
-            {/* Audio Recorder: Has high hierarchy and disappears when typing */}
-            <AnimatePresence>
-              {!isTyping && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  className="shrink-0"
-                >
-                  <AudioQuickRecorder
-                    // The prop is `onRecordedText`; passing `onTranscriptReady` meant the
-                    // recorder had no callback and every transcription was dropped.
-                    onRecordedText={(transcript) => {
-                      setOmnibarText(transcript.trim());
-                      handleSubmitOmnibar(transcript.trim());
-                    }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Hidden File Input for Auto OCR */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                handleAutoProcessFile(f);
-                e.target.value = "";
-              }
-            }}
-          />
-
-          {/* Action Buttons: Pegar & Subir Captura (with Auto Analysis) */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePasteFromClipboard}
-              disabled={isSubmitting}
-              className="h-11 text-xs font-bold rounded-xl border-border/80 bg-background/60 hover:bg-muted gap-2"
-            >
-              <ClipboardPaste className="h-4 w-4 text-primary" />
-              <span>Pegar</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting}
-              className="h-11 text-xs font-bold rounded-xl border-border/80 bg-background/60 hover:bg-muted gap-2"
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              ) : (
-                <Upload className="h-4 w-4 text-primary" />
-              )}
-              <span>Subir Captura</span>
-            </Button>
-          </div>
-
-          {/* If typing: Show Register Movement Button */}
-          {isTyping && (
-            <Button
-              onClick={() => handleSubmitOmnibar()}
-              disabled={isSubmitting}
-              className="w-full h-11 text-xs font-bold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md gap-2"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              <span>Registrar Movimiento</span>
-            </Button>
-          )}
-
-          {/* Frequent Expenses Presets (Max 3 in single row) */}
-          {frequentPresets.length > 0 && (
-            <div className="pt-2 border-t border-border/40 space-y-1.5">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                Gastos Frecuentes Recientes (últimos 14 días)
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {frequentPresets.map((p) => (
-                  <Button
-                    key={`${p.name}_${p.amount}`}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const text = `${p.name} ${p.amount}`;
-                      setOmnibarText(text);
-                      handleSubmitOmnibar(text);
-                    }}
-                    className="h-8 text-xs bg-background/60 hover:bg-secondary border-border/60 rounded-xl px-2.5 font-medium flex items-center justify-between truncate"
-                  >
-                    <span className="truncate">{p.name}</span>
-                    <div className="flex items-center gap-1 shrink-0 ml-1.5">
-                      <span className="font-mono text-muted-foreground font-bold">
-                        ${p.amount.toLocaleString("es-AR")}
-                      </span>
-                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono bg-primary/10 text-primary">
-                        {p.count}x
-                      </Badge>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/*
+        Una sola puerta. Esta vista tenía seis accesos a lo mismo —campo de texto, Pegar, Subir
+        Captura, presets, el botón Operación del feed y el + de la barra—, todos hacia dos
+        destinos. El + de la barra ya pregunta qué se registra y hace de entrada única; acá queda
+        el atajo, que abre ese mismo flujo.
+      */}
+      <button
+        type="button"
+        onClick={openPicker}
+        className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-card/60 p-3.5 text-left transition-colors hover:border-primary/60 hover:bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Plus className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-foreground">Registrar algo</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            Un gasto, un ingreso o una operación — con comprobante o escrito
+          </span>
+        </span>
+      </button>
 
       {/* 2. FEED TABLE CONTROLS & REVIEW QUEUE BADGE */}
       <Card className="bg-card border border-border/80">
@@ -566,6 +483,19 @@ export function MovimientosView() {
                   className="pl-8 text-xs h-8 bg-background/80"
                 />
               </div>
+
+              <Select value={dateWindow} onValueChange={(v) => setDateWindow(v as DateWindow)}>
+                <SelectTrigger className="h-8 w-[150px] text-xs bg-background/80">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_WINDOWS.map((w) => (
+                    <SelectItem key={w.value} value={w.value}>
+                      {w.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
                 <SelectTrigger className="w-[140px] text-xs h-8 bg-background/80">
@@ -617,18 +547,19 @@ export function MovimientosView() {
         <CardHeader className="pb-2 flex flex-row items-start justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-base font-semibold">Feed Unificado de Eventos ({filteredEvents.length})</CardTitle>
-            <CardDescription className="text-xs">Historial cronológico ordenado.</CardDescription>
           </div>
-          {/* The omnibar above captures expenses and income; trades need their own entry point. */}
-          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setAddTradeOpen(true)}>
-            <TrendingUp className="h-4 w-4 mr-1" />
-            Operación
-          </Button>
         </CardHeader>
         <CardContent>
           {txLoading || tradesLoading ? (
             <div className="text-center py-12 text-muted-foreground text-sm">Cargando historial...</div>
           ) : (
+            <>
+            {/*
+              Abajo de md la tabla medía 756 px dentro de una caja de 308: los importes existían
+              pero caían fuera del recorte, así que había que barrer de costado para ver cuánto
+              fue cada movimiento. La tabla queda para el ancho donde entra.
+            */}
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent text-xs">
@@ -647,14 +578,14 @@ export function MovimientosView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEvents.length === 0 ? (
+                {visibleEvents.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
                       No se encontraron movimientos.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEvents.map((item) => {
+                  visibleEvents.map((item) => {
                     const isSelected = selectedIds.has(item.id);
                     // `normalizeToUnifiedEvents` ya adjunta la fila entera en
                     // `rawRecord`; rearmarla desde otro lado agregaba una segunda
@@ -741,6 +672,100 @@ export function MovimientosView() {
                 )}
               </TableBody>
             </Table>
+            </div>
+
+            {/* Y en el teléfono, una tarjeta por movimiento con el monto a la vista. */}
+            <ul className="space-y-2 md:hidden">
+              {visibleEvents.map((item) => {
+                const editable =
+                  item.sourceTable === "transactions" ? (item.rawRecord as Transaction) : null;
+                const isPossibleDuplicate = Boolean(
+                  (editable?.extracted_fields as Record<string, unknown> | undefined)
+                    ?.possible_duplicate_of,
+                );
+                return (
+                  <li
+                    key={item.id}
+                    className={`rounded-xl border p-3 ${
+                      item.needsReview
+                        ? "border-amber-500/40 bg-amber-500/5"
+                        : "border-border/60 bg-background/40"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {item.title}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <ChessBadge eventType={item.type} size="sm" />
+                          <span className="min-w-0 truncate text-xs text-muted-foreground">
+                            <span className="font-mono">{formatDayMonth(item.date)}</span>
+                            {item.subtitle ? ` · ${item.subtitle}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <span className="text-right font-mono text-sm font-bold tabular-nums">
+                          US$ {item.amountUSD.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                        {editable && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditing(editable)}
+                            title="Editar movimiento"
+                            className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sólo cuando hay algo que resolver: en el resto, la tarjeta es una línea. */}
+                    {(item.needsReview || isPossibleDuplicate) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {isPossibleDuplicate && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+                            <Copy className="h-2.5 w-2.5" />
+                            Posible duplicado
+                          </span>
+                        )}
+                        {item.needsReview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => handleApproveTransaction(item.rawId, e)}
+                            className="ml-auto h-7 border-amber-500/30 bg-amber-500/10 px-2 text-[11px] font-semibold text-amber-400 hover:bg-amber-500/20"
+                          >
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Aprobar
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            {/* Cargar de a 50: el historial entero son unas 160 pantallas de teléfono. */}
+            {filteredEvents.length > visibleCount && (
+              <div className="pt-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                  className="h-9 text-xs font-semibold"
+                >
+                  Ver {Math.min(PAGE_SIZE, filteredEvents.length - visibleCount)} más
+                  <span className="ml-1.5 font-mono text-muted-foreground">
+                    ({visibleCount} de {filteredEvents.length})
+                  </span>
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

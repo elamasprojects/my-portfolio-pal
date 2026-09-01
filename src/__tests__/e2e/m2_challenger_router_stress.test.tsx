@@ -12,7 +12,6 @@ describe("M2 Challenger 1: Adversarial Router & Legacy Redirect Stress Suite", (
     "/analysis/deep-dive",
     "/portfolio",
     "/chess",
-    "/settings",
     "/demo",
     "/watch",
     "/landing",

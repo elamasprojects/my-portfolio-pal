@@ -6,6 +6,7 @@ import { OmnibarFinance } from "@/components/finance/OmnibarFinance";
 import { useShareTargetListener, SharedData } from "@/hooks/useShareTargetListener";
 import { IngestChoiceDialog } from "@/components/IngestChoiceDialog";
 import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
+import { IngestProvider } from "@/hooks/useIngest";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [omnibarOpen, setOmnibarOpen] = useState(false);
@@ -48,7 +49,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content Viewport */}
       <main className="flex-1 mx-auto w-full max-w-7xl p-4 md:p-6 pb-32 md:pb-8">
-        {children}
+        <IngestProvider openPicker={() => setPickerOpen(true)}>{children}</IngestProvider>
       </main>
 
       {/* Mobile 3-View Bottom Nav */}

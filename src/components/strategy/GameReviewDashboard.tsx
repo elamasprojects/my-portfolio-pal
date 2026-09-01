@@ -350,7 +350,19 @@ export function GameReviewDashboard() {
         </CardHeader>
 
         <CardContent>
-          {/* Top 4 Insight KPI Tiles */}
+          {/*
+            Sin operaciones cerradas, las cuatro tarjetas repetían la misma frase con cuatro
+            marcos distintos. Un solo estado vacío dice lo mismo una vez.
+          */}
+          {aggregateMetrics.totalClosedTrades === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-center">
+              <p className="text-sm font-medium text-foreground">Todavía no hay nada que auditar</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                El Game Review compara cada venta contra haberla conservado. Las métricas
+                aparecen con tu primera operación cerrada.
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {/* KPI 1: Blunder Rate */}
             <div className="p-4 rounded-xl bg-background/60 border border-border/60 space-y-1">
@@ -360,8 +372,16 @@ export function GameReviewDashboard() {
                 </span>
                 <ChessBadge evaluation="blunder" circleOnly size="xs" />
               </div>
-              <div className="text-2xl font-black text-rose-400">
-                {aggregateMetrics.blunderRatePercent.toFixed(1)}%
+              <div
+                className={`text-2xl font-black ${
+                  aggregateMetrics.totalClosedTrades === 0
+                    ? "text-muted-foreground"
+                    : "text-rose-400"
+                }`}
+              >
+                {aggregateMetrics.totalClosedTrades === 0
+                  ? "—"
+                  : `${aggregateMetrics.blunderRatePercent.toFixed(1)}%`}
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {aggregateMetrics.blunderCount} de {aggregateMetrics.totalClosedTrades} operaciones cerradas
@@ -444,6 +464,7 @@ export function GameReviewDashboard() {
               </p>
             </div>
           </div>
+          )}
         </CardContent>
       </Card>
 

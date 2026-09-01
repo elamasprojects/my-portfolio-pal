@@ -11,14 +11,11 @@ export function EstrategiaView() {
   return (
     <div className="space-y-8 pb-12">
       {/* HEADER SECTION */}
-      <div className="border-b border-border/40 pb-5">
+      <div className="border-b border-border/40 pb-4">
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <Compass className="h-6 w-6 text-primary" />
-          Estrategia & Disciplina de Inversión
+          Estrategia
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Reglas operativas, auditoría de tesis pre-trade, Game Review retroactivo y métricas de rendimiento.
-        </p>
       </div>
 
       {/* THESIS ALERTS BANNER (Target Reached / Invalidación Hit) */}
@@ -26,24 +23,24 @@ export function EstrategiaView() {
 
       {/* MAIN STRATEGY TABS */}
       <Tabs defaultValue="gamereview" className="space-y-6">
-        <TabsList className="bg-muted/60 p-1 border border-border/60 flex-wrap h-auto">
-          <TabsTrigger value="gamereview" className="text-xs font-semibold flex items-center gap-1.5">
+        <TabsList className="flex w-full justify-start gap-1 overflow-x-auto border border-border/60 bg-muted/60 p-1">
+          <TabsTrigger value="gamereview" className="shrink-0 text-xs font-semibold flex items-center gap-1.5">
             <Award className="h-3.5 w-3.5 text-primary" />
-            Game Review
+            Review
           </TabsTrigger>
-          <TabsTrigger value="theses" className="text-xs font-semibold flex items-center gap-1.5">
+          <TabsTrigger value="theses" className="shrink-0 text-xs font-semibold flex items-center gap-1.5">
             <Target className="h-3.5 w-3.5" />
-            Tesis Abiertas
+            Tesis
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="text-xs font-semibold flex items-center gap-1.5">
+          <TabsTrigger value="metrics" className="shrink-0 text-xs font-semibold flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
-            Métricas de Rendimiento
+            Métricas
           </TabsTrigger>
-          <TabsTrigger value="rules" className="text-xs font-semibold flex items-center gap-1.5">
+          <TabsTrigger value="rules" className="shrink-0 text-xs font-semibold flex items-center gap-1.5">
             <Scale className="h-3.5 w-3.5" />
-            Reglas de Inversión
+            Reglas
           </TabsTrigger>
-          <TabsTrigger value="watchlist" className="text-xs font-semibold flex items-center gap-1.5">
+          <TabsTrigger value="watchlist" className="shrink-0 text-xs font-semibold flex items-center gap-1.5">
             <Eye className="h-3.5 w-3.5" />
             Watchlist
           </TabsTrigger>
