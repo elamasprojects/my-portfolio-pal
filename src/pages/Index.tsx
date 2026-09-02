@@ -596,48 +596,50 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        {/*
+          Dos métricas en el espacio de una. En el teléfono la tarjeta se pisaba a sí misma: el
+          título quedaba en «TASA DE …», los íconos se montaban encima del segundo número y la
+          etiqueta de la derecha se iba del borde. Ocupa la fila entera en el ancho donde no
+          entra, y vuelve a una columna cuando sí.
+        */}
+        <Card className="col-span-2 lg:col-span-1">
           <CardContent className="p-4">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider truncate mb-1">
+                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider mb-2">
                   {t("board.winRate")}
                 </p>
-                <div className="flex items-baseline gap-3">
-                  <div>
+                <div className="grid grid-cols-2 gap-x-3">
+                  <div className="min-w-0">
                     <p className="text-lg md:text-xl font-bold font-mono">
                       {performance.total_sells > 0 ? `${performance.win_rate.toFixed(0)}%` : "—"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
                       {performance.total_sells > 0 ? `${performance.winning_sells}/${performance.total_sells}` : "0/0"}{" "}
                       <span className="text-[9px] opacity-80 font-sans">({t("board.realized")})</span>
                     </p>
                   </div>
-                  <div className="border-l pl-3 border-border">
+                  <div className="min-w-0 border-l pl-3 border-border">
                     <p className="text-base md:text-lg font-bold font-mono text-muted-foreground">
                       {combinedWinRate.total > 0 ? `${combinedWinRate.rate.toFixed(0)}%` : "—"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/75 mt-0.5 whitespace-nowrap">
+                    <p className="text-[10px] text-muted-foreground/75 mt-0.5">
                       {combinedWinRate.total > 0 ? `${combinedWinRate.wins}/${combinedWinRate.total}` : "0/0"}{" "}
                       <span className="text-[9px] opacity-80 font-sans">({t("board.projected")})</span>
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0 ml-2 mt-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
-                  onClick={() => setWinRateChartOpen(true)}
-                  title="View win rate progression"
-                >
-                  <LucideLineChart className="h-4 w-4" />
-                </Button>
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                  <Target className="h-4 w-4" />
-                </div>
-              </div>
+              {/* Sólo el que hace algo: el segundo ícono era decorativo y competía por el ancho. */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                onClick={() => setWinRateChartOpen(true)}
+                title="Ver la progresión de la tasa de éxito"
+              >
+                <LucideLineChart className="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>

@@ -28,6 +28,8 @@ import {
 const formatUSD = (val: number) => Math.floor(val || 0).toLocaleString("en-US");
 const formatARS = (val: number) => Math.floor(val || 0).toLocaleString("es-AR");
 
+type Denom = "USD" | "ARS";
+
 export function PatrimonioView() {
   const navigate = useNavigate();
   const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
@@ -55,6 +57,21 @@ export function PatrimonioView() {
   const { prices: marketPrices } = useMarketPrices(symbols);
 
   // Separate Broker Cash vs Liquid Bank Accounts & Wallets
+  // Cada cifra aparecía dos veces, en dólares y en pesos: ocho conversiones en una pantalla.
+  // Toda la app está normalizada a dólares, así que el peso es una lectura, no la unidad.
+  const [denom, setDenom] = useState<Denom>("USD");
+
+  /** Un monto en dólares, escrito en la moneda que el usuario eligió mirar. */
+  const money = (usd: number) => {
+    const v = denom === "USD" ? usd : usd * effectiveCclRate;
+    const loc = denom === "USD" ? "en-US" : "es-AR";
+    const n =
+      v !== 0 && Math.abs(v) < 10
+        ? v.toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+        : Math.floor(v).toLocaleString(loc);
+    return `${denom === "USD" ? "US$" : "$"} ${n}`;
+  };
+
   const { brokerAccounts, liquidBankAccounts, totalBrokerCashUSD, totalLiquidUSD, totalLiquidARS } = useMemo(() => {
     const brokers: typeof activeAccounts = [];
     const banks: typeof activeAccounts = [];
@@ -253,9 +270,7 @@ export function PatrimonioView() {
             <Landmark className="h-6 w-6 text-primary" />
             Patrimonio & Cuentas
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Valuación total consolidada, composición de activos y saldos verificados por cuenta.
-          </p>
+          {/* Sin subtítulo: la barra inferior ya dice en qué vista estás. */}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/*
@@ -267,6 +282,23 @@ export function PatrimonioView() {
           <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 text-primary bg-primary/10 font-mono">
             Dólar CCL/MEP: ${formatARS(effectiveCclRate)}
           </Badge>
+          <div className="inline-flex overflow-hidden rounded-full border border-border/60">
+            {(["USD", "ARS"] as Denom[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDenom(d)}
+                aria-pressed={denom === d}
+                className={`px-3 py-1 text-[11px] font-mono font-bold transition-colors ${
+                  denom === d
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted/60"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -285,11 +317,8 @@ export function PatrimonioView() {
         <CardContent className="space-y-4">
           <div>
             <div className="text-4xl sm:text-5xl font-black font-mono text-emerald-400 tracking-tight">
-              US$ {formatUSD(totalNetWorthUSD)}
+              {money(totalNetWorthUSD)}
             </div>
-            <p className="text-base sm:text-lg font-mono text-muted-foreground font-semibold mt-1">
-              $ {formatARS(totalNetWorthARS)} ARS
-            </p>
           </div>
 
           {/* Consolidated Allocation Progress Bar */}
@@ -315,97 +344,34 @@ export function PatrimonioView() {
                 title={`Bancos ARS: ${Math.floor(liquidArsWeightPct)}%`}
               />
             </div>
+
+            {/* La leyenda que reemplaza a las tres tarjetas: mismo dato, un renglón. */}
+            <ul className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
+              {[
+                { color: "bg-primary", label: "Brokers", pct: brokerWeightPct, usd: totalBrokerUSD },
+                { color: "bg-emerald-400", label: "Bancos USD", pct: liquidUsdWeightPct, usd: totalLiquidUSD },
+                { color: "bg-sky-400", label: "Bancos ARS", pct: liquidArsWeightPct, usd: totalLiquidARS_inUSD },
+              ]
+                // Un grupo en cero no se dibuja: una tarjeta entera decía US$ 0 · 0%.
+                .filter((g) => g.usd !== 0)
+                .map((g) => (
+                  <li key={g.label} className="flex items-center gap-1.5 text-[11px]">
+                    <span className={`h-2 w-2 shrink-0 rounded-sm ${g.color}`} aria-hidden="true" />
+                    <span className="text-muted-foreground">{g.label}</span>
+                    <span className="font-mono font-semibold text-foreground">{money(g.usd)}</span>
+                    <span className="font-mono text-muted-foreground">{Math.floor(g.pct)}%</span>
+                  </li>
+                ))}
+            </ul>
           </div>
         </CardContent>
       </Card>
 
-      {/* 3. BREAKDOWN DE COMPOSICIÓN (3 BLOQUES SIN DECIMALES) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Bloque 1: Inversiones & Brokers */}
-        <Card className="bg-card border border-border/70 hover:border-primary/40 transition-colors">
-          <CardContent className="p-5 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4" />
-                Inversiones & Brokers
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
-                {Math.floor(brokerWeightPct)}%
-              </Badge>
-            </div>
-            <div className="pt-1">
-              <div className="text-2xl font-black font-mono text-foreground">
-                US$ {formatUSD(totalBrokerUSD)}
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {formatARS(totalBrokerARS)} ARS
-              </p>
-            </div>
-            <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40 font-mono space-y-0.5">
-              <div className="flex justify-between">
-                <span>Activos en Cartera:</span>
-                <span className="font-bold text-foreground">US$ {formatUSD(portfolioInvestedUSD)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Cash Líquido en Brokers:</span>
-                <span className="font-bold text-emerald-400">US$ {formatUSD(totalBrokerCashUSD)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bloque 2: Cuentas Líquidas en USD */}
-        <Card className="bg-card border border-border/70 hover:border-emerald-500/40 transition-colors">
-          <CardContent className="p-5 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                <DollarSign className="h-4 w-4" />
-                Bancos & Billeteras USD
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                {Math.floor(liquidUsdWeightPct)}%
-              </Badge>
-            </div>
-            <div className="pt-1">
-              <div className="text-2xl font-black font-mono text-foreground">
-                US$ {formatUSD(totalLiquidUSD)}
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {formatARS(totalLiquidUSD * effectiveCclRate)} ARS
-              </p>
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
-              Mercury · Binance · Efectivo · Brubank · DolarApp
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Bloque 3: Cuentas Líquidas en Pesos */}
-        <Card className="bg-card border border-border/70 hover:border-sky-500/40 transition-colors">
-          <CardContent className="p-5 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                <Banknote className="h-4 w-4" />
-                Bancos & Billeteras ARS
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono bg-sky-500/10 text-sky-400 border-sky-500/20">
-                {Math.floor(liquidArsWeightPct)}%
-              </Badge>
-            </div>
-            <div className="pt-1">
-              <div className="text-2xl font-black font-mono text-foreground">
-                US$ {formatUSD(totalLiquidARS_inUSD)}
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-0.5">
-                $ {formatARS(totalLiquidARS)} ARS
-              </p>
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
-              Cuentas bancarias en moneda local
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/*
+        Las tres tarjetas de categoría que iban acá eran exactamente la suma del desglose por
+        cuenta que sigue, y una existía para mostrar US$ 0 · 0%. Los pesos de cada grupo ya los
+        cuenta la barra de composición de arriba, que ahora va etiquetada.
+      */}
 
       {/* 4. DESGLOSE INDIVIDUAL DE TODAS LAS CUENTAS */}
       <div className="space-y-4 pt-2">
@@ -415,7 +381,7 @@ export function PatrimonioView() {
             Desglose por Cuenta Financiera ({activeAccounts.length + 1})
           </h2>
           <span className="text-xs font-mono text-muted-foreground">
-            Total Patrimonio: US$ {formatUSD(totalNetWorthUSD)}
+            Total Patrimonio: {money(totalNetWorthUSD)}
           </span>
         </div>
 
@@ -446,11 +412,8 @@ export function PatrimonioView() {
               </div>
               <div className="text-right font-mono">
                 <div className="text-base font-black text-foreground">
-                  US$ {formatUSD(portfolioInvestedUSD)}
+                  {money(portfolioInvestedUSD)}
                 </div>
-                <span className="text-[11px] text-muted-foreground block">
-                  $ {formatARS(portfolioInvestedUSD * effectiveCclRate)} ARS
-                </span>
               </div>
             </CardContent>
           </Card>
@@ -478,11 +441,8 @@ export function PatrimonioView() {
                   </div>
                   <div className="text-right font-mono">
                     <div className="text-base font-bold text-foreground">
-                      US$ {formatUSD(balUSD)}
+                      {money(balUSD)}
                     </div>
-                    <span className="text-[11px] text-muted-foreground block">
-                      $ {formatARS(balARS)} ARS
-                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -504,7 +464,7 @@ export function PatrimonioView() {
                 </p>
               </div>
               <Badge variant="outline" className="font-mono text-xs text-primary border-primary/30 bg-primary/10">
-                Total Portfolio: US$ {formatUSD(portfolioInvestedUSD)}
+                Total Portfolio: {money(portfolioInvestedUSD)}
               </Badge>
             </div>
 
@@ -524,15 +484,15 @@ export function PatrimonioView() {
                           </Badge>
                         </div>
                         <span className="text-[11px] text-muted-foreground font-mono">
-                          Efectivo Comitente: US$ {formatUSD(b.cashUSD)}
+                          Efectivo Comitente: {money(b.cashUSD)}
                         </span>
                       </div>
                       <div className="text-right font-mono">
                         <span className="text-sm font-black text-foreground block">
-                          US$ {formatUSD(b.totalMarketValUSD)}
+                          {money(b.totalMarketValUSD)}
                         </span>
                         <span className={`text-[11px] font-bold ${b.unrealizedPnlUSD >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {b.unrealizedPnlUSD >= 0 ? "+US$" : "-US$"} {formatUSD(Math.abs(b.unrealizedPnlUSD))} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{Math.floor(b.unrealizedPnlPct)}%)
+                          {b.unrealizedPnlUSD >= 0 ? "+" : "-"}{money(Math.abs(b.unrealizedPnlUSD))} ({b.unrealizedPnlPct >= 0 ? "+" : ""}{Math.floor(b.unrealizedPnlPct)}%)
                         </span>
                       </div>
                     </CardHeader>
@@ -571,16 +531,16 @@ export function PatrimonioView() {
                                   {Number.isInteger(h.quantity) ? h.quantity.toString() : h.quantity.toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono text-muted-foreground">
-                                  US$ {h.avgCostUSD < 1 ? h.avgCostUSD.toFixed(3) : formatUSD(h.avgCostUSD)}
+                                  {money(h.avgCostUSD)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-bold text-foreground">
-                                  US$ {h.livePriceUSD < 1 ? h.livePriceUSD.toFixed(3) : formatUSD(h.livePriceUSD)}
+                                  {money(h.livePriceUSD)}
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-bold">
-                                  US$ {formatUSD(h.marketValUSD)}
+                                  {money(h.marketValUSD)}
                                 </TableCell>
                                 <TableCell className={`text-right font-mono font-bold ${isPnlPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                  {isPnlPositive ? "+US$" : "-US$"} {formatUSD(Math.abs(h.pnlUSD))}
+                                  {isPnlPositive ? "+" : "-"}{money(Math.abs(h.pnlUSD))}
                                   <span className="block text-[10px] opacity-80">
                                     {isPnlPositive ? "+" : ""}{Math.floor(h.pnlPct)}%
                                   </span>
@@ -612,7 +572,13 @@ export function PatrimonioView() {
         </CardHeader>
         <CardContent>
           <div className="h-[320px] w-full">
-            <SankeyFlowChart data={sankeyData} currencySymbol="US$" transactions={transactions} />
+            <SankeyFlowChart
+              data={sankeyData}
+              transactions={transactions}
+              displayCurrency={denom}
+              currencySymbol={denom === "USD" ? "US$" : "$"}
+              cx={(val) => (denom === "USD" ? val : val * effectiveCclRate)}
+            />
           </div>
         </CardContent>
       </Card>

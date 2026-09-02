@@ -15,6 +15,7 @@ import Strategy from "./pages/Strategy";
 import Patrimonio from "./pages/Patrimonio";
 import AssetDetail from "./pages/AssetDetail";
 import Inflacion from "./pages/Inflacion";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -42,10 +43,12 @@ const App = () => (
             <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
             <Route path="/movements" element={<ProtectedRoute><TradeLog /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
-            <Route path="/patrimonio" element={<ProtectedRoute><Patrimonio /></ProtectedRoute>} />
+            <Route path="/patrimonio" element={<Navigate to="/finance" replace />} />
             <Route path="/asset/:symbol" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             {/* Macro reference only. Intentionally out of the main nav — see pages/Inflacion.tsx. */}
             <Route path="/inflacion" element={<ProtectedRoute><Inflacion /></ProtectedRoute>} />
+            {/* Se llega desde el menú de la foto de perfil, no desde la barra. */}
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             {/* Deep link into Inversiones with the trade capture dialog open. */}
             <Route path="/add" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 
@@ -58,7 +61,6 @@ const App = () => (
             <Route path="/analysis/*" element={<Navigate to="/" replace />} />
             <Route path="/portfolio" element={<Navigate to="/" replace />} />
             <Route path="/chess" element={<Navigate to="/" replace />} />
-            <Route path="/settings" element={<Navigate to="/" replace />} />
             <Route path="/demo" element={<Navigate to="/" replace />} />
             <Route path="/watch" element={<Navigate to="/" replace />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />

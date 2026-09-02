@@ -8,6 +8,7 @@ import {
   Search,
   LogOut,
   LineChart,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
@@ -152,6 +153,10 @@ export function ChessNavbar({ onOpenOmnibar }: ChessNavbarProps) {
               <DropdownItem onClick={() => navigate("/inflacion")} className="mt-1">
                 <LineChart className="h-4 w-4 mr-2" />
                 Inflación
+              </DropdownItem>
+              <DropdownItem onClick={() => navigate("/settings")}>
+                <Settings className="h-4 w-4 mr-2" />
+                Ajustes
               </DropdownItem>
               <DropdownItem onClick={signOut} destructive>
                 <LogOut className="h-4 w-4 mr-2" />

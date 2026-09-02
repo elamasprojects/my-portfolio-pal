@@ -121,49 +121,31 @@ describe("Milestone M3 Challenger Edge Cases & Stress Harness", () => {
       const { container } = renderWithProviders(<MovimientosView />);
       expect(container).toBeInTheDocument();
       expect(screen.getByText(/Feed Unificado de Eventos/)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/coto|uber/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /registrar algo/i })).toBeInTheDocument();
     });
 
     it("renders EstrategiaView without crashing", async () => {
       const { container } = renderWithProviders(<EstrategiaView />);
       expect(container).toBeInTheDocument();
-      expect(screen.getByText("Estrategia & Disciplina de Inversión")).toBeInTheDocument();
-      expect(screen.getByText("Tesis Abiertas")).toBeInTheDocument();
+      expect(screen.getByText("Estrategia")).toBeInTheDocument();
+      expect(screen.getByText("Tesis")).toBeInTheDocument();
     });
   });
 
   describe("4. Omnibar Special Character & Boundary Handling", () => {
-    it("handles special characters in Omnibar text submission without throwing exception", async () => {
+    /*
+      La captura de texto salió de esta vista: Movimientos tenía seis accesos a lo mismo y ahora
+      ofrece un solo atajo al selector del "+", que es donde vive el flujo. Lo que estos dos
+      casos ejercitaban —caracteres raros y montos en cero— se cubre en la hoja de revisión
+      (`ReviewExtractedSheet.test.tsx`), que es la que decide qué se escribe.
+    */
+    it("el atajo de carga abre el selector, no un formulario propio de la vista", () => {
       renderWithProviders(<MovimientosView />);
-      const input = screen.getByPlaceholderText(/coto|uber/i);
 
-      fireEvent.change(input, { target: { value: "<script>alert('XSS')</script> SELECT * FROM trades; 15000" } });
-      expect((input as HTMLInputElement).value).toBe("<script>alert('XSS')</script> SELECT * FROM trades; 15000");
-
-      const submitBtn = screen.getByRole("button", { name: /registrar/i });
-      act(() => {
-        fireEvent.click(submitBtn);
-      });
-
-      await waitFor(() => {
-        expect(input).toBeInTheDocument();
-      });
-    });
-
-    it("handles zero and negative amounts in Omnibar", async () => {
-      renderWithProviders(<MovimientosView />);
-      const input = screen.getByPlaceholderText(/coto|uber/i);
-
-      fireEvent.change(input, { target: { value: "Prueba 0" } });
-      const submitBtn = screen.getByRole("button", { name: /registrar/i });
-
-      act(() => {
-        fireEvent.click(submitBtn);
-      });
-
-      await waitFor(() => {
-        expect(input).toBeInTheDocument();
-      });
+      const atajo = screen.getByRole("button", { name: /registrar algo/i });
+      expect(atajo).toBeInTheDocument();
+      // Y ya no hay un campo de captura suelto compitiendo con él.
+      expect(screen.queryByPlaceholderText(/coto|uber/i)).not.toBeInTheDocument();
     });
   });
 });
