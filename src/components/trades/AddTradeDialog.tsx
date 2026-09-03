@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAddTrade } from "@/hooks/usePortfolio";
-import { useBrokers } from "@/hooks/useBrokers";
+import { useUserBrokers } from "@/hooks/useBrokers";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,15 @@ export function AddTradeDialog({
   defaultCurrency = "USD",
 }: AddTradeDialogProps) {
   const addTrade = useAddTrade();
-  const { data: brokers = [] } = useBrokers();
+  // Los tuyos, no los 23 del catálogo: el selector ofrecía brokers en los que nunca operaste.
+  const { data: userBrokers = [] } = useUserBrokers();
+  const brokers = useMemo(
+    () =>
+      userBrokers
+        .filter((ub) => ub.broker)
+        .map((ub) => ({ id: ub.broker!.id, name: ub.broker!.name, isDefault: ub.is_default })),
+    [userBrokers]
+  );
   const { venta: mepRate = 0 } = useDolarMEP();
 
   const [tradeType, setTradeType] = useState<TradeType>(defaultTradeType);
@@ -73,6 +81,33 @@ export function AddTradeDialog({
   const [invalidationCondition, setInvalidationCondition] = useState(defaultInvalidationCondition);
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  /*
+    El diálogo abría pidiendo los diez campos de la operación. Ahora son tres momentos: subir
+    el comprobante, mirar lo que se leyó, y confirmar. Los campos aparecen sólo si hacen falta
+    —porque la lectura salió mal, o porque se carga a mano—, que es la minoría de las veces.
+  */
+  const [step, setStep] = useState<"capture" | "review" | "form">("capture");
+
+  /*
+    Al sacar el bloqueo de la fricción, toda venta manual entraba con `is_planned_exit: false`
+    — y la regla B1 del Game Review califica de "Blunder" una salida no planificada por debajo
+    de la invalidación. Un stop-loss disciplinado quedaba castigado por no tener dónde
+    declararse. Acá se declara.
+  */
+  const [isPlannedExit, setIsPlannedExit] = useState(false);
+
+  // El broker marcado como predeterminado entra solo. Antes había que elegirlo en cada alta,
+  // incluso operando siempre con el mismo.
+  const defaultApplied = useRef(false);
+  useEffect(() => {
+    // Una sola vez por alta. Mirando `brokerId` en las dependencias, elegir "Sin asignar"
+    // devolvía el valor a "none" y el efecto volvía a poner el predeterminado encima.
+    if (defaultApplied.current || brokers.length === 0) return;
+    defaultApplied.current = true;
+    const preferido = brokers.find((b) => b.isDefault) ?? (brokers.length === 1 ? brokers[0] : null);
+    if (preferido) setBrokerId(preferido.id);
+  }, [brokers]);
 
   // Subir el comprobante del broker y dejar que la IA lo lea. Sólo se permitía para gastos,
   // así que una orden ejecutada había que tipearla entera desde la captura que ya tenías.
@@ -113,15 +148,34 @@ export function AddTradeDialog({
       if (data?.asset_name) setAssetName(String(data.asset_name));
       if (data?.quantity != null) setQuantity(String(data.quantity));
       if (data?.price_per_unit != null) setPrice(String(data.price_per_unit));
-      if (data?.currency === "ARS" || data?.currency === "USD") setCurrency(data.currency);
+      if (data?.currency === "ARS" || data?.currency === "USD") {
+        const leida = data.currency as "USD" | "ARS";
+        if (leida !== currency && targetPrice.trim() !== "") {
+          // El target quedó escrito en la moneda anterior. Se convierte si hay cotización, y
+          // si no, se limpia: guardarlo tal cual lo deja errado por el factor del MEP.
+          const n = parseFloat(targetPrice);
+          if (Number.isFinite(n) && mepRate > 0) {
+            const convertido = leida === "USD" ? n / mepRate : n * mepRate;
+            setTargetPrice(String(Number(convertido.toFixed(4))));
+            toast.info(`El precio objetivo se pasó a ${leida} con el MEP.`);
+          } else {
+            setTargetPrice("");
+            toast.warning("El comprobante cambió la moneda: revisá el precio objetivo.");
+          }
+        }
+        setCurrency(leida);
+      }
       if (data?.trade_date) setTradeDate(String(data.trade_date).slice(0, 10));
 
-      toast.success("Comprobante leído. Revisá los campos antes de guardar.");
+      setStep("review");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "No se pudo leer el comprobante"
       );
       clearReceipt();
+      // Lo leído no sirvió, pero lo que ya se tipeó sí: se abre el formulario en vez de
+      // dejar al usuario de vuelta en una zona de subida vacía.
+      setStep("form");
     } finally {
       setIsReading(false);
     }
@@ -162,6 +216,9 @@ export function AddTradeDialog({
     // El comprobante también: si no, la captura de la orden anterior queda colgada arriba
     // del formulario en blanco —y su object URL sin revocar— como si fuera de esta.
     clearReceipt();
+    setStep("capture");
+    setIsPlannedExit(false);
+    defaultApplied.current = false;
   }
 
   function validate(): string[] {
@@ -185,17 +242,16 @@ export function AddTradeDialog({
 
     if (!tradeDate) errs.push("La fecha es obligatoria.");
 
-    // R4: a buy without a declared thesis is exactly the decision this app exists to audit.
-    if (isBuy) {
-      if (entryThesis.trim().length < 10) {
-        errs.push("Por qué entro: mínimo 10 caracteres.");
-      }
+    /*
+      La tesis, el target y la invalidación quedan opcionales. Eran obligatorios para que una
+      compra no entrara sin declararse, pero este formulario registra una compra ya ejecutada:
+      exigirlos no cambia la decisión, sólo impide anotar el hecho. Lo que sí se conserva es
+      que un target mal escrito no pase como número.
+    */
+    if (isBuy && targetPrice.trim() !== "") {
       const target = parseFloat(targetPrice);
       if (!Number.isFinite(target) || target <= 0) {
         errs.push("El precio de salida / target debe ser mayor a 0.");
-      }
-      if (invalidationCondition.trim().length < 10) {
-        errs.push("Qué la invalidaría: mínimo 10 caracteres.");
       }
     }
 
@@ -218,11 +274,12 @@ export function AddTradeDialog({
         mepRate: currency === "ARS" ? mepRate : null,
         tradeDate,
         brokerId: brokerId === "none" ? null : brokerId,
+        isPlannedExit: tradeType === "sell" ? isPlannedExit : undefined,
         notes: notes.trim() || null,
-        entryThesis: isBuy ? entryThesis.trim() : null,
+        entryThesis: isBuy ? entryThesis.trim() || null : null,
         // Entered in `currency`; buildTradeRow normalises it to USD like the price.
-        targetPrice: isBuy ? parseFloat(targetPrice) : null,
-        invalidationCondition: isBuy ? invalidationCondition.trim() : null,
+        targetPrice: isBuy && targetPrice.trim() !== "" ? parseFloat(targetPrice) : null,
+        invalidationCondition: isBuy ? invalidationCondition.trim() || null : null,
       });
 
       const label = isDividend ? "Dividendo" : isBuy ? "Compra" : "Venta";
@@ -307,6 +364,18 @@ export function AddTradeDialog({
             </button>
           )}
 
+          {step === "capture" && (
+            <button
+              type="button"
+              onClick={() => setStep("form")}
+              disabled={isReading}
+              className="w-full text-center text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {/* Con la lectura en vuelo, lo que se tipeara lo pisaba la respuesta al llegar. */}
+              O cargala a mano
+            </button>
+          )}
+
           {errors.length > 0 && (
             <ul className="text-xs text-destructive font-medium bg-destructive/10 p-2.5 rounded space-y-1 list-disc list-inside">
               {errors.map((e) => (
@@ -315,6 +384,66 @@ export function AddTradeDialog({
             </ul>
           )}
 
+          {step === "review" && (
+            <>
+              {/*
+                Lo leído, en modo lectura. Se muestra para confirmar, no para completar: si
+                está bien —que es lo normal— alcanza con un botón.
+              */}
+              <dl className="divide-y divide-border/50 rounded-xl border border-border/60 bg-muted/20">
+                {[
+                  ["Operación", TYPE_OPTIONS.find((o) => o.value === tradeType)?.label ?? tradeType],
+                  ["Activo", `${symbol.toUpperCase()}${assetName ? ` · ${assetName}` : ""}`],
+                  ...(isDividend ? [] : [["Cantidad", quantity] as [string, string]]),
+                  ["Precio por unidad", `${currency === "ARS" ? "AR$" : "US$"} ${price}`],
+                  ["Fecha", tradeDate.split("-").reverse().join("/")],
+                  ["Broker", brokers.find((b) => b.id === brokerId)?.name ?? "Sin asignar"],
+                  ...(isBuy && targetPrice.trim() !== ""
+                    ? ([["Precio objetivo", `${currency === "ARS" ? "AR$" : "US$"} ${targetPrice}`]] as [string, string][])
+                    : []),
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3 px-3 py-2">
+                    <dt className="text-xs text-muted-foreground">{k}</dt>
+                    <dd className="min-w-0 truncate text-right text-sm font-medium">{v}</dd>
+                  </div>
+                ))}
+                {total !== null && (
+                  <div className="flex items-baseline justify-between gap-3 bg-muted/30 px-3 py-2.5">
+                    <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Total
+                    </dt>
+                    <dd className="font-mono text-base font-bold tabular-nums">
+                      {currency === "ARS" ? "AR$ " : "US$ "}
+                      {total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Editar es la salida rara; confirmar es lo que se hace casi siempre. */}
+              <div className="grid grid-cols-5 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("form")}
+                  disabled={addTrade.isPending}
+                  className="col-span-1 h-12"
+                >
+                  Editar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={addTrade.isPending}
+                  className="col-span-4 h-12 text-sm font-bold"
+                >
+                  {addTrade.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  Confirmar y registrar
+                </Button>
+              </div>
+            </>
+          )}
+
+          {step === "form" && (
+          <>
           {/* Operation type */}
           <div className="grid grid-cols-3 gap-2">
             {TYPE_OPTIONS.map((opt) => {
@@ -439,11 +568,18 @@ export function AddTradeDialog({
             </div>
           )}
 
-          {brokers.length > 0 && (
+          <div className="space-y-1">
+            <Label htmlFor="trade-broker" className="text-xs">Broker (opcional)</Label>
+            {brokers.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Todavía no tenés brokers cargados. Se agregan en Ajustes y aparecen acá.
+              </p>
+            ) : (
             <div className="space-y-1">
-              <Label className="text-xs">Broker (opcional)</Label>
               <Select value={brokerId} onValueChange={setBrokerId}>
-                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                <SelectTrigger id="trade-broker" aria-label="Broker (opcional)">
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin asignar</SelectItem>
                   {brokers.map((b) => (
@@ -452,6 +588,25 @@ export function AddTradeDialog({
                 </SelectContent>
               </Select>
             </div>
+            )}
+          </div>
+
+          {tradeType === "sell" && (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/60 bg-muted/20 p-3">
+              <input
+                type="checkbox"
+                checked={isPlannedExit}
+                onChange={(e) => setIsPlannedExit(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">Salida planificada</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  La vendí en el nivel que había declarado, no por impulso. Sin esto, el Game
+                  Review califica de blunder una salida por debajo de la invalidación.
+                </span>
+              </span>
+            </label>
           )}
 
           {total !== null && (
@@ -467,7 +622,7 @@ export function AddTradeDialog({
           {/* R4: Pre-trade thesis, mandatory on buys */}
           {isBuy && (
             <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-semibold text-primary">Tesis previa a la compra (obligatoria)</p>
+              <p className="text-xs font-semibold text-primary">Tesis previa a la compra (opcional)</p>
 
               <div className="space-y-1">
                 <Label htmlFor="thesis-why" className="text-xs">Por qué entro</Label>
@@ -517,17 +672,30 @@ export function AddTradeDialog({
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+          </>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addTrade.isPending}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={addTrade.isPending}>
-            {addTrade.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Registrar
-          </Button>
-        </DialogFooter>
+        {step === "form" && (
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // El diálogo no se desmonta: sin esto, la próxima apertura mostraba el alta
+                // abandonada, ya cargada y en el paso del formulario.
+                reset();
+                onOpenChange(false);
+              }}
+              disabled={addTrade.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={addTrade.isPending}>
+              {addTrade.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Registrar
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
