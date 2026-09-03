@@ -664,10 +664,9 @@ export function AddTradeDialog({
                             >
                               {TYPE_OPTIONS.find((o) => o.value === it.tradeType)?.label ?? it.tradeType}
                             </span>
-                            <span className="min-w-0 truncate">
-                              {it.symbol || "—"}
-                              {it.assetName ? ` · ${it.assetName}` : ""}
-                            </span>
+                            {/* Sólo el ticker: el nombre largo empujaba el monto contra el
+                                borde y no agrega nada para confirmar. Se guarda igual. */}
+                            <span className="min-w-0 truncate">{it.symbol || "—"}</span>
                           </p>
                           <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
                             {it.tradeType === "dividend" ? "" : `${it.quantity || "—"} × `}
@@ -681,9 +680,20 @@ export function AddTradeDialog({
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
                           {bruto !== null && (
-                            <span className="font-mono text-sm font-bold tabular-nums">
-                              {it.currency === "ARS" ? "AR$ " : "US$ "}
-                              {bruto.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                            <span className="text-right">
+                              <span className="block font-mono text-sm font-bold tabular-nums">
+                                {it.currency === "ARS" ? "AR$ " : "US$ "}
+                                {bruto.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                              </span>
+                              {/* Lo que entra al ledger está normalizado a dólares: sin verlo
+                                  acá, una fila en pesos se confirmaba sin saber por cuánto. */}
+                              {it.currency === "ARS" && mepRate > 0 && (
+                                <span className="block font-mono text-[11px] text-muted-foreground tabular-nums">
+                                  US$ {(bruto / mepRate).toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                                  {" · MEP "}
+                                  {mepRate.toLocaleString("es-AR")}
+                                </span>
+                              )}
                             </span>
                           )}
                           <Button
