@@ -89,13 +89,25 @@ export function AddTradeDialog({
   */
   const [step, setStep] = useState<"capture" | "review" | "form">("capture");
 
+  /*
+    Al sacar el bloqueo de la fricción, toda venta manual entraba con `is_planned_exit: false`
+    — y la regla B1 del Game Review califica de "Blunder" una salida no planificada por debajo
+    de la invalidación. Un stop-loss disciplinado quedaba castigado por no tener dónde
+    declararse. Acá se declara.
+  */
+  const [isPlannedExit, setIsPlannedExit] = useState(false);
+
   // El broker marcado como predeterminado entra solo. Antes había que elegirlo en cada alta,
   // incluso operando siempre con el mismo.
+  const defaultApplied = useRef(false);
   useEffect(() => {
-    if (brokerId !== "none") return;
+    // Una sola vez por alta. Mirando `brokerId` en las dependencias, elegir "Sin asignar"
+    // devolvía el valor a "none" y el efecto volvía a poner el predeterminado encima.
+    if (defaultApplied.current || brokers.length === 0) return;
+    defaultApplied.current = true;
     const preferido = brokers.find((b) => b.isDefault) ?? (brokers.length === 1 ? brokers[0] : null);
     if (preferido) setBrokerId(preferido.id);
-  }, [brokers, brokerId]);
+  }, [brokers]);
 
   // Subir el comprobante del broker y dejar que la IA lo lea. Sólo se permitía para gastos,
   // así que una orden ejecutada había que tipearla entera desde la captura que ya tenías.
@@ -136,7 +148,23 @@ export function AddTradeDialog({
       if (data?.asset_name) setAssetName(String(data.asset_name));
       if (data?.quantity != null) setQuantity(String(data.quantity));
       if (data?.price_per_unit != null) setPrice(String(data.price_per_unit));
-      if (data?.currency === "ARS" || data?.currency === "USD") setCurrency(data.currency);
+      if (data?.currency === "ARS" || data?.currency === "USD") {
+        const leida = data.currency as "USD" | "ARS";
+        if (leida !== currency && targetPrice.trim() !== "") {
+          // El target quedó escrito en la moneda anterior. Se convierte si hay cotización, y
+          // si no, se limpia: guardarlo tal cual lo deja errado por el factor del MEP.
+          const n = parseFloat(targetPrice);
+          if (Number.isFinite(n) && mepRate > 0) {
+            const convertido = leida === "USD" ? n / mepRate : n * mepRate;
+            setTargetPrice(String(Number(convertido.toFixed(4))));
+            toast.info(`El precio objetivo se pasó a ${leida} con el MEP.`);
+          } else {
+            setTargetPrice("");
+            toast.warning("El comprobante cambió la moneda: revisá el precio objetivo.");
+          }
+        }
+        setCurrency(leida);
+      }
       if (data?.trade_date) setTradeDate(String(data.trade_date).slice(0, 10));
 
       setStep("review");
@@ -189,6 +217,8 @@ export function AddTradeDialog({
     // del formulario en blanco —y su object URL sin revocar— como si fuera de esta.
     clearReceipt();
     setStep("capture");
+    setIsPlannedExit(false);
+    defaultApplied.current = false;
   }
 
   function validate(): string[] {
@@ -244,6 +274,7 @@ export function AddTradeDialog({
         mepRate: currency === "ARS" ? mepRate : null,
         tradeDate,
         brokerId: brokerId === "none" ? null : brokerId,
+        isPlannedExit: tradeType === "sell" ? isPlannedExit : undefined,
         notes: notes.trim() || null,
         entryThesis: isBuy ? entryThesis.trim() || null : null,
         // Entered in `currency`; buildTradeRow normalises it to USD like the price.
@@ -337,8 +368,10 @@ export function AddTradeDialog({
             <button
               type="button"
               onClick={() => setStep("form")}
-              className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              disabled={isReading}
+              className="w-full text-center text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             >
+              {/* Con la lectura en vuelo, lo que se tipeara lo pisaba la respuesta al llegar. */}
               O cargala a mano
             </button>
           )}
@@ -365,6 +398,9 @@ export function AddTradeDialog({
                   ["Precio por unidad", `${currency === "ARS" ? "AR$" : "US$"} ${price}`],
                   ["Fecha", tradeDate.split("-").reverse().join("/")],
                   ["Broker", brokers.find((b) => b.id === brokerId)?.name ?? "Sin asignar"],
+                  ...(isBuy && targetPrice.trim() !== ""
+                    ? ([["Precio objetivo", `${currency === "ARS" ? "AR$" : "US$"} ${targetPrice}`]] as [string, string][])
+                    : []),
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-3 px-3 py-2">
                     <dt className="text-xs text-muted-foreground">{k}</dt>
@@ -532,9 +568,14 @@ export function AddTradeDialog({
             </div>
           )}
 
-          {brokers.length > 0 && (
+          <div className="space-y-1">
+            <Label htmlFor="trade-broker" className="text-xs">Broker (opcional)</Label>
+            {brokers.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Todavía no tenés brokers cargados. Se agregan en Ajustes y aparecen acá.
+              </p>
+            ) : (
             <div className="space-y-1">
-              <Label htmlFor="trade-broker" className="text-xs">Broker (opcional)</Label>
               <Select value={brokerId} onValueChange={setBrokerId}>
                 <SelectTrigger id="trade-broker" aria-label="Broker (opcional)">
                   <SelectValue placeholder="Sin asignar" />
@@ -547,6 +588,25 @@ export function AddTradeDialog({
                 </SelectContent>
               </Select>
             </div>
+            )}
+          </div>
+
+          {tradeType === "sell" && (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border/60 bg-muted/20 p-3">
+              <input
+                type="checkbox"
+                checked={isPlannedExit}
+                onChange={(e) => setIsPlannedExit(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">Salida planificada</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  La vendí en el nivel que había declarado, no por impulso. Sin esto, el Game
+                  Review califica de blunder una salida por debajo de la invalidación.
+                </span>
+              </span>
+            </label>
           )}
 
           {total !== null && (
@@ -562,7 +622,7 @@ export function AddTradeDialog({
           {/* R4: Pre-trade thesis, mandatory on buys */}
           {isBuy && (
             <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-semibold text-primary">Tesis previa a la compra (obligatoria)</p>
+              <p className="text-xs font-semibold text-primary">Tesis previa a la compra (opcional)</p>
 
               <div className="space-y-1">
                 <Label htmlFor="thesis-why" className="text-xs">Por qué entro</Label>
@@ -618,7 +678,16 @@ export function AddTradeDialog({
 
         {step === "form" && (
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addTrade.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // El diálogo no se desmonta: sin esto, la próxima apertura mostraba el alta
+                // abandonada, ya cargada y en el paso del formulario.
+                reset();
+                onOpenChange(false);
+              }}
+              disabled={addTrade.isPending}
+            >
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={addTrade.isPending}>

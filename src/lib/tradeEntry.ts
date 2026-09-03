@@ -20,7 +20,10 @@ export interface TradeEntryInput {
   tradeDate?: string;
   brokerId?: string | null;
   notes?: string | null;
-  /** Pre-trade thesis (R4). Mandatory on buys — enforced by the capture form. */
+  /**
+   * Pre-trade thesis (R4). Optional: the capture form records buys that already executed, so
+   * demanding it there blocked the record rather than the decision.
+   */
   entryThesis?: string | null;
   /**
    * Exit target, entered in the same currency as `price`. Normalised to USD on the way in, so

@@ -84,6 +84,18 @@ vi.mock("@/hooks/useAuth", async () => {
   };
 });
 
+function renderDialogControlled() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const utils = render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <AddTradeDialog open onOpenChange={() => {}} />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+  return { ...utils, client };
+}
+
 function renderDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -183,4 +195,63 @@ describe("Trade capture (buys and dividends)", () => {
     expect(screen.queryByRole("option", { name: "Robinhood" })).not.toBeInTheDocument();
   });
 
+
+  it("elegir «Sin asignar» no se pisa con el predeterminado", async () => {
+    // El efecto que precarga el default miraba `brokerId`: volver a "none" lo hacía correr
+    // otra vez y devolvía ARQ encima de la elección.
+    renderDialog();
+    await abrirFormulario();
+
+    const selector = screen.getByLabelText("Broker (opcional)");
+    fireEvent.keyDown(selector, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: "Sin asignar" }));
+
+    await waitFor(() => expect(selector).toHaveTextContent("Sin asignar"));
+
+    fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "AAPL" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Precio por unidad"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Registrar$/ }));
+
+    await waitFor(() => expect(insertedRows).toHaveLength(1));
+    expect(insertedRows[0].broker_id).toBeNull();
+  });
+
+  it("una venta se puede declarar planificada", async () => {
+    // Sin este control toda venta manual entraba como no planificada, y la regla B1 del Game
+    // Review califica de blunder una salida así por debajo de la invalidación.
+    renderDialog();
+    await abrirFormulario();
+
+    fireEvent.click(screen.getByRole("button", { name: /venta/i }));
+    fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "ORCL" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Precio por unidad"), { target: { value: "151.55" } });
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Registrar$/ }));
+
+    await waitFor(() => expect(insertedRows).toHaveLength(1));
+    expect(insertedRows[0].is_planned_exit).toBe(true);
+  });
+
+  it("cancelar deja el diálogo limpio para la próxima apertura", async () => {
+    // No se desmonta: sin resetear, la próxima vez aparecía el alta abandonada ya cargada.
+    const { rerender, client } = renderDialogControlled();
+    await abrirFormulario();
+    fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "AAPL" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Cancelar$/ }));
+    rerender(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AddTradeDialog open onOpenChange={() => {}} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // Vuelve al primer paso, sin arrastrar lo tipeado.
+    expect(screen.getByText(/subí la captura de la orden/i)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("AAPL")).not.toBeInTheDocument();
+  });
 });
