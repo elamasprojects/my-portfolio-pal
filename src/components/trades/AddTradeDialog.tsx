@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAddTrade } from "@/hooks/usePortfolio";
-import { useBrokers } from "@/hooks/useBrokers";
+import { useUserBrokers } from "@/hooks/useBrokers";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,15 @@ export function AddTradeDialog({
   defaultCurrency = "USD",
 }: AddTradeDialogProps) {
   const addTrade = useAddTrade();
-  const { data: brokers = [] } = useBrokers();
+  // Los tuyos, no los 23 del catálogo: el selector ofrecía brokers en los que nunca operaste.
+  const { data: userBrokers = [] } = useUserBrokers();
+  const brokers = useMemo(
+    () =>
+      userBrokers
+        .filter((ub) => ub.broker)
+        .map((ub) => ({ id: ub.broker!.id, name: ub.broker!.name, isDefault: ub.is_default })),
+    [userBrokers]
+  );
   const { venta: mepRate = 0 } = useDolarMEP();
 
   const [tradeType, setTradeType] = useState<TradeType>(defaultTradeType);
@@ -73,6 +81,21 @@ export function AddTradeDialog({
   const [invalidationCondition, setInvalidationCondition] = useState(defaultInvalidationCondition);
 
   const [errors, setErrors] = useState<string[]>([]);
+
+  /*
+    El diálogo abría pidiendo los diez campos de la operación. Ahora son tres momentos: subir
+    el comprobante, mirar lo que se leyó, y confirmar. Los campos aparecen sólo si hacen falta
+    —porque la lectura salió mal, o porque se carga a mano—, que es la minoría de las veces.
+  */
+  const [step, setStep] = useState<"capture" | "review" | "form">("capture");
+
+  // El broker marcado como predeterminado entra solo. Antes había que elegirlo en cada alta,
+  // incluso operando siempre con el mismo.
+  useEffect(() => {
+    if (brokerId !== "none") return;
+    const preferido = brokers.find((b) => b.isDefault) ?? (brokers.length === 1 ? brokers[0] : null);
+    if (preferido) setBrokerId(preferido.id);
+  }, [brokers, brokerId]);
 
   // Subir el comprobante del broker y dejar que la IA lo lea. Sólo se permitía para gastos,
   // así que una orden ejecutada había que tipearla entera desde la captura que ya tenías.
@@ -116,12 +139,15 @@ export function AddTradeDialog({
       if (data?.currency === "ARS" || data?.currency === "USD") setCurrency(data.currency);
       if (data?.trade_date) setTradeDate(String(data.trade_date).slice(0, 10));
 
-      toast.success("Comprobante leído. Revisá los campos antes de guardar.");
+      setStep("review");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "No se pudo leer el comprobante"
       );
       clearReceipt();
+      // Lo leído no sirvió, pero lo que ya se tipeó sí: se abre el formulario en vez de
+      // dejar al usuario de vuelta en una zona de subida vacía.
+      setStep("form");
     } finally {
       setIsReading(false);
     }
@@ -162,6 +188,7 @@ export function AddTradeDialog({
     // El comprobante también: si no, la captura de la orden anterior queda colgada arriba
     // del formulario en blanco —y su object URL sin revocar— como si fuera de esta.
     clearReceipt();
+    setStep("capture");
   }
 
   function validate(): string[] {
@@ -185,17 +212,16 @@ export function AddTradeDialog({
 
     if (!tradeDate) errs.push("La fecha es obligatoria.");
 
-    // R4: a buy without a declared thesis is exactly the decision this app exists to audit.
-    if (isBuy) {
-      if (entryThesis.trim().length < 10) {
-        errs.push("Por qué entro: mínimo 10 caracteres.");
-      }
+    /*
+      La tesis, el target y la invalidación quedan opcionales. Eran obligatorios para que una
+      compra no entrara sin declararse, pero este formulario registra una compra ya ejecutada:
+      exigirlos no cambia la decisión, sólo impide anotar el hecho. Lo que sí se conserva es
+      que un target mal escrito no pase como número.
+    */
+    if (isBuy && targetPrice.trim() !== "") {
       const target = parseFloat(targetPrice);
       if (!Number.isFinite(target) || target <= 0) {
         errs.push("El precio de salida / target debe ser mayor a 0.");
-      }
-      if (invalidationCondition.trim().length < 10) {
-        errs.push("Qué la invalidaría: mínimo 10 caracteres.");
       }
     }
 
@@ -219,10 +245,10 @@ export function AddTradeDialog({
         tradeDate,
         brokerId: brokerId === "none" ? null : brokerId,
         notes: notes.trim() || null,
-        entryThesis: isBuy ? entryThesis.trim() : null,
+        entryThesis: isBuy ? entryThesis.trim() || null : null,
         // Entered in `currency`; buildTradeRow normalises it to USD like the price.
-        targetPrice: isBuy ? parseFloat(targetPrice) : null,
-        invalidationCondition: isBuy ? invalidationCondition.trim() : null,
+        targetPrice: isBuy && targetPrice.trim() !== "" ? parseFloat(targetPrice) : null,
+        invalidationCondition: isBuy ? invalidationCondition.trim() || null : null,
       });
 
       const label = isDividend ? "Dividendo" : isBuy ? "Compra" : "Venta";
@@ -307,6 +333,16 @@ export function AddTradeDialog({
             </button>
           )}
 
+          {step === "capture" && (
+            <button
+              type="button"
+              onClick={() => setStep("form")}
+              className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              O cargala a mano
+            </button>
+          )}
+
           {errors.length > 0 && (
             <ul className="text-xs text-destructive font-medium bg-destructive/10 p-2.5 rounded space-y-1 list-disc list-inside">
               {errors.map((e) => (
@@ -315,6 +351,63 @@ export function AddTradeDialog({
             </ul>
           )}
 
+          {step === "review" && (
+            <>
+              {/*
+                Lo leído, en modo lectura. Se muestra para confirmar, no para completar: si
+                está bien —que es lo normal— alcanza con un botón.
+              */}
+              <dl className="divide-y divide-border/50 rounded-xl border border-border/60 bg-muted/20">
+                {[
+                  ["Operación", TYPE_OPTIONS.find((o) => o.value === tradeType)?.label ?? tradeType],
+                  ["Activo", `${symbol.toUpperCase()}${assetName ? ` · ${assetName}` : ""}`],
+                  ...(isDividend ? [] : [["Cantidad", quantity] as [string, string]]),
+                  ["Precio por unidad", `${currency === "ARS" ? "AR$" : "US$"} ${price}`],
+                  ["Fecha", tradeDate.split("-").reverse().join("/")],
+                  ["Broker", brokers.find((b) => b.id === brokerId)?.name ?? "Sin asignar"],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3 px-3 py-2">
+                    <dt className="text-xs text-muted-foreground">{k}</dt>
+                    <dd className="min-w-0 truncate text-right text-sm font-medium">{v}</dd>
+                  </div>
+                ))}
+                {total !== null && (
+                  <div className="flex items-baseline justify-between gap-3 bg-muted/30 px-3 py-2.5">
+                    <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Total
+                    </dt>
+                    <dd className="font-mono text-base font-bold tabular-nums">
+                      {currency === "ARS" ? "AR$ " : "US$ "}
+                      {total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Editar es la salida rara; confirmar es lo que se hace casi siempre. */}
+              <div className="grid grid-cols-5 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("form")}
+                  disabled={addTrade.isPending}
+                  className="col-span-1 h-12"
+                >
+                  Editar
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={addTrade.isPending}
+                  className="col-span-4 h-12 text-sm font-bold"
+                >
+                  {addTrade.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  Confirmar y registrar
+                </Button>
+              </div>
+            </>
+          )}
+
+          {step === "form" && (
+          <>
           {/* Operation type */}
           <div className="grid grid-cols-3 gap-2">
             {TYPE_OPTIONS.map((opt) => {
@@ -441,9 +534,11 @@ export function AddTradeDialog({
 
           {brokers.length > 0 && (
             <div className="space-y-1">
-              <Label className="text-xs">Broker (opcional)</Label>
+              <Label htmlFor="trade-broker" className="text-xs">Broker (opcional)</Label>
               <Select value={brokerId} onValueChange={setBrokerId}>
-                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                <SelectTrigger id="trade-broker" aria-label="Broker (opcional)">
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin asignar</SelectItem>
                   {brokers.map((b) => (
@@ -517,17 +612,21 @@ export function AddTradeDialog({
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+          </>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addTrade.isPending}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={addTrade.isPending}>
-            {addTrade.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Registrar
-          </Button>
-        </DialogFooter>
+        {step === "form" && (
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={addTrade.isPending}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSubmit} disabled={addTrade.isPending}>
+              {addTrade.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Registrar
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

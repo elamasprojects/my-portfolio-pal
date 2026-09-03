@@ -711,19 +711,18 @@ export function useAddTrade() {
     mutationFn: async (input: TradeEntryInput) => {
       if (!user || !activeId) throw new Error("User or active portfolio missing");
 
-      // A sell booked from the capture dialog is an exit like any other: the friction rules
-      // apply to it too. This path used to bypass them entirely and never recorded whether the
-      // exit was planned, so those sells reached the Game Review ungraded.
-      if (input.tradeType === "sell") {
-        const frictionCheck = processSellExecution({
-          isPlannedExit: input.isPlannedExit ?? false,
-          unplannedRationale: input.unplannedRationale ?? undefined,
-          coolingOffDurationSeconds: 60,
-        });
-        if (!frictionCheck.success) {
-          throw new Error(frictionCheck.error ?? "Unplanned exit rejected by the friction rules");
-        }
-      }
+      /*
+        Este camino registra una venta que ya ocurrió en el broker; no la ejecuta. La fricción
+        invertida existe para frenar una decisión ANTES de tomarla, y sobre un hecho consumado
+        no frena nada: lo único que lograba era impedir que la venta entrara al ledger, porque
+        el formulario de alta no tiene dónde escribir la justificación. El resultado era que
+        ninguna venta se podía registrar desde el comprobante.
+
+        La regla sigue viva donde puede actuar: `useSellTrade`, que es cuando la app vende.
+        Acá la venta entra con `is_planned_exit` en lo que el usuario haya declarado —falso por
+        defecto—, así que el Game Review la sigue viendo como no planificada. Se pierde el
+        bloqueo, que no servía; no se pierde el dato.
+      */
 
       const row = buildTradeRow(input, { userId: user.id, portfolioId: activeId });
 
