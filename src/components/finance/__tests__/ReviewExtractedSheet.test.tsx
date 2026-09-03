@@ -94,6 +94,27 @@ describe("ReviewExtractedSheet", () => {
     expect(screen.getByRole("button", { name: /registrar 2 movimientos · US\$ 20,00/i })).toBeInTheDocument();
   });
 
+  it("separa lo que sale de lo que entra en vez de sumarlos", () => {
+    // 45.000 pesos de gasto y 850.000 de ingreso daban un solo "US$ 592,71", que no es lo que
+    // sale, ni lo que entra, ni el neto.
+    setup([
+      row({ key: "a", name: "Coto", amount: "45000", currency: "ARS", type: "expense" }),
+      row({ key: "b", name: "Honorarios", amount: "850000", currency: "ARS", type: "income", categoryId: null }),
+    ]);
+
+    const boton = screen.getByRole("button", { name: /registrar 2 movimientos/i });
+    expect(boton).toHaveTextContent("−US$ 30,00");
+    expect(boton).toHaveTextContent("+US$ 566,67");
+  });
+
+  it("con un solo signo, el total va entero y firmado", () => {
+    setup([
+      row({ key: "a", amount: "10", currency: "USD", type: "income", categoryId: null }),
+      row({ key: "b", amount: "15", currency: "USD", type: "income", categoryId: null }),
+    ]);
+    expect(screen.getByRole("button", { name: /registrar 2 movimientos/i })).toHaveTextContent("+US$ 25,00");
+  });
+
   it("descarta la fila al arrastrarla lo suficiente hacia la izquierda", async () => {
     setup([row({ key: "a", name: "Mercadona" }), row({ key: "b", name: "Lidl" })]);
 

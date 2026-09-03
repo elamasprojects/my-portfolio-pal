@@ -146,7 +146,23 @@ export function ReviewExtractedSheet({
   );
 
   const problems = checked.filter((c) => c.status === "blocked");
-  const total = checked.reduce((sum, c) => (c.status === "ok" ? sum + c.amountUSD : sum), 0);
+
+  /*
+    Gastos e ingresos por separado. Sumados en un solo número, una tanda con un gasto de
+    US$ 29,80 y un ingreso de US$ 562,91 anunciaba "US$ 592,71" — que no es lo que sale, ni lo
+    que entra, ni el neto.
+  */
+  const totals = checked.reduce(
+    (acc, c, i) => {
+      if (c.status !== "ok") return acc;
+      if (draft[i].type === "income") acc.income += c.amountUSD;
+      else acc.outgoing += c.amountUSD;
+      return acc;
+    },
+    { income: 0, outgoing: 0 }
+  );
+  const mixed = totals.income > 0 && totals.outgoing > 0;
+  const total = totals.income + totals.outgoing;
   const canSave = draft.length > 0 && problems.length === 0 && !isSaving;
 
   return (
@@ -227,7 +243,17 @@ export function ReviewExtractedSheet({
             ) : (
               <>
                 Registrar {draft.length}{" "}
-                {draft.length === 1 ? "movimiento" : "movimientos"} · US$ {money(total)}
+                {draft.length === 1 ? "movimiento" : "movimientos"}
+                {mixed ? (
+                  <>
+                    {" · "}−US$ {money(totals.outgoing)} · +US$ {money(totals.income)}
+                  </>
+                ) : (
+                  <>
+                    {" · "}
+                    {totals.income > 0 ? "+" : ""}US$ {money(total)}
+                  </>
+                )}
               </>
             )}
           </Button>
