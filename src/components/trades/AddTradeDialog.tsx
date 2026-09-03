@@ -9,10 +9,37 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight, Banknote, Loader2, Upload, Trash2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Banknote, Loader2, Upload, Trash2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type TradeType = "buy" | "sell" | "dividend";
+
+/**
+ * Una operación leída de un comprobante, esperando confirmación.
+ *
+ * Se subía de a una imagen, así que una tanda de diez órdenes eran diez pasadas por el mismo
+ * diálogo. Cada fila guarda su propia copia de los campos: el formulario edita una por vez y
+ * la devuelve acá, y recién el botón del pie escribe todas.
+ */
+interface BatchItem {
+  key: string;
+  fileName: string;
+  tradeType: TradeType;
+  symbol: string;
+  assetName: string;
+  quantity: string;
+  price: string;
+  currency: "USD" | "ARS";
+  tradeDate: string;
+  brokerId: string;
+  notes: string;
+  isPlannedExit: boolean;
+  entryThesis: string;
+  targetPrice: string;
+  invalidationCondition: string;
+  /** La lectura de este comprobante falló; la fila se muestra para corregirla o descartarla. */
+  error?: string;
+}
 
 export interface AddTradeDialogProps {
   open: boolean;
@@ -97,6 +124,13 @@ export function AddTradeDialog({
   */
   const [isPlannedExit, setIsPlannedExit] = useState(false);
 
+  // La tanda leída y, cuando el formulario está editando una de sus filas, cuál.
+  const [batch, setBatch] = useState<BatchItem[]>([]);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const readRunId = useRef(0);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
+
   // El broker marcado como predeterminado entra solo. Antes había que elegirlo en cada alta,
   // incluso operando siempre con el mismo.
   const defaultApplied = useRef(false);
@@ -111,22 +145,78 @@ export function AddTradeDialog({
 
   // Subir el comprobante del broker y dejar que la IA lo lea. Sólo se permitía para gastos,
   // así que una orden ejecutada había que tipearla entera desde la captura que ya tenías.
-  const [receipt, setReceipt] = useState<{ url: string; name: string } | null>(null);
   const [isReading, setIsReading] = useState(false);
   const receiptInput = useRef<HTMLInputElement>(null);
 
+  /** Deja el input listo para volver a elegir el mismo archivo. */
   const clearReceipt = () => {
-    setReceipt((prev) => {
-      if (prev) URL.revokeObjectURL(prev.url);
-      return null;
-    });
     if (receiptInput.current) receiptInput.current.value = "";
   };
 
-  const readReceipt = async (file: File) => {
-    clearReceipt();
-    setReceipt({ url: URL.createObjectURL(file), name: file.name });
-    setIsReading(true);
+  /** Los campos del formulario, tal como están, como fila de la tanda. */
+  const snapshot = (key: string, fileName: string): BatchItem => ({
+    key,
+    fileName,
+    tradeType,
+    symbol,
+    assetName,
+    quantity,
+    price,
+    currency,
+    tradeDate,
+    brokerId,
+    notes,
+    isPlannedExit,
+    entryThesis,
+    targetPrice,
+    invalidationCondition,
+  });
+
+  /** Y al revés: una fila vuelve al formulario para editarla. */
+  const hydrate = (item: BatchItem) => {
+    setTradeType(item.tradeType);
+    setSymbol(item.symbol);
+    setAssetName(item.assetName);
+    setQuantity(item.quantity);
+    setPrice(item.price);
+    setCurrency(item.currency);
+    setTradeDate(item.tradeDate);
+    setBrokerId(item.brokerId);
+    setNotes(item.notes);
+    setIsPlannedExit(item.isPlannedExit);
+    setEntryThesis(item.entryThesis);
+    setTargetPrice(item.targetPrice);
+    setInvalidationCondition(item.invalidationCondition);
+    setErrors([]);
+  };
+
+  /**
+   * La base de una fila recién leída. Hereda lo que es del alta —broker, fecha— y no lo que
+   * es de una compra concreta: la tesis, el objetivo y la invalidación con que el watchlist
+   * abre el diálogo son de ese candidato, y sembrarlas en toda la tanda las estampaba en
+   * comprobantes que no tienen nada que ver. Sólo sobreviven cuando el comprobante es uno.
+   */
+  const freshItem = (key: string, fileName: string, heredaTesis: boolean): BatchItem => ({
+    key,
+    fileName,
+    tradeType: defaultTradeType,
+    symbol: heredaTesis ? defaultSymbol : "",
+    assetName: "",
+    quantity: "",
+    price: "",
+    currency: defaultCurrency,
+    tradeDate: todayLocalISO(),
+    brokerId,
+    notes: "",
+    isPlannedExit: false,
+    entryThesis: heredaTesis ? defaultEntryThesis : "",
+    targetPrice: heredaTesis ? defaultTargetPrice : "",
+    invalidationCondition: heredaTesis ? defaultInvalidationCondition : "",
+  });
+
+  /** Lee un comprobante y devuelve la operación, sin tocar el formulario. */
+  async function readOne(file: File, key: string, heredaTesis: boolean): Promise<BatchItem> {
+    const base = freshItem(key, file.name, heredaTesis);
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -141,43 +231,84 @@ export function AddTradeDialog({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Lo leído se propone, no se guarda: los campos quedan editables y el alta sigue
-      // siendo el mismo botón de siempre.
-      if (data?.trade_type) setTradeType(data.trade_type as TradeType);
-      if (data?.symbol) setSymbol(String(data.symbol).toUpperCase());
-      if (data?.asset_name) setAssetName(String(data.asset_name));
-      if (data?.quantity != null) setQuantity(String(data.quantity));
-      if (data?.price_per_unit != null) setPrice(String(data.price_per_unit));
-      if (data?.currency === "ARS" || data?.currency === "USD") {
-        const leida = data.currency as "USD" | "ARS";
-        if (leida !== currency && targetPrice.trim() !== "") {
-          // El target quedó escrito en la moneda anterior. Se convierte si hay cotización, y
-          // si no, se limpia: guardarlo tal cual lo deja errado por el factor del MEP.
-          const n = parseFloat(targetPrice);
-          if (Number.isFinite(n) && mepRate > 0) {
-            const convertido = leida === "USD" ? n / mepRate : n * mepRate;
-            setTargetPrice(String(Number(convertido.toFixed(4))));
-            toast.info(`El precio objetivo se pasó a ${leida} con el MEP.`);
-          } else {
-            setTargetPrice("");
-            toast.warning("El comprobante cambió la moneda: revisá el precio objetivo.");
-          }
-        }
-        setCurrency(leida);
-      }
-      if (data?.trade_date) setTradeDate(String(data.trade_date).slice(0, 10));
+      const leida: "USD" | "ARS" =
+        data?.currency === "ARS" || data?.currency === "USD" ? data.currency : base.currency;
 
-      setStep("review");
+      // Un objetivo escrito en la moneda anterior —así lo abre el watchlist— guardado tal cual
+      // queda errado por el factor del MEP.
+      let target = base.targetPrice;
+      if (leida !== base.currency && target.trim() !== "") {
+        const n = parseFloat(target);
+        if (Number.isFinite(n) && mepRate > 0) {
+          target = String(Number((leida === "USD" ? n / mepRate : n * mepRate).toFixed(4)));
+        } else {
+          target = "";
+        }
+      }
+
+      return {
+        ...base,
+        // Un `trade_type` vacío o desconocido no puede llegar al enum de la tabla.
+        tradeType: (["buy", "sell", "dividend"] as const).includes(data?.trade_type as TradeType)
+          ? (data.trade_type as TradeType)
+          : base.tradeType,
+        symbol: data?.symbol ? String(data.symbol).toUpperCase() : base.symbol,
+        assetName: data?.asset_name ? String(data.asset_name) : base.assetName,
+        quantity: data?.quantity != null ? String(data.quantity) : base.quantity,
+        price: data?.price_per_unit != null ? String(data.price_per_unit) : base.price,
+        currency: leida,
+        targetPrice: target,
+        tradeDate: data?.trade_date ? String(data.trade_date).slice(0, 10) : base.tradeDate,
+      };
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo leer el comprobante"
-      );
-      clearReceipt();
-      // Lo leído no sirvió, pero lo que ya se tipeó sí: se abre el formulario en vez de
-      // dejar al usuario de vuelta en una zona de subida vacía.
-      setStep("form");
+      // La tanda no se cae por un comprobante ilegible: la fila entra marcada, para
+      // corregirla a mano o descartarla.
+      return {
+        ...base,
+        error: err instanceof Error ? err.message : "No se pudo leer el comprobante",
+      };
+    }
+  }
+
+  /**
+   * Lee todos los comprobantes de una. En serie a propósito: son llamadas a un modelo, y
+   * disparar quince en paralelo es la forma más rápida de comerse el límite de la API.
+   */
+  const readReceipts = async (files: File[]) => {
+    if (files.length === 0) return;
+    // Cerrar el diálogo a mitad de lectura corría `reset()`, pero el bucle seguía y repoblaba
+    // la tanda: la próxima apertura caía en un lote abandonado, a un click de escribirlo.
+    const run = ++readRunId.current;
+    setIsReading(true);
+    setProgress({ done: 0, total: files.length });
+    try {
+      const leidos: BatchItem[] = [];
+      // Con un solo comprobante, lo que traía el diálogo sigue siendo de esa compra.
+      const heredaTesis = files.length === 1 && batch.length === 0;
+      for (const [i, file] of files.entries()) {
+        if (run !== readRunId.current) return;
+        leidos.push(await readOne(file, `${Date.now()}-${i}`, heredaTesis));
+        setProgress({ done: i + 1, total: files.length });
+      }
+      if (run !== readRunId.current) return;
+      setBatch((prev) => [...prev, ...leidos]);
+      setEditingKey(null);
+      setStep("review");
+
+      const fallidos = leidos.filter((x) => x.error).length;
+      if (fallidos > 0) {
+        toast.warning(
+          fallidos === leidos.length
+            ? "No se pudo leer ningún comprobante. Revisá los datos a mano."
+            : `${fallidos} de ${leidos.length} no se pudieron leer: quedaron marcados.`
+        );
+      }
     } finally {
-      setIsReading(false);
+      if (run === readRunId.current) {
+        setIsReading(false);
+        setProgress(null);
+      }
+      if (receiptInput.current) receiptInput.current.value = "";
     }
   };
 
@@ -218,6 +349,9 @@ export function AddTradeDialog({
     clearReceipt();
     setStep("capture");
     setIsPlannedExit(false);
+    setBatch([]);
+    setEditingKey(null);
+    readRunId.current += 1;
     defaultApplied.current = false;
   }
 
@@ -256,6 +390,126 @@ export function AddTradeDialog({
     }
 
     return errs;
+  }
+
+  /** Guarda la fila editada y vuelve a la lista, sin escribir nada todavía. */
+  function applyEdit() {
+    const errs = validate();
+    setErrors(errs);
+    if (errs.length > 0) return;
+    setBatch((prev) =>
+      prev.map((it) =>
+        it.key === editingKey ? { ...snapshot(it.key, it.fileName), error: undefined } : it
+      )
+    );
+    setEditingKey(null);
+    setStep("review");
+  }
+
+  /** Escribe una operación. Devuelve el error si falló, para no cortar la tanda entera. */
+  async function insertOne(item: BatchItem): Promise<string | null> {
+    try {
+      await addTrade.mutateAsync({
+        tradeType: item.tradeType,
+        symbol: item.symbol,
+        assetName: item.assetName || item.symbol,
+        quantity: item.tradeType === "dividend" ? undefined : parseFloat(item.quantity),
+        price: parseFloat(item.price),
+        currency: item.currency,
+        mepRate: item.currency === "ARS" ? mepRate : null,
+        tradeDate: item.tradeDate,
+        brokerId: item.brokerId === "none" ? null : item.brokerId,
+        isPlannedExit: item.tradeType === "sell" ? item.isPlannedExit : undefined,
+        notes: item.notes.trim() || null,
+        entryThesis: item.tradeType === "buy" ? item.entryThesis.trim() || null : null,
+        targetPrice:
+          item.tradeType === "buy" && item.targetPrice.trim() !== ""
+            ? parseFloat(item.targetPrice)
+            : null,
+        invalidationCondition:
+          item.tradeType === "buy" ? item.invalidationCondition.trim() || null : null,
+      });
+      return null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo registrar la operación.";
+      return /insufficient shares/i.test(msg)
+        ? "No tenés suficientes unidades registradas para vender esa cantidad."
+        : msg;
+    }
+  }
+
+  /**
+   * Registra la tanda entera. Una que falle no arrastra a las demás: las que entraron salen
+   * de la lista y las que no quedan con su motivo, así reintentar no duplica lo ya escrito.
+   */
+  /** Lo que impide registrar una fila, en el mismo idioma que el resto. */
+  function validateItem(item: BatchItem): string | null {
+    if (!item.symbol.trim()) return "Falta el ticker.";
+    const precio = parseFloat(item.price);
+    if (!Number.isFinite(precio) || precio <= 0) return "El precio debe ser mayor a 0.";
+    if (item.tradeType !== "dividend") {
+      const cant = parseFloat(item.quantity);
+      if (!Number.isFinite(cant) || cant <= 0) return "La cantidad debe ser mayor a 0.";
+    }
+    if (item.currency === "ARS" && !(mepRate > 0)) {
+      return "No hay cotización MEP para convertir montos en pesos.";
+    }
+    if (!item.tradeDate) return "Falta la fecha.";
+    return null;
+  }
+
+  async function handleSubmitBatch() {
+    // Un segundo click reiniciaba el bucle sobre la misma tanda: `addTrade.isPending` baja
+    // entre inserciones, así que no alcanzaba para frenarlo, y duplicaba lo ya escrito.
+    if (isSavingBatch) return;
+
+    // Las filas que no pasan se frenan acá. Sin esto entraban igual y morían adentro de
+    // `buildTradeRow` con un mensaje en inglés.
+    const invalidas = batch
+      .map((it) => ({ it, why: validateItem(it) }))
+      .filter((x) => x.why !== null);
+    if (invalidas.length > 0) {
+      setBatch((prev) =>
+        prev.map((it) => {
+          const mala = invalidas.find((x) => x.it.key === it.key);
+          return mala ? { ...it, error: mala.why! } : it;
+        })
+      );
+      setErrors([
+        invalidas.length === 1
+          ? `Falta corregir una operación: ${invalidas[0].why}`
+          : `Hay ${invalidas.length} operaciones sin completar. Corregilas o descartalas.`,
+      ]);
+      return;
+    }
+
+    setIsSavingBatch(true);
+    const fallidas: BatchItem[] = [];
+    let ok = 0;
+    for (const item of batch) {
+      const error = await insertOne(item);
+      if (error) fallidas.push({ ...item, error });
+      else ok += 1;
+    }
+
+    if (ok > 0) {
+      toast.success(ok === 1 ? "Operación registrada" : `${ok} operaciones registradas`);
+    }
+    if (fallidas.length > 0) {
+      setBatch(fallidas);
+      setIsSavingBatch(false);
+      setErrors([
+        fallidas.length === 1
+          ? `No se registró ${fallidas[0].symbol}: ${fallidas[0].error}`
+          : `${fallidas.length} operaciones no se registraron. Revisalas abajo.`,
+      ]);
+      setStep("review");
+      return;
+    }
+
+    reset();
+    setIsSavingBatch(false);
+    onOpenChange(false);
   }
 
   async function handleSubmit() {
@@ -319,47 +573,33 @@ export function AddTradeDialog({
             ref={receiptInput}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) readReceipt(f);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) readReceipts(files);
             }}
           />
-          {receipt ? (
-            <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-2.5">
-              <img
-                src={receipt.url}
-                alt="Comprobante de la operación"
-                className="h-14 w-14 rounded-lg border object-cover"
-              />
-              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                {isReading ? "Leyendo el comprobante…" : receipt.name}
-              </p>
-              {isReading ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-              ) : (
-                <button
-                  type="button"
-                  onClick={clearReceipt}
-                  aria-label="Quitar comprobante"
-                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ) : (
+          {/*
+            La miniatura mostraba un archivo; con varios, el progreso va en la zona misma.
+            Y no se ofrece mientras se edita una fila: usarla ahí saltaba a la revisión sin
+            pasar por `applyEdit`, y la edición se perdía sin decir nada.
+          */}
+          {!editingKey && (
             <button
               type="button"
               onClick={() => receiptInput.current?.click()}
-              className="group w-full rounded-xl border-2 border-dashed border-border/70 bg-muted/15 p-3 text-center transition-colors hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              disabled={isReading}
+              className="group w-full rounded-xl border-2 border-dashed disabled:opacity-60 border-border/70 bg-muted/15 p-3 text-center transition-colors hover:bg-muted/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             >
               <Upload className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-primary" />
               <span className="mt-1 block text-xs font-semibold">
-                Subí la captura de la orden
+                {isReading
+                  ? `Leyendo ${progress?.done ?? 0} de ${progress?.total ?? 0}…`
+                  : "Subí las capturas de tus órdenes"}
               </span>
               <span className="block text-[11px] text-muted-foreground">
-                Se completan los campos y los revisás antes de guardar
+                Podés elegir varias de una: compras y ventas juntas
               </span>
             </button>
           )}
@@ -387,56 +627,128 @@ export function AddTradeDialog({
           {step === "review" && (
             <>
               {/*
-                Lo leído, en modo lectura. Se muestra para confirmar, no para completar: si
-                está bien —que es lo normal— alcanza con un botón.
+                La tanda leída, en modo lectura. Se muestra para confirmar, no para completar:
+                si está bien —que es lo normal— alcanza con un botón. Cada fila se puede editar
+                o descartar por su cuenta, y una que no se pudo leer queda marcada en vez de
+                tumbar el resto.
               */}
-              <dl className="divide-y divide-border/50 rounded-xl border border-border/60 bg-muted/20">
-                {[
-                  ["Operación", TYPE_OPTIONS.find((o) => o.value === tradeType)?.label ?? tradeType],
-                  ["Activo", `${symbol.toUpperCase()}${assetName ? ` · ${assetName}` : ""}`],
-                  ...(isDividend ? [] : [["Cantidad", quantity] as [string, string]]),
-                  ["Precio por unidad", `${currency === "ARS" ? "AR$" : "US$"} ${price}`],
-                  ["Fecha", tradeDate.split("-").reverse().join("/")],
-                  ["Broker", brokers.find((b) => b.id === brokerId)?.name ?? "Sin asignar"],
-                  ...(isBuy && targetPrice.trim() !== ""
-                    ? ([["Precio objetivo", `${currency === "ARS" ? "AR$" : "US$"} ${targetPrice}`]] as [string, string][])
-                    : []),
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-baseline justify-between gap-3 px-3 py-2">
-                    <dt className="text-xs text-muted-foreground">{k}</dt>
-                    <dd className="min-w-0 truncate text-right text-sm font-medium">{v}</dd>
-                  </div>
-                ))}
-                {total !== null && (
-                  <div className="flex items-baseline justify-between gap-3 bg-muted/30 px-3 py-2.5">
-                    <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Total
-                    </dt>
-                    <dd className="font-mono text-base font-bold tabular-nums">
-                      {currency === "ARS" ? "AR$ " : "US$ "}
-                      {total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
-                    </dd>
-                  </div>
-                )}
-              </dl>
+              <ul className="space-y-2">
+                {batch.map((it) => {
+                  const cant = parseFloat(it.quantity);
+                  const precio = parseFloat(it.price);
+                  const bruto = !Number.isFinite(precio)
+                    ? null
+                    : it.tradeType === "dividend"
+                    ? precio
+                    : Number.isFinite(cant)
+                    ? cant * precio
+                    : null;
+                  return (
+                    <li
+                      key={it.key}
+                      className={`rounded-xl border p-3 ${
+                        it.error ? "border-destructive/50 bg-destructive/5" : "border-border/60 bg-muted/20"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1.5 text-sm font-semibold">
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                                it.tradeType === "buy"
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : it.tradeType === "sell"
+                                  ? "bg-rose-500/15 text-rose-400"
+                                  : "bg-primary/15 text-primary"
+                              }`}
+                            >
+                              {TYPE_OPTIONS.find((o) => o.value === it.tradeType)?.label ?? it.tradeType}
+                            </span>
+                            <span className="min-w-0 truncate">
+                              {it.symbol || "—"}
+                              {it.assetName ? ` · ${it.assetName}` : ""}
+                            </span>
+                          </p>
+                          <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                            {it.tradeType === "dividend" ? "" : `${it.quantity || "—"} × `}
+                            {it.currency === "ARS" ? "AR$" : "US$"} {it.price || "—"}
+                            {" · "}
+                            {it.tradeDate.split("-").reverse().join("/")}
+                          </p>
+                          {it.error && (
+                            <p className="mt-1.5 text-[11px] text-destructive">{it.error}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {bruto !== null && (
+                            <span className="font-mono text-sm font-bold tabular-nums">
+                              {it.currency === "ARS" ? "AR$ " : "US$ "}
+                              {bruto.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Editar ${it.symbol || it.fileName}`}
+                            onClick={() => {
+                              hydrate(it);
+                              setEditingKey(it.key);
+                              setStep("form");
+                            }}
+                            className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Descartar ${it.symbol || it.fileName}`}
+                            onClick={() => setBatch((prev) => prev.filter((x) => x.key !== it.key))}
+                            className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {batch.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Descartaste todas las operaciones.
+                </p>
+              )}
 
               {/* Editar es la salida rara; confirmar es lo que se hace casi siempre. */}
               <div className="grid grid-cols-5 gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setStep("form")}
-                  disabled={addTrade.isPending}
+                  onClick={() => {
+                    if (batch.length === 1) {
+                      hydrate(batch[0]);
+                      setEditingKey(batch[0].key);
+                      setStep("form");
+                    } else {
+                      // Con varias, el 20% suma comprobantes a la misma tanda.
+                      receiptInput.current?.click();
+                    }
+                  }}
+                  disabled={addTrade.isPending || isReading || isSavingBatch}
                   className="col-span-1 h-12"
                 >
-                  Editar
+                  {batch.length === 1 ? "Editar" : "Sumar"}
                 </Button>
                 <Button
-                  onClick={handleSubmit}
-                  disabled={addTrade.isPending}
+                  onClick={handleSubmitBatch}
+                  disabled={isSavingBatch || isReading || batch.length === 0}
                   className="col-span-4 h-12 text-sm font-bold"
                 >
-                  {addTrade.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                  Confirmar y registrar
+                  {isSavingBatch && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  {batch.length === 1
+                    ? "Confirmar y registrar"
+                    : `Registrar ${batch.length} operaciones`}
                 </Button>
               </div>
             </>
@@ -681,6 +993,13 @@ export function AddTradeDialog({
             <Button
               variant="outline"
               onClick={() => {
+                if (editingKey) {
+                  // Editando una fila, cancelar descarta los cambios de esa fila, no la tanda.
+                  setEditingKey(null);
+                  setErrors([]);
+                  setStep("review");
+                  return;
+                }
                 // El diálogo no se desmonta: sin esto, la próxima apertura mostraba el alta
                 // abandonada, ya cargada y en el paso del formulario.
                 reset();
@@ -688,11 +1007,14 @@ export function AddTradeDialog({
               }}
               disabled={addTrade.isPending}
             >
-              Cancelar
+              {editingKey ? "Volver" : "Cancelar"}
             </Button>
-            <Button onClick={handleSubmit} disabled={addTrade.isPending}>
+            <Button
+              onClick={editingKey ? applyEdit : handleSubmit}
+              disabled={addTrade.isPending}
+            >
               {addTrade.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-              Registrar
+              {editingKey ? "Guardar cambios" : "Registrar"}
             </Button>
           </DialogFooter>
         )}

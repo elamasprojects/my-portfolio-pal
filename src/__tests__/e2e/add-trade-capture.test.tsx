@@ -15,6 +15,13 @@ import { setupTestEnvironment } from "@/test/helpers/stateSetup";
  */
 
 const insertedRows: any[] = [];
+/** Lo que `analyze-trade-image` devuelve: campos sueltos que el diálogo propone, no un contrato. */
+interface AnalyzeReply {
+  data: Record<string, unknown> | null;
+  error: Error | null;
+}
+/** Una respuesta por comprobante, en orden: la lectura de la tanda es secuencial. */
+const analyzeQueue: AnalyzeReply[] = [];
 
 vi.mock("@/integrations/supabase/client", async () => {
   const actual = await vi.importActual<any>("@/integrations/supabase/client");
@@ -67,6 +74,13 @@ vi.mock("@/integrations/supabase/client", async () => {
         };
       },
       rpc: () => Promise.resolve({ data: null, error: null }),
+      functions: {
+        invoke: async () => {
+          const next = analyzeQueue.shift();
+          if (!next) return { data: null, error: new Error("sin respuesta encolada") };
+          return next;
+        },
+      },
     },
   };
 });
@@ -112,6 +126,7 @@ describe("Trade capture (buys and dividends)", () => {
 
   beforeEach(() => {
     insertedRows.length = 0;
+    analyzeQueue.length = 0;
     env = setupTestEnvironment();
   });
 
@@ -133,7 +148,7 @@ describe("Trade capture (buys and dividends)", () => {
   it("abre en la captura del comprobante, no en el formulario", () => {
     renderDialog();
 
-    expect(screen.getByText(/subí la captura de la orden/i)).toBeInTheDocument();
+    expect(screen.getByText(/subí las capturas de tus órdenes/i)).toBeInTheDocument();
     // Los diez campos de la operación no son lo primero que se ve.
     expect(screen.queryByLabelText("Ticker")).not.toBeInTheDocument();
   });
@@ -161,7 +176,7 @@ describe("Trade capture (buys and dividends)", () => {
     renderDialog();
     await abrirFormulario();
 
-    fireEvent.click(screen.getByRole("button", { name: /venta/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Venta" }));
     fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "ORCL" } });
     fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText("Precio por unidad"), { target: { value: "151.55" } });
@@ -223,7 +238,7 @@ describe("Trade capture (buys and dividends)", () => {
     renderDialog();
     await abrirFormulario();
 
-    fireEvent.click(screen.getByRole("button", { name: /venta/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Venta" }));
     fireEvent.change(screen.getByLabelText("Ticker"), { target: { value: "ORCL" } });
     fireEvent.change(screen.getByLabelText("Cantidad"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText("Precio por unidad"), { target: { value: "151.55" } });
@@ -251,7 +266,148 @@ describe("Trade capture (buys and dividends)", () => {
     );
 
     // Vuelve al primer paso, sin arrastrar lo tipeado.
-    expect(screen.getByText(/subí la captura de la orden/i)).toBeInTheDocument();
+    expect(screen.getByText(/subí las capturas de tus órdenes/i)).toBeInTheDocument();
     expect(screen.queryByDisplayValue("AAPL")).not.toBeInTheDocument();
+  });
+
+  /** Un PNG mínimo válido; el contenido no importa porque la lectura está mockeada. */
+  const png = (name: string) => ({
+    name,
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    ),
+  });
+
+  async function subir(...archivos: ReturnType<typeof png>[]) {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const files = archivos.map(
+      (a) => new File([a.buffer], a.name, { type: a.mimeType })
+    );
+    Object.defineProperty(input, "files", { value: files, configurable: true });
+    fireEvent.change(input);
+  }
+
+  it("lee varios comprobantes de una y los registra juntos", async () => {
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", asset_name: "Apple", quantity: 10, price_per_unit: 230, currency: "USD", trade_date: "2026-08-01" }, error: null },
+      { data: { trade_type: "sell", symbol: "ORCL", asset_name: "Oracle", quantity: 5, price_per_unit: 151.55, currency: "USD", trade_date: "2026-08-02" }, error: null },
+    );
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+
+    await subir(png("compra.png"), png("venta.png"));
+
+    // Compras y ventas conviven en la misma tanda.
+    await screen.findByRole("button", { name: /registrar 2 operaciones/i });
+    expect(screen.getByText("Compra")).toBeInTheDocument();
+    expect(screen.getByText("Venta")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /registrar 2 operaciones/i }));
+
+    await waitFor(() => expect(insertedRows).toHaveLength(2));
+    expect(insertedRows.map((r) => r.symbol).sort()).toEqual(["AAPL", "ORCL"]);
+    expect(insertedRows.map((r) => r.trade_type).sort()).toEqual(["buy", "sell"]);
+  });
+
+  it("un comprobante ilegible no tumba la tanda: queda marcado", async () => {
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: null, error: new Error("No se pudo analizar la imagen") },
+    );
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+
+    await subir(png("ok.png"), png("roto.png"));
+
+    // Las dos filas están: la buena lista, la otra con su motivo.
+    await screen.findByRole("button", { name: /registrar 2 operaciones/i });
+    expect(screen.getByText(/no se pudo analizar la imagen/i)).toBeInTheDocument();
+  });
+
+  it("una fila de la tanda se puede descartar sin tocar las otras", async () => {
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: { trade_type: "sell", symbol: "ORCL", quantity: 5, price_per_unit: 151, currency: "USD" }, error: null },
+    );
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("a.png"), png("b.png"));
+    await screen.findByRole("button", { name: /registrar 2 operaciones/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /descartar ORCL/i }));
+
+    // Queda una sola, y el botón vuelve al texto del caso simple.
+    await screen.findByRole("button", { name: /confirmar y registrar/i });
+    expect(screen.queryByText("ORCL")).not.toBeInTheDocument();
+    expect(screen.getByText(/AAPL/)).toBeInTheDocument();
+  });
+
+
+  it("dos clicks seguidos no duplican la tanda", async () => {
+    // `addTrade.isPending` baja entre inserción e inserción: no alcanzaba para frenar el
+    // segundo click, que reiniciaba el bucle sobre la misma lista.
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: { trade_type: "buy", symbol: "MSFT", quantity: 3, price_per_unit: 400, currency: "USD" }, error: null },
+    );
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("a.png"), png("b.png"));
+
+    const boton = await screen.findByRole("button", { name: /registrar 2 operaciones/i });
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+
+    await waitFor(() => expect(insertedRows.length).toBeGreaterThanOrEqual(2));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(insertedRows).toHaveLength(2);
+  });
+
+  it("una fila sin ticker se frena con su motivo en castellano", async () => {
+    // Entraban igual y morían adentro de `buildTradeRow` con "Symbol is required".
+    analyzeQueue.push({ data: { trade_type: "buy", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null });
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("sin-ticker.png"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /confirmar y registrar/i }));
+
+    // Aparece dos veces a propósito: el resumen de arriba y la fila que hay que corregir.
+    expect((await screen.findAllByText(/falta el ticker/i)).length).toBeGreaterThan(0);
+    expect(insertedRows).toHaveLength(0);
+  });
+
+  it("la tesis de un candidato no se estampa en toda la tanda", async () => {
+    // El watchlist abre el diálogo con la tesis, el objetivo y la invalidación de UN
+    // candidato; sembrarlas en cada fila las pegaba a comprobantes ajenos.
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: { trade_type: "buy", symbol: "MSFT", quantity: 3, price_per_unit: 400, currency: "USD" }, error: null },
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AddTradeDialog
+            open
+            onOpenChange={() => {}}
+            defaultSymbol="TGNO4"
+            defaultEntryThesis="Tesis del candidato del watchlist"
+            defaultTargetPrice="9999"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("a.png"), png("b.png"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /registrar 2 operaciones/i }));
+
+    await waitFor(() => expect(insertedRows).toHaveLength(2));
+    expect(insertedRows.every((r) => !r.entry_thesis)).toBe(true);
+    expect(insertedRows.every((r) => r.target_price_usd == null)).toBe(true);
+    expect(insertedRows.map((r) => r.symbol).sort()).toEqual(["AAPL", "MSFT"]);
   });
 });

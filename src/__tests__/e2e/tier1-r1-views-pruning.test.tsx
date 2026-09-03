@@ -132,7 +132,7 @@ describe("Tier 1 - Requirement 1 (R1): 3-View Architecture, Pruning, Dark Mode &
 
     await screen.findByText(/registrar operación/i);
     // Y acepta el comprobante del broker, no sólo tipeo.
-    expect(screen.getByText(/subí la captura de la orden/i)).toBeInTheDocument();
+    expect(screen.getByText(/subí las capturas de tus órdenes/i)).toBeInTheDocument();
   });
 
   /**
