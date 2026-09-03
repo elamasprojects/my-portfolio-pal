@@ -128,6 +128,8 @@ export function AddTradeDialog({
   const [batch, setBatch] = useState<BatchItem[]>([]);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const readRunId = useRef(0);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   // El broker marcado como predeterminado entra solo. Antes había que elegirlo en cada alta,
   // incluso operando siempre con el mismo.
@@ -188,9 +190,33 @@ export function AddTradeDialog({
     setErrors([]);
   };
 
+  /**
+   * La base de una fila recién leída. Hereda lo que es del alta —broker, fecha— y no lo que
+   * es de una compra concreta: la tesis, el objetivo y la invalidación con que el watchlist
+   * abre el diálogo son de ese candidato, y sembrarlas en toda la tanda las estampaba en
+   * comprobantes que no tienen nada que ver. Sólo sobreviven cuando el comprobante es uno.
+   */
+  const freshItem = (key: string, fileName: string, heredaTesis: boolean): BatchItem => ({
+    key,
+    fileName,
+    tradeType: defaultTradeType,
+    symbol: heredaTesis ? defaultSymbol : "",
+    assetName: "",
+    quantity: "",
+    price: "",
+    currency: defaultCurrency,
+    tradeDate: todayLocalISO(),
+    brokerId,
+    notes: "",
+    isPlannedExit: false,
+    entryThesis: heredaTesis ? defaultEntryThesis : "",
+    targetPrice: heredaTesis ? defaultTargetPrice : "",
+    invalidationCondition: heredaTesis ? defaultInvalidationCondition : "",
+  });
+
   /** Lee un comprobante y devuelve la operación, sin tocar el formulario. */
-  async function readOne(file: File, key: string): Promise<BatchItem> {
-    const base = snapshot(key, file.name);
+  async function readOne(file: File, key: string, heredaTesis: boolean): Promise<BatchItem> {
+    const base = freshItem(key, file.name, heredaTesis);
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -222,7 +248,10 @@ export function AddTradeDialog({
 
       return {
         ...base,
-        tradeType: (data?.trade_type as TradeType) ?? base.tradeType,
+        // Un `trade_type` vacío o desconocido no puede llegar al enum de la tabla.
+        tradeType: (["buy", "sell", "dividend"] as const).includes(data?.trade_type as TradeType)
+          ? (data.trade_type as TradeType)
+          : base.tradeType,
         symbol: data?.symbol ? String(data.symbol).toUpperCase() : base.symbol,
         assetName: data?.asset_name ? String(data.asset_name) : base.assetName,
         quantity: data?.quantity != null ? String(data.quantity) : base.quantity,
@@ -247,14 +276,21 @@ export function AddTradeDialog({
    */
   const readReceipts = async (files: File[]) => {
     if (files.length === 0) return;
+    // Cerrar el diálogo a mitad de lectura corría `reset()`, pero el bucle seguía y repoblaba
+    // la tanda: la próxima apertura caía en un lote abandonado, a un click de escribirlo.
+    const run = ++readRunId.current;
     setIsReading(true);
     setProgress({ done: 0, total: files.length });
     try {
       const leidos: BatchItem[] = [];
+      // Con un solo comprobante, lo que traía el diálogo sigue siendo de esa compra.
+      const heredaTesis = files.length === 1 && batch.length === 0;
       for (const [i, file] of files.entries()) {
-        leidos.push(await readOne(file, `${Date.now()}-${i}`));
+        if (run !== readRunId.current) return;
+        leidos.push(await readOne(file, `${Date.now()}-${i}`, heredaTesis));
         setProgress({ done: i + 1, total: files.length });
       }
+      if (run !== readRunId.current) return;
       setBatch((prev) => [...prev, ...leidos]);
       setEditingKey(null);
       setStep("review");
@@ -268,8 +304,10 @@ export function AddTradeDialog({
         );
       }
     } finally {
-      setIsReading(false);
-      setProgress(null);
+      if (run === readRunId.current) {
+        setIsReading(false);
+        setProgress(null);
+      }
       if (receiptInput.current) receiptInput.current.value = "";
     }
   };
@@ -313,6 +351,7 @@ export function AddTradeDialog({
     setIsPlannedExit(false);
     setBatch([]);
     setEditingKey(null);
+    readRunId.current += 1;
     defaultApplied.current = false;
   }
 
@@ -403,7 +442,48 @@ export function AddTradeDialog({
    * Registra la tanda entera. Una que falle no arrastra a las demás: las que entraron salen
    * de la lista y las que no quedan con su motivo, así reintentar no duplica lo ya escrito.
    */
+  /** Lo que impide registrar una fila, en el mismo idioma que el resto. */
+  function validateItem(item: BatchItem): string | null {
+    if (!item.symbol.trim()) return "Falta el ticker.";
+    const precio = parseFloat(item.price);
+    if (!Number.isFinite(precio) || precio <= 0) return "El precio debe ser mayor a 0.";
+    if (item.tradeType !== "dividend") {
+      const cant = parseFloat(item.quantity);
+      if (!Number.isFinite(cant) || cant <= 0) return "La cantidad debe ser mayor a 0.";
+    }
+    if (item.currency === "ARS" && !(mepRate > 0)) {
+      return "No hay cotización MEP para convertir montos en pesos.";
+    }
+    if (!item.tradeDate) return "Falta la fecha.";
+    return null;
+  }
+
   async function handleSubmitBatch() {
+    // Un segundo click reiniciaba el bucle sobre la misma tanda: `addTrade.isPending` baja
+    // entre inserciones, así que no alcanzaba para frenarlo, y duplicaba lo ya escrito.
+    if (isSavingBatch) return;
+
+    // Las filas que no pasan se frenan acá. Sin esto entraban igual y morían adentro de
+    // `buildTradeRow` con un mensaje en inglés.
+    const invalidas = batch
+      .map((it) => ({ it, why: validateItem(it) }))
+      .filter((x) => x.why !== null);
+    if (invalidas.length > 0) {
+      setBatch((prev) =>
+        prev.map((it) => {
+          const mala = invalidas.find((x) => x.it.key === it.key);
+          return mala ? { ...it, error: mala.why! } : it;
+        })
+      );
+      setErrors([
+        invalidas.length === 1
+          ? `Falta corregir una operación: ${invalidas[0].why}`
+          : `Hay ${invalidas.length} operaciones sin completar. Corregilas o descartalas.`,
+      ]);
+      return;
+    }
+
+    setIsSavingBatch(true);
     const fallidas: BatchItem[] = [];
     let ok = 0;
     for (const item of batch) {
@@ -417,6 +497,7 @@ export function AddTradeDialog({
     }
     if (fallidas.length > 0) {
       setBatch(fallidas);
+      setIsSavingBatch(false);
       setErrors([
         fallidas.length === 1
           ? `No se registró ${fallidas[0].symbol}: ${fallidas[0].error}`
@@ -427,6 +508,7 @@ export function AddTradeDialog({
     }
 
     reset();
+    setIsSavingBatch(false);
     onOpenChange(false);
   }
 
@@ -498,7 +580,12 @@ export function AddTradeDialog({
               if (files.length > 0) readReceipts(files);
             }}
           />
-          {/* La miniatura mostraba un archivo; con varios, el progreso va en la zona misma. */}
+          {/*
+            La miniatura mostraba un archivo; con varios, el progreso va en la zona misma.
+            Y no se ofrece mientras se edita una fila: usarla ahí saltaba a la revisión sin
+            pasar por `applyEdit`, y la edición se perdía sin decir nada.
+          */}
+          {!editingKey && (
             <button
               type="button"
               onClick={() => receiptInput.current?.click()}
@@ -515,6 +602,7 @@ export function AddTradeDialog({
                 Podés elegir varias de una: compras y ventas juntas
               </span>
             </button>
+          )}
 
           {step === "capture" && (
             <button
@@ -548,12 +636,13 @@ export function AddTradeDialog({
                 {batch.map((it) => {
                   const cant = parseFloat(it.quantity);
                   const precio = parseFloat(it.price);
-                  const bruto =
-                    it.tradeType === "dividend"
-                      ? precio
-                      : Number.isFinite(cant) && Number.isFinite(precio)
-                      ? cant * precio
-                      : null;
+                  const bruto = !Number.isFinite(precio)
+                    ? null
+                    : it.tradeType === "dividend"
+                    ? precio
+                    : Number.isFinite(cant)
+                    ? cant * precio
+                    : null;
                   return (
                     <li
                       key={it.key}
@@ -646,17 +735,17 @@ export function AddTradeDialog({
                       receiptInput.current?.click();
                     }
                   }}
-                  disabled={addTrade.isPending || isReading}
+                  disabled={addTrade.isPending || isReading || isSavingBatch}
                   className="col-span-1 h-12"
                 >
                   {batch.length === 1 ? "Editar" : "Sumar"}
                 </Button>
                 <Button
                   onClick={handleSubmitBatch}
-                  disabled={addTrade.isPending || isReading || batch.length === 0}
+                  disabled={isSavingBatch || isReading || batch.length === 0}
                   className="col-span-4 h-12 text-sm font-bold"
                 >
-                  {addTrade.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                  {isSavingBatch && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   {batch.length === 1
                     ? "Confirmar y registrar"
                     : `Registrar ${batch.length} operaciones`}

@@ -344,4 +344,70 @@ describe("Trade capture (buys and dividends)", () => {
     expect(screen.getByText(/AAPL/)).toBeInTheDocument();
   });
 
+
+  it("dos clicks seguidos no duplican la tanda", async () => {
+    // `addTrade.isPending` baja entre inserción e inserción: no alcanzaba para frenar el
+    // segundo click, que reiniciaba el bucle sobre la misma lista.
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: { trade_type: "buy", symbol: "MSFT", quantity: 3, price_per_unit: 400, currency: "USD" }, error: null },
+    );
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("a.png"), png("b.png"));
+
+    const boton = await screen.findByRole("button", { name: /registrar 2 operaciones/i });
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+
+    await waitFor(() => expect(insertedRows.length).toBeGreaterThanOrEqual(2));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(insertedRows).toHaveLength(2);
+  });
+
+  it("una fila sin ticker se frena con su motivo en castellano", async () => {
+    // Entraban igual y morían adentro de `buildTradeRow` con "Symbol is required".
+    analyzeQueue.push({ data: { trade_type: "buy", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null });
+    renderDialog();
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("sin-ticker.png"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /confirmar y registrar/i }));
+
+    // Aparece dos veces a propósito: el resumen de arriba y la fila que hay que corregir.
+    expect((await screen.findAllByText(/falta el ticker/i)).length).toBeGreaterThan(0);
+    expect(insertedRows).toHaveLength(0);
+  });
+
+  it("la tesis de un candidato no se estampa en toda la tanda", async () => {
+    // El watchlist abre el diálogo con la tesis, el objetivo y la invalidación de UN
+    // candidato; sembrarlas en cada fila las pegaba a comprobantes ajenos.
+    analyzeQueue.push(
+      { data: { trade_type: "buy", symbol: "AAPL", quantity: 10, price_per_unit: 230, currency: "USD" }, error: null },
+      { data: { trade_type: "buy", symbol: "MSFT", quantity: 3, price_per_unit: 400, currency: "USD" }, error: null },
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AddTradeDialog
+            open
+            onOpenChange={() => {}}
+            defaultSymbol="TGNO4"
+            defaultEntryThesis="Tesis del candidato del watchlist"
+            defaultTargetPrice="9999"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText(/subí las capturas de tus órdenes/i);
+    await subir(png("a.png"), png("b.png"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /registrar 2 operaciones/i }));
+
+    await waitFor(() => expect(insertedRows).toHaveLength(2));
+    expect(insertedRows.every((r) => !r.entry_thesis)).toBe(true);
+    expect(insertedRows.every((r) => r.target_price_usd == null)).toBe(true);
+    expect(insertedRows.map((r) => r.symbol).sort()).toEqual(["AAPL", "MSFT"]);
+  });
 });
