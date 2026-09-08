@@ -15,7 +15,7 @@ export function FrictionCoolingTimerModal({
   open,
   onOpenChange,
   onConfirmSell,
-  initialTimerSeconds = 60,
+  initialTimerSeconds = 10,
 }: FrictionCoolingTimerModalProps) {
   const [secondsRemaining, setSecondsRemaining] = useState(initialTimerSeconds);
   const [rationale, setRationale] = useState("");
@@ -57,7 +57,7 @@ export function FrictionCoolingTimerModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-amber-500">
-            ⏳ Venta No Planificada — Tiempo de Enfriamiento (60s)
+            ⏳ Venta No Planificada — Tiempo de Enfriamiento ({initialTimerSeconds}s)
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -82,10 +82,23 @@ export function FrictionCoolingTimerModal({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar Venta</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit} variant="destructive">
-            Confirmar Venta No Planificada
-          </Button>
+          <div className="grid w-full grid-cols-[3fr_7fr] gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-auto min-w-0 whitespace-normal py-2"
+            >
+              Cancelar Venta
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              variant="destructive"
+              className="h-auto min-w-0 whitespace-normal py-2"
+            >
+              Confirmar Venta No Planificada
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
