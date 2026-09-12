@@ -150,6 +150,10 @@ export interface ReceiptReconciliation {
   /** Lo que los renglones deberian dar una vez aplicados los descuentos del pie. */
   expected: number;
   discounts: number;
+  /** Suma de los descuentos de cada renglon; 0 si ningun renglon trae el suyo. */
+  itemDiscounts: number;
+  /** El descuento agregado que dice el pie del ticket; 0 si no vino. */
+  metaDiscounts: number;
   /** El TOTAL impreso, o 0 cuando no se pudo leer (foto cortada). */
   printed: number;
   /** printed − expected. Positivo: falta un renglon. Negativo: se leyo uno de mas. */
@@ -157,36 +161,88 @@ export interface ReceiptReconciliation {
   /** La brecha no se explica con los descuentos impresos y hay que mirarla. */
   unexplained: boolean;
   isTruncated: boolean;
+  /**
+   * El descuento agregado del pie no coincide con la suma de los descuentos de cada renglon.
+   *
+   * Es la senal que agarro el ticket de Carrefour: la pagina cortaba antes del TOTAL, pero cada
+   * renglon SI traia su propio descuento (impreso, verificable). El modelo, sin ver un TOTAL
+   * real, calculo un `printed_total` a partir de un `discounts_total` que el mismo inventaba mal
+   * -- y como los dos numeros salian de la misma cuenta equivocada, `unexplained` no lo agarraba
+   * (el "total" coincidia perfecto con "sum - discounts_total", ambos errados por igual). Esta
+   * es una comparacion distinta: el agregado contra sus propias partes.
+   */
+  discountsMismatch: boolean;
+  /**
+   * El monto que conviene cargar. Por defecto el total impreso, cuando coincide con la cuenta;
+   * cuando `discountsMismatch` marca que ese agregado es una invencion, la cuenta hecha renglon
+   * por renglon (mas confiable: son numeros chicos que el modelo lee uno por uno, no una suma
+   * grande que tiene que hacer solo) gana por sobre lo que el modelo llamo "total impreso" sin
+   * haberlo visto impreso.
+   */
+  resolvedAmount: number;
 }
 
 /**
- * Compara la suma de los renglones contra el total impreso.
+ * Compara la suma de los renglones contra el total impreso, y decide que monto cargar.
  *
  * En un ticket argentino los dos numeros casi nunca coinciden: los descuentos se aplican al
  * pie, no linea por linea. Eso esta bien y por eso se restan antes de comparar. Lo que no esta
  * bien es una foto cortada -- ahi la diferencia es plata que no se ve y el total cargado queda
  * corto, que es exactamente el caso del ticket de Carrefour que disparo todo esto.
  *
- * La tolerancia es medio punto porcentual (minimo 1 en la moneda del ticket) para no marcar en
- * amarillo el redondeo del IVA de cada linea.
+ * Ese mismo ticket real expuso un segundo problema, mas serio: el modelo NO marco la foto como
+ * cortada (`is_truncated` da falso), y en cambio devolvio un `amount` igual al subtotal SIN
+ * descontar nada -- un 31% de mas -- y por separado, un `printed_total` que el armo solo,
+ * restando un `discounts_total` que el mismo calculo mal. Los dos numeros del modelo eran
+ * autoconsistentes (`printed_total` = `sum - discounts_total` exacto), asi que la comparacion de
+ * arriba no encontraba nada raro. La unica manera de agarrarlo fue una comparacion que el modelo
+ * no puede hacer trampa en las dos puntas: la suma de los descuentos de CADA renglon (numeros
+ * chicos, uno por uno, verificables contra la foto) contra el agregado que dice el pie.
+ *
+ * La tolerancia de `unexplained` es medio punto porcentual del total (minimo 1 en la moneda del
+ * ticket), para no marcar en amarillo el redondeo del IVA de cada linea; la de
+ * `discountsMismatch` es uno por ciento de los descuentos por renglon, mas angosta porque ahi no
+ * hay redondeo de IVA que perdonar, solo la resta de dos numeros que deberian ser el mismo.
  */
 export function reconcileReceipt(
-  items: Pick<NewTransactionItem, "line_total">[],
+  items: Pick<NewTransactionItem, "line_total" | "discount">[],
   meta?: ReceiptMeta | null,
 ): ReceiptReconciliation {
   const sum = items.reduce((acc, it) => acc + (Number(it.line_total) || 0), 0);
-  const discounts = Number(meta?.discounts_total) || 0;
+  const itemDiscounts = items.reduce((acc, it) => acc + (Number(it.discount) || 0), 0);
+  const metaDiscounts = Number(meta?.discounts_total) || 0;
+  // Se prefiere lo que dice el pie cuando esta: es la fuente que ya usaba este chequeo. El
+  // fallback a la suma de renglones es nuevo -- antes, un ticket sin `discounts_total` en el
+  // meta pero con descuento en cada renglon (como Carrefour) caia a 0 sin necesidad.
+  const discounts = metaDiscounts || itemDiscounts;
   const printed = Number(meta?.printed_total) || 0;
   const expected = sum - discounts;
   const gap = printed > 0 ? printed - expected : 0;
+  const unexplained = printed > 0 && Math.abs(gap) > Math.max(1, printed * 0.005);
+
+  const discountsMismatch =
+    itemDiscounts > 0 &&
+    metaDiscounts > 0 &&
+    Math.abs(itemDiscounts - metaDiscounts) > Math.max(1, itemDiscounts * 0.01);
+
+  const itemsNet = sum - itemDiscounts;
+  const resolvedAmount = discountsMismatch
+    ? itemsNet
+    : printed > 0
+      ? printed
+      : itemsNet;
 
   return {
     sum,
     expected,
     discounts,
+    itemDiscounts,
+    metaDiscounts,
     printed,
     gap,
-    unexplained: printed > 0 && Math.abs(gap) > Math.max(1, printed * 0.005),
+    unexplained,
     isTruncated: Boolean(meta?.is_truncated),
+    discountsMismatch,
+    resolvedAmount,
   };
 }

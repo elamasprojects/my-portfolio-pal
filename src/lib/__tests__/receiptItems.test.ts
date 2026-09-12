@@ -116,6 +116,52 @@ describe("reconcileReceipt", () => {
     expect(r.unexplained).toBe(false);
     expect(r.isTruncated).toBe(true);
   });
+
+  it("el ticket real de Carrefour: el modelo no vio el TOTAL y calculo mal el descuento agregado", () => {
+    // Extraccion real contra la funcion desplegada, foto 1/3 (corta antes del TOTAL, aunque el
+    // modelo no lo marco). Cada renglon trae su propio descuento, impreso y verificable; el
+    // agregado del pie que devolvio el modelo (16402.29) no es la suma de esos ocho descuentos
+    // (17852.29) -- el modelo inventa el numero, y por eso tambien su "printed_total"
+    // (59108.05 = 75510.34 - 16402.29) nunca estuvo impreso en ningun lado. El total real,
+    // verificado contra la transaccion que ya esta cargada en la cuenta con el monto correcto,
+    // es 57.658,05.
+    const carrefourItems = [
+      { line_total: 3458, discount: 1210.3 },
+      { line_total: 17800, discount: 6230 },
+      { line_total: 16676, discount: 4169 },
+      { line_total: 4399, discount: 1539.65 },
+      { line_total: 13650, discount: 0 },
+      { line_total: 4440, discount: 1554 },
+      { line_total: 4797.34, discount: 1199.34 },
+      { line_total: 5790, discount: 600 },
+      { line_total: 4500, discount: 1350 },
+    ];
+    const meta = {
+      store: "Carrefour",
+      subtotal_before_discounts: 75510.34,
+      discounts_total: 16402.29,
+      printed_total: 59108.05,
+    };
+
+    const r = reconcileReceipt(carrefourItems, meta);
+
+    // La comparacion vieja (impreso vs. renglones-menos-descuento-del-pie) no encuentra nada
+    // raro: el modelo calculo las dos cosas con la misma cuenta equivocada.
+    expect(r.unexplained).toBe(false);
+    // La comparacion nueva si: el agregado no es la suma de sus partes.
+    expect(r.discountsMismatch).toBe(true);
+    expect(r.itemDiscounts).toBeCloseTo(17852.29, 2);
+    // Y el monto que se termina cargando es el real, no el que inventó el modelo.
+    expect(r.resolvedAmount).toBeCloseTo(57658.05, 2);
+  });
+
+  it("sin discount por renglon, sigue confiando en el agregado del pie como antes", () => {
+    // Cambiar el fallback no puede romper el caso comun: un ticket sin discount por linea
+    // (como el de Disco) no dispara discountsMismatch ni cambia resolvedAmount.
+    const r = reconcileReceipt(items, { discounts_total: 4356.75, printed_total: 70693.89 });
+    expect(r.discountsMismatch).toBe(false);
+    expect(r.resolvedAmount).toBeCloseTo(70693.89, 2);
+  });
 });
 
 describe("normalizeProductCategory", () => {

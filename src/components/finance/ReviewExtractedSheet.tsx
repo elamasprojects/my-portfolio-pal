@@ -57,6 +57,12 @@ export interface ReviewRow {
   /** Los renglones del ticket, en la moneda del ticket. Vacío cuando no es un comprobante. */
   items?: NewTransactionItem[];
   receiptMeta?: ReceiptMeta | null;
+  /**
+   * La foto quedó cortada, o el descuento agregado del pie no coincide con la suma de los
+   * renglones. En cualquiera de los dos casos el monto de la fila viene de una cuenta que se
+   * corrigió, no de lo que dijo el extractor tal cual, y conviene mirarlo antes de confirmar.
+   */
+  ticketNeedsReview?: boolean;
 }
 
 interface ReviewExtractedSheetProps {
@@ -552,7 +558,8 @@ function TicketStrip({
 }) {
   const [open, setOpen] = useState(false);
 
-  const { sum, expected, discounts, gap, unexplained, isTruncated } = reconcileReceipt(items, meta);
+  const { sum, expected, discounts, printed, gap, unexplained, isTruncated, discountsMismatch, itemDiscounts, metaDiscounts, resolvedAmount } =
+    reconcileReceipt(items, meta);
 
   return (
     <div className="rounded-lg border border-border/60 bg-muted/25">
@@ -602,6 +609,13 @@ function TicketStrip({
         <p className="border-t border-border/50 px-2.5 py-1.5 text-[11px] text-amber-500">
           La foto corta antes del TOTAL: se cargó la suma de lo visible. Sacá la parte de abajo
           del ticket y corregí el monto.
+        </p>
+      ) : discountsMismatch ? (
+        <p className="border-t border-border/50 px-2.5 py-1.5 text-[11px] text-amber-500">
+          El descuento que dice el ticket ({money(metaDiscounts)}) no coincide con la suma de los
+          descuentos de cada renglón ({money(itemDiscounts)}): el total no salió de algo impreso,
+          lo calculó la IA y se equivocó. Se cargó {money(resolvedAmount)}, la cuenta hecha con
+          los renglones. Confirmalo contra el ticket antes de aprobar.
         </p>
       ) : unexplained ? (
         <p className="border-t border-border/50 px-2.5 py-1.5 text-[11px] text-amber-500">

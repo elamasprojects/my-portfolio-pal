@@ -21,7 +21,7 @@ import {
 import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
 import { useAuth } from "@/hooks/useAuth";
 import { uploadReceipt } from "@/lib/receipts";
-import { normalizeLineItems, type ExtractedLineItem } from "@/lib/receiptItems";
+import { normalizeLineItems, reconcileReceipt, type ExtractedLineItem } from "@/lib/receiptItems";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
@@ -357,11 +357,26 @@ export function OmnibarFinance({
           // Se sigue proponiendo, pero marcada, y ahora hay dónde corregirla antes de guardar.
           const accountWasGuessed = !matchedAccount;
 
+          // El detalle del ticket viaja con la fila hasta la insercion. Los importes de los
+          // renglones NO se pasan a dolares: quedan como estan impresos, y el equivalente en
+          // USD lo guarda la fila madre una sola vez con su `fx_rate`.
+          const lineItems = normalizeLineItems(item.line_items, item.currency || "ARS");
+
+          // El monto NO sale del `amount` que devuelve el modelo cuando hay renglones: un
+          // ticket real de Carrefour lo probo mal -- el modelo devolvio el SUBTOTAL sin
+          // descontar nada (31% de mas), y por separado calculo un "total impreso" que nunca
+          // vio impreso, restando un descuento agregado que el mismo saco mal. Los dos numeros
+          // del modelo eran autoconsistentes entre si, asi que ninguna comparacion contra el
+          // total "impreso" los agarraba. `reconcileReceipt` no compara contra lo que dice el
+          // modelo que es el total: cuenta los renglones (numeros chicos, verificables uno por
+          // uno contra la foto) y usa esa cuenta cuando el agregado no cierra con sus partes.
+          const reconciliation = lineItems.length > 0 ? reconcileReceipt(lineItems, item.receipt_meta) : null;
+
           const draft: ReviewRow = {
             key: `x${idx}`,
             name: item.name || "Gasto",
             rawMerchant: item.raw_merchant || item.name,
-            amount: String(item.amount ?? ""),
+            amount: String(reconciliation ? reconciliation.resolvedAmount : (item.amount ?? "")),
             currency: (item.currency || "USD").toUpperCase(),
             // El extractor emite cuatro tipos y el trigger de saldos los distingue: forzar
             // todo a `expense` debitaba el origen de una transferencia sin acreditar destino.
@@ -374,19 +389,20 @@ export function OmnibarFinance({
             categoryId: matchedCat?.id ?? null,
             accountId: (matchedAccount ?? accounts[0])?.id ?? null,
             paymentMethodId: matchedPm?.id ?? paymentMethods[0]?.id ?? null,
-            // Una foto cortada no se puede dar por buena por mas que el modelo diga "high":
-            // el monto cargado es la suma de lo que se vio, y abajo del corte puede haber
-            // renglones y descuentos. Se pisa aca porque la regla del prompt no se cumple sola.
-            confidence: item.receipt_meta?.is_truncated ? "low" : item.confidence || "high",
+            // Una foto cortada, o un ticket donde el agregado de descuentos no coincide con la
+            // suma de sus renglones, no se puede dar por bueno por mas que el modelo diga
+            // "high": en el segundo caso el modelo esta inventando el total, no leyendolo.
+            confidence:
+              item.receipt_meta?.is_truncated || reconciliation?.discountsMismatch
+                ? "low"
+                : item.confidence || "high",
             accountWasGuessed,
             suggestedCategory: item.suggested_new_category ?? null,
             source: selectedFile ? "screenshot" : "text",
             receiptPath,
-            // El detalle del ticket viaja con la fila hasta la insercion. Los importes de los
-            // renglones NO se pasan a dolares: quedan como estan impresos, y el equivalente en
-            // USD lo guarda la fila madre una sola vez con su `fx_rate`.
-            items: normalizeLineItems(item.line_items, item.currency || "ARS"),
+            items: lineItems,
             receiptMeta: item.receipt_meta ?? null,
+            ticketNeedsReview: Boolean(item.receipt_meta?.is_truncated || reconciliation?.discountsMismatch),
           };
           return draft;
         })
@@ -454,8 +470,9 @@ export function OmnibarFinance({
           needs_review:
             Boolean(row.accountWasGuessed) ||
             !row.categoryId ||
-            // Queda en Pendientes hasta que se saque la parte de abajo del ticket.
-            Boolean(row.receiptMeta?.is_truncated),
+            // Queda en Pendientes hasta que se saque la parte de abajo del ticket, o hasta que
+            // se confirme a mano un monto que la cuenta de los renglones tuvo que corregir.
+            Boolean(row.ticketNeedsReview),
           // El origen viaja en la fila: para acá, la hoja de captura ya se cerró y limpió su
           // archivo, así que leerlo ahora estampaba "text" a todo lo que vino de una captura.
           source: row.source ?? "text",
