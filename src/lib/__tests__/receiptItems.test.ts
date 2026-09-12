@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { normalizeLineItems, reconcileReceipt, toNum } from "@/lib/receiptItems";
+import {
+  normalizeLineItems,
+  normalizeProductCategory,
+  reconcileReceipt,
+  toNum,
+} from "@/lib/receiptItems";
 
 describe("toNum", () => {
   it("acepta el decimal con coma que devuelve el extractor leyendo tickets argentinos", () => {
@@ -110,5 +115,56 @@ describe("reconcileReceipt", () => {
     expect(r.gap).toBe(0);
     expect(r.unexplained).toBe(false);
     expect(r.isTruncated).toBe(true);
+  });
+});
+
+describe("normalizeProductCategory", () => {
+  it("acepta el valor del set tal cual", () => {
+    expect(normalizeProductCategory("carniceria")).toBe("carniceria");
+    expect(normalizeProductCategory("  LACTEOS  ")).toBe("lacteos");
+  });
+
+  it("resuelve el acento, que es como lo escribe el modelo la mitad de las veces", () => {
+    expect(normalizeProductCategory("carnicería")).toBe("carniceria");
+    expect(normalizeProductCategory("Verdulería")).toBe("verduleria");
+  });
+
+  it("colapsa los sinonimos en vez de dejar tres rubros para lo mismo", () => {
+    // Sin esto, "en que rubro se me va la plata" daria tres respuestas para la carne.
+    expect(normalizeProductCategory("carne")).toBe("carniceria");
+    expect(normalizeProductCategory("pollo")).toBe("carniceria");
+    expect(normalizeProductCategory("meat")).toBe("carniceria");
+  });
+
+  it("separa el alcohol de las bebidas, que es un corte de presupuesto real", () => {
+    expect(normalizeProductCategory("cerveza")).toBe("alcohol");
+    expect(normalizeProductCategory("gaseosas")).toBe("bebidas");
+  });
+
+  it("devuelve null cuando no se pudo determinar, no 'otros'", () => {
+    // Un rubro indeterminado y un rubro que genuinamente es "otros" son cosas distintas:
+    // mezclarlos infla la unica categoria sobre la que no se puede hacer nada.
+    expect(normalizeProductCategory("asdfgh")).toBeNull();
+    expect(normalizeProductCategory("")).toBeNull();
+    expect(normalizeProductCategory(null)).toBeNull();
+    expect(normalizeProductCategory("otros")).toBe("otros");
+  });
+});
+
+describe("normalizeLineItems + rubro", () => {
+  it("guarda el rubro ya normalizado, no lo que dijo el modelo", () => {
+    const [item] = normalizeLineItems(
+      [{ description: "Tapa de asado", line_total: 44340.04, category_hint: "Carnicería" }],
+      "ARS",
+    );
+    expect(item.category_hint).toBe("carniceria");
+  });
+
+  it("un rubro inventado no ensucia la metrica: entra en null", () => {
+    const [item] = normalizeLineItems(
+      [{ description: "Algo", line_total: 100, category_hint: "seccion rara" }],
+      "ARS",
+    );
+    expect(item.category_hint).toBeNull();
   });
 });

@@ -13,6 +13,101 @@ export interface ExtractedLineItem {
   category_hint?: string;
 }
 
+/**
+ * El rubro de un producto, cerrado a proposito.
+ *
+ * Si esto fuera texto libre el modelo escribiria "carniceria" hoy, "carne" mañana y "meat"
+ * pasado, y la pregunta que justifica guardar el detalle -- en que rubro se me va la plata del
+ * super -- daria tres respuestas distintas para lo mismo. Un set cerrado nace sucio o no nace;
+ * limpiarlo despues, sobre cientos de tickets, es mucho mas caro que acotarlo ahora.
+ *
+ * El corte es por gondola de supermercado argentino, no por nutriente: es como esta impreso el
+ * ticket y como uno piensa la compra.
+ */
+export const PRODUCT_CATEGORIES = [
+  "carniceria",
+  "verduleria",
+  "fiambreria",
+  "lacteos",
+  "panaderia",
+  "almacen",
+  "congelados",
+  "bebidas",
+  "alcohol",
+  "limpieza",
+  "perfumeria",
+  "mascotas",
+  "bazar",
+  "otros",
+] as const;
+
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+/**
+ * Lo que el modelo suele escribir cuando se sale del set. No es una taxonomia paralela: es el
+ * colchon para que un sinonimo obvio no termine en `otros` y desaparezca de la metrica.
+ */
+const CATEGORY_ALIASES: Record<string, ProductCategory> = {
+  carne: "carniceria",
+  carnes: "carniceria",
+  pollo: "carniceria",
+  meat: "carniceria",
+  achuras: "carniceria",
+  frutas: "verduleria",
+  verduras: "verduleria",
+  "frutas y verduras": "verduleria",
+  produce: "verduleria",
+  fiambres: "fiambreria",
+  quesos: "fiambreria",
+  lacteo: "lacteos",
+  leche: "lacteos",
+  dairy: "lacteos",
+  huevos: "lacteos",
+  pan: "panaderia",
+  bakery: "panaderia",
+  secos: "almacen",
+  despensa: "almacen",
+  pantry: "almacen",
+  groceries: "almacen",
+  congelado: "congelados",
+  frozen: "congelados",
+  bebida: "bebidas",
+  gaseosas: "bebidas",
+  drinks: "bebidas",
+  vinos: "alcohol",
+  vino: "alcohol",
+  cerveza: "alcohol",
+  bebidas_alcoholicas: "alcohol",
+  "bebidas alcoholicas": "alcohol",
+  cleaning: "limpieza",
+  higiene: "perfumeria",
+  "higiene personal": "perfumeria",
+  tocador: "perfumeria",
+  cosmetica: "perfumeria",
+  mascota: "mascotas",
+  pets: "mascotas",
+  hogar: "bazar",
+  otro: "otros",
+  other: "otros",
+};
+
+/**
+ * Lleva lo que dijo el modelo al set cerrado. Lo que no entra devuelve null, no "otros": un
+ * rubro que no se pudo determinar y un rubro que es genuinamente "otros" son cosas distintas,
+ * y mezclarlos infla la unica categoria que no se puede accionar.
+ */
+export function normalizeProductCategory(raw?: string | null): ProductCategory | null {
+  if (!raw) return null;
+  const key = raw
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if ((PRODUCT_CATEGORIES as readonly string[]).includes(key)) return key as ProductCategory;
+  return CATEGORY_ALIASES[key] ?? null;
+}
+
 /** El extractor emite numeros o strings segun el dia; lo que no sea numero no se inventa. */
 export function toNum(v: number | string | undefined | null): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -41,7 +136,7 @@ export function normalizeLineItems(
       unit_price: toNum(li.unit_price),
       line_total: toNum(li.line_total) ?? Number.NaN,
       discount: toNum(li.discount),
-      category_hint: li.category_hint ?? null,
+      category_hint: normalizeProductCategory(li.category_hint),
       currency: (currency || "ARS").toUpperCase(),
     }))
     // Un renglon sin nombre o sin importe no es un renglon: es ruido de OCR, y guardarlo

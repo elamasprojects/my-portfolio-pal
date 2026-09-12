@@ -252,7 +252,16 @@ filas.
 - **Los renglones viven en `transaction_items`**, colgados de la transaccion con
   `ON DELETE CASCADE`. Guardan `description` normalizada + `raw_description` tal cual la
   imprimio el comercio, `quantity`/`unit` (3 unidades, o 0,884 kg), `unit_price`, `line_total`
-  y un `category_hint` grueso.
+  y `category_hint`.
+- **`category_hint` es un set CERRADO** (`PRODUCT_CATEGORIES` en `src/lib/receiptItems.ts`:
+  carniceria, verduleria, fiambreria, lacteos, panaderia, almacen, congelados, bebidas, alcohol,
+  limpieza, perfumeria, mascotas, bazar, otros). Va como `enum` en el tool schema de la edge
+  function **y** se vuelve a normalizar en el cliente (`normalizeProductCategory`, que resuelve
+  acentos y sinonimos). Si fuera texto libre, "carniceria" / "carne" / "meat" convivirian y la
+  pregunta que justifica guardar el detalle — en que rubro se me va la plata del super — daria
+  tres respuestas para lo mismo. Lo que no entra al set va a **NULL, no a "otros"**: indeterminado
+  y "genuinamente otros" son cosas distintas. **No hay CHECK en la base** a proposito: un valor
+  inesperado tiene que degradar a NULL, no voltear la insercion y perder el renglon.
 - **Los importes de los renglones quedan en la moneda del TICKET, no en USD.** Convertir cada
   producto al MEP daria una columna que no figura en ningun papel y que ademas no sumaria el
   total por redondeo. El equivalente en dolares es uno solo, el de la fila madre, con su

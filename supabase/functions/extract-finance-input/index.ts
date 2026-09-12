@@ -56,6 +56,9 @@ TICKET / RECEIPT LINE ITEMS (supermarket, pharmacy, restaurant):
    - NEVER emit SUBTOTAL, TOTAL, DESCUENTOS, IVA, "REGIMEN DE TRANSPARENCIA FISCAL" or payment
      lines as items. Those go in "receipt_meta".
    - If a line has its own discount, put the positive discount amount in "discount".
+   - "category_hint" is a CLOSED list: pick exactly one of the allowed values. Eggs and butter
+     are "lacteos", wine and beer are "alcohol" (not "bebidas"), shampoo is "perfumeria",
+     batteries and kitchenware are "bazar".
 9. RECEIPT TOTALS: fill "receipt_meta" with what is printed (subtotal_before_discounts,
    discounts_total, printed_total, store, receipt_number). The transaction "amount" must be the
    PRINTED TOTAL when there is one, never the sum of the items.
@@ -136,7 +139,11 @@ ${accountsContext || "DolarApp, Mercado Pago, Bank USD, Bank ARS, Billetera Efec
                               unit_price: { type: "number", description: "Price per unit in the receipt currency" },
                               line_total: { type: "number", description: "What this line added to the receipt" },
                               discount: { type: "number", description: "Positive discount applied to this line, if printed" },
-                              category_hint: { type: "string", description: "Rough kind of product: verduleria, carniceria, limpieza, bebidas, almacen…" },
+                              category_hint: {
+                                type: "string",
+                                enum: ["carniceria", "verduleria", "fiambreria", "lacteos", "panaderia", "almacen", "congelados", "bebidas", "alcohol", "limpieza", "perfumeria", "mascotas", "bazar", "otros"],
+                                description: "Supermarket aisle the product belongs to. Use 'otros' only when it genuinely fits none.",
+                              },
                             },
                             required: ["description", "line_total"],
                           },
