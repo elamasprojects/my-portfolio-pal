@@ -8,8 +8,15 @@ import {
   FinancialAccount,
   IngestionSource,
   ConfidenceLevel,
+  TransactionItem,
 } from "@/types/finance";
 import { toast } from "sonner";
+
+/** Un renglon a punto de guardarse: sin id ni transaction_id, que los pone la insercion. */
+export type NewTransactionItem = Omit<
+  TransactionItem,
+  "id" | "transaction_id" | "user_id" | "created_at" | "position" | "currency"
+> & { position?: number; currency?: string };
 
 export function useFinancialAccounts() {
   const { user } = useAuth();
@@ -365,6 +372,11 @@ export function useTransactions() {
       confidence?: ConfidenceLevel;
       needs_review?: boolean;
       extracted_fields?: Record<string, any>;
+      /**
+       * Los renglones del ticket, en la moneda del ticket. Van a `transaction_items` despues
+       * de que la fila madre exista, porque cuelgan de su id.
+       */
+      items?: NewTransactionItem[];
     }) => {
       if (!user) throw new Error("No user");
 
@@ -396,12 +408,52 @@ export function useTransactions() {
         .single();
 
       if (error) throw error;
-      return data as unknown as Transaction;
+      const saved = data as unknown as Transaction;
+
+      if (tx.items?.length) {
+        const { error: itemsError } = await supabase.from("transaction_items" as any).insert(
+          tx.items.map((item, idx) => ({
+            transaction_id: saved.id,
+            user_id: user.id,
+            position: item.position ?? idx,
+            description: item.description,
+            raw_description: item.raw_description ?? null,
+            quantity: item.quantity ?? null,
+            unit: item.unit ?? null,
+            unit_price: item.unit_price ?? null,
+            line_total: item.line_total,
+            discount: item.discount ?? null,
+            currency: item.currency || tx.original_currency || "ARS",
+            category_hint: item.category_hint ?? null,
+          })),
+        );
+
+        // El gasto ya entro y su trigger ya movio el saldo. Tirar el error aca haria que el
+        // que reintenta vuelva a insertar la transaccion entera y descuadre la cuenta, asi
+        // que el detalle se pierde ruidosamente, no la plata: queda marcada para revisar y la
+        // foto sigue guardada, que es de donde se puede volver a sacar.
+        if (itemsError) {
+          console.error("No se pudieron guardar los renglones del ticket:", itemsError);
+          await supabase
+            .from("transactions" as any)
+            .update({
+              needs_review: true,
+              notes: [saved.notes, "No se guardo el detalle del ticket; la foto quedo adjunta."]
+                .filter(Boolean)
+                .join(" · "),
+            })
+            .eq("id", saved.id);
+          toast.error(`${saved.name}: se guardo el gasto pero no el detalle del ticket`);
+        }
+      }
+
+      return saved;
     },
     onSuccess: (savedTx) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["payment_methods"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction_item_counts"] });
       toast.success(`✓ ${savedTx.name} — $${Number(savedTx.amount_usd).toFixed(2)} USD`);
     },
     onError: (err: any) => {

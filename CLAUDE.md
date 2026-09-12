@@ -241,6 +241,42 @@ proyecto. El connector MCP no expone secrets: se setea desde el dashboard o con
 `npx supabase secrets set MERCURY_API_TOKEN=... --project-ref yimbswiaqmuggmqygicf`. Sin eso la
 funcion devuelve 500 con ese mensaje exacto.
 
+## Detalle de tickets (`transaction_items`)
+
+Un comprobante de supermercado entra por la **Ingesta Rapida** (`OmnibarFinance`, ⌘K) y ahora
+deja **tres** cosas, no una: el gasto, **los productos** y **la foto**. Antes solo quedaba el
+gasto — `extract-finance-input` devolvia una fila (comercio, monto, categoria) y la imagen se
+descartaba; `transactions.receipt_url` existia desde el primer dia y estaba en NULL en las 565
+filas.
+
+- **Los renglones viven en `transaction_items`**, colgados de la transaccion con
+  `ON DELETE CASCADE`. Guardan `description` normalizada + `raw_description` tal cual la
+  imprimio el comercio, `quantity`/`unit` (3 unidades, o 0,884 kg), `unit_price`, `line_total`
+  y un `category_hint` grueso.
+- **Los importes de los renglones quedan en la moneda del TICKET, no en USD.** Convertir cada
+  producto al MEP daria una columna que no figura en ningun papel y que ademas no sumaria el
+  total por redondeo. El equivalente en dolares es uno solo, el de la fila madre, con su
+  `fx_rate`.
+- **La foto va al bucket privado `receipts`**, con path `{user_id}/{uuid}.{ext}` — de ese primer
+  segmento dependen las policies de storage. `transactions.receipt_url` guarda **el path, no una
+  URL**: el bucket es privado y la URL se firma al mostrarla (`useReceiptUrl`, TTL 1h). Se sube
+  **al extraer**, no al confirmar: para entonces la hoja de captura ya se cerro y solto el
+  archivo, que es como se venia perdiendo el comprobante.
+- **Lo impreso al pie va a `extracted_fields.receipt`** (`subtotal_before_discounts`,
+  `discounts_total`, `printed_total`, `is_truncated`). `reconcileReceipt` (`src/lib/receiptItems.ts`)
+  compara la suma de renglones contra el total impreso: en un ticket argentino los descuentos se
+  aplican al pie, asi que la brecha se marca solo si **no** se explica con ellos (tolerancia 0,5%
+  para el redondeo del IVA).
+- **Una foto cortada se fuerza a `confidence: "low"` + `needs_review` desde el cliente.** La
+  regla esta en el prompt pero el modelo no la cumple sola, y ahi la diferencia es plata que no
+  se ve: el monto cargado es la suma de lo visible y abajo del corte puede haber mas renglones.
+- **Si fallan los renglones, se pierde el detalle, no la plata.** La transaccion ya entro y su
+  trigger ya movio el saldo; tirar el error haria que un reintento la inserte de nuevo y
+  descuadre la cuenta. Queda marcada para revisar, con la foto adjunta de donde volver a sacarlo.
+
+En el feed de `/movements` las compras con detalle muestran el chip **«N productos»**, que abre
+`TicketDetailDialog` con la lista, la conciliacion contra el total impreso y la foto original.
+
 ## Deployment
 
 Deployed on **Vercel** — `vercel.json` rewrites all routes to `/index.html` (SPA). PWA
