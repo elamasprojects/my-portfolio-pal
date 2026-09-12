@@ -127,6 +127,46 @@ export interface Transaction {
   account?: FinancialAccount | null;
 }
 
+/**
+ * Un renglon del ticket. Vive en `transaction_items`, colgado de la transaccion.
+ *
+ * Los importes estan en la moneda del TICKET (`currency`), no en USD: asi es como estan
+ * impresos y asi hay que poder compararlos contra la foto. El equivalente en dolares lo
+ * guarda la fila madre, una sola vez, con su `fx_rate`.
+ */
+export interface TransactionItem {
+  id: string;
+  transaction_id: string;
+  user_id: string;
+  /** El orden del ticket, para que la lista se pueda leer al lado de la foto. */
+  position: number;
+  description: string;
+  /** La linea tal cual la imprimio el comercio; la normalizacion la hizo un modelo. */
+  raw_description?: string | null;
+  /** 3 unidades, o 0,884 kg de asado. */
+  quantity?: number | null;
+  unit?: string | null;
+  unit_price?: number | null;
+  line_total: number;
+  /** Descuento de la linea, positivo. */
+  discount?: number | null;
+  currency: string;
+  category_hint?: string | null;
+  created_at: string;
+}
+
+/** Lo que venia impreso al pie del ticket, para poder conciliar contra la suma de renglones. */
+export interface ReceiptMeta {
+  store?: string;
+  receipt_number?: string;
+  subtotal_before_discounts?: number;
+  discounts_total?: number;
+  printed_total?: number;
+  /** La foto corta antes del TOTAL: lo cargado es la suma de lo visible, no el total real. */
+  is_truncated?: boolean;
+  currency?: string;
+}
+
 export interface FxRateCacheItem {
   id: string;
   from_currency: string;

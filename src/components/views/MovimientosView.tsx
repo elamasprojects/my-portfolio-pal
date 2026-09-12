@@ -6,6 +6,8 @@ import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeToUnifiedEvents, UnifiedEventItem, UnifiedEventType } from "@/lib/unifiedEvents";
 import { EditTransactionDialog } from "@/components/finance/EditTransactionDialog";
+import { TicketDetailDialog } from "@/components/finance/TicketDetailDialog";
+import { useTransactionItemCounts } from "@/hooks/useTransactionItems";
 import { Transaction } from "@/types/finance";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
 import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
@@ -40,6 +42,7 @@ import {
   RotateCcw,
   Sparkles,
   Plus,
+  ReceiptText,
 } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -58,6 +61,9 @@ export function MovimientosView() {
   // Data hooks
   const { transactions, reviewQueue, updateTransaction, softDeleteTransaction, addTransaction, isLoading: txLoading } = useTransactions();
   const { categories } = useCategories();
+  // Que filas del feed son un ticket. Una sola consulta para todo el feed: abrir una por
+  // movimiento seria medio centenar de round-trips para dibujar un chip.
+  const { data: itemCounts } = useTransactionItemCounts();
   const { accounts = [] } = useFinancialAccounts();
   const { paymentMethods } = usePaymentMethods();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
@@ -89,6 +95,7 @@ export function MovimientosView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [ticket, setTicket] = useState<Transaction | null>(null);
 
   /*
     Acá vivían el estado y los manejadores de la captura propia de esta vista —texto,
@@ -376,6 +383,8 @@ export function MovimientosView() {
                       (editable?.extracted_fields as Record<string, unknown> | undefined)
                         ?.possible_duplicate_of,
                     );
+                    // Cuantos productos guardo el ticket de esta compra. 0 = no es un ticket.
+                    const itemCount = editable ? (itemCounts?.get(editable.id) ?? 0) : 0;
 
                     return (
                       <TableRow key={item.id} className={item.needsReview ? "bg-amber-500/5 hover:bg-amber-500/10" : "hover:bg-muted/40"}>
@@ -391,6 +400,9 @@ export function MovimientosView() {
                         <TableCell className="font-semibold text-foreground text-sm">
                           <span className="flex items-center gap-1.5">
                             {item.title}
+                            {itemCount > 0 && (
+                              <TicketChip count={itemCount} onClick={() => setTicket(editable)} />
+                            )}
                             {isPossibleDuplicate && (
                               <span
                                 title={editable?.notes ?? "Posible duplicado de una carga manual"}
@@ -462,6 +474,7 @@ export function MovimientosView() {
                   (editable?.extracted_fields as Record<string, unknown> | undefined)
                     ?.possible_duplicate_of,
                 );
+                const itemCount = editable ? (itemCounts?.get(editable.id) ?? 0) : 0;
                 return (
                   <li
                     key={item.id}
@@ -483,6 +496,11 @@ export function MovimientosView() {
                             {item.subtitle ? ` · ${item.subtitle}` : ""}
                           </span>
                         </div>
+                        {itemCount > 0 && (
+                          <div className="mt-1.5">
+                            <TicketChip count={itemCount} onClick={() => setTicket(editable)} />
+                          </div>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <span className="text-right font-mono text-sm font-bold tabular-nums">
@@ -554,6 +572,30 @@ export function MovimientosView() {
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
       />
+
+      <TicketDetailDialog
+        transaction={ticket}
+        open={ticket !== null}
+        onOpenChange={(open) => !open && setTicket(null)}
+      />
     </div>
+  );
+}
+
+/**
+ * La marca de que este gasto guarda el ticket entero. Es un boton, no una etiqueta: el numero
+ * de productos solo sirve si desde ahi se puede ver cuales.
+ */
+function TicketChip({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Ver el detalle del ticket"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20"
+    >
+      <ReceiptText className="h-2.5 w-2.5" />
+      {count} {count === 1 ? "producto" : "productos"}
+    </button>
   );
 }
