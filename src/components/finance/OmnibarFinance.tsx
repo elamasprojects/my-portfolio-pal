@@ -19,6 +19,9 @@ import {
   Keyboard,
 } from "lucide-react";
 import { useFinancialAccounts, useCategories, usePaymentMethods, useTransactions } from "@/hooks/useFinance";
+import { useAuth } from "@/hooks/useAuth";
+import { uploadReceipt } from "@/lib/receipts";
+import { normalizeLineItems, type ExtractedLineItem } from "@/lib/receiptItems";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +32,7 @@ import {
   type TransactionType,
 } from "@/components/finance/ReviewExtractedSheet";
 import { toast } from "sonner";
+import type { ReceiptMeta } from "@/types/finance";
 
 /** Una fila tal como la devuelve `extract-finance-input`. Todo es opcional a propósito: es
  *  salida de un modelo, no un contrato. */
@@ -44,7 +48,11 @@ interface ExtractedItem {
   payment_method_name?: string;
   confidence?: string;
   suggested_new_category?: string;
+  /** Los renglones del ticket, en la moneda del ticket. Vacio cuando no es un comprobante. */
+  line_items?: ExtractedLineItem[];
+  receipt_meta?: ReceiptMeta;
 }
+
 
 interface OmnibarFinanceProps {
   open: boolean;
@@ -145,6 +153,7 @@ export function OmnibarFinance({
     };
   }, [open]);
 
+  const { user } = useAuth();
   const { accounts } = useFinancialAccounts();
   const { categories } = useCategories();
   const { paymentMethods } = usePaymentMethods();
@@ -251,6 +260,19 @@ export function OmnibarFinance({
 
       const extractedList = data?.transactions || [];
 
+      // La foto se guarda ahora, no al confirmar: para entonces la hoja de captura ya se
+      // cerro y solto el archivo, que es exactamente como se venia perdiendo el comprobante.
+      // Un fallo de subida no frena la carga -- el gasto vale igual, solo queda sin foto.
+      let receiptPath: string | null = null;
+      if (selectedFile && user) {
+        try {
+          receiptPath = await uploadReceipt(selectedFile, user.id);
+        } catch (uploadErr) {
+          console.error("No se pudo guardar la foto del ticket:", uploadErr);
+          toast.warning("El comprobante no se pudo adjuntar; el movimiento se carga igual");
+        }
+      }
+
       if (extractedList.length === 0) {
         // Fallback: simple heuristic regex parse
         const defaultAcc = accounts[0]?.id;
@@ -287,6 +309,7 @@ export function OmnibarFinance({
               confidence: "medium",
               accountWasGuessed: true,
               source: selectedFile ? "screenshot" : "text",
+              receiptPath,
             },
           ]);
           return;
@@ -351,10 +374,19 @@ export function OmnibarFinance({
             categoryId: matchedCat?.id ?? null,
             accountId: (matchedAccount ?? accounts[0])?.id ?? null,
             paymentMethodId: matchedPm?.id ?? paymentMethods[0]?.id ?? null,
-            confidence: item.confidence || "high",
+            // Una foto cortada no se puede dar por buena por mas que el modelo diga "high":
+            // el monto cargado es la suma de lo que se vio, y abajo del corte puede haber
+            // renglones y descuentos. Se pisa aca porque la regla del prompt no se cumple sola.
+            confidence: item.receipt_meta?.is_truncated ? "low" : item.confidence || "high",
             accountWasGuessed,
             suggestedCategory: item.suggested_new_category ?? null,
             source: selectedFile ? "screenshot" : "text",
+            receiptPath,
+            // El detalle del ticket viaja con la fila hasta la insercion. Los importes de los
+            // renglones NO se pasan a dolares: quedan como estan impresos, y el equivalente en
+            // USD lo guarda la fila madre una sola vez con su `fx_rate`.
+            items: normalizeLineItems(item.line_items, item.currency || "ARS"),
+            receiptMeta: item.receipt_meta ?? null,
           };
           return draft;
         })
@@ -419,13 +451,22 @@ export function OmnibarFinance({
           confidence: (row.confidence as "high" | "medium" | "low") || "high",
           // Pasó por revisión, pero eso no borra lo que sigue sin resolver: una cuenta que
           // quedó adivinada mueve un saldo real y tiene que seguir apareciendo en Pendientes.
-          needs_review: Boolean(row.accountWasGuessed) || !row.categoryId,
+          needs_review:
+            Boolean(row.accountWasGuessed) ||
+            !row.categoryId ||
+            // Queda en Pendientes hasta que se saque la parte de abajo del ticket.
+            Boolean(row.receiptMeta?.is_truncated),
           // El origen viaja en la fila: para acá, la hoja de captura ya se cerró y limpió su
           // archivo, así que leerlo ahora estampaba "text" a todo lo que vino de una captura.
           source: row.source ?? "text",
           notes: row.suggestedCategory
             ? `Sugerencia: Crear categoría '${row.suggestedCategory}'`
             : undefined,
+          receipt_url: row.receiptPath ?? null,
+          items: row.items?.length ? row.items : undefined,
+          // Lo impreso al pie queda al lado del detalle: es contra esto que se concilia si la
+          // suma de renglones no da el total, que en un ticket argentino es lo normal.
+          extracted_fields: row.receiptMeta ? { receipt: row.receiptMeta } : undefined,
         });
         saved.add(row.key);
       }

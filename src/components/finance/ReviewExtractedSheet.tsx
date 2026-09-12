@@ -15,9 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Trash2, Undo2, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Loader2, Trash2, Undo2, ArrowLeft, AlertTriangle, ReceiptText, ChevronDown } from "lucide-react";
 import { resolveTransactionAmountUSD } from "@/lib/fxConversion";
-import type { Category, FinancialAccount, PaymentMethod } from "@/types/finance";
+import type { Category, FinancialAccount, PaymentMethod, ReceiptMeta } from "@/types/finance";
+import type { NewTransactionItem } from "@/hooks/useFinance";
+import { reconcileReceipt } from "@/lib/receiptItems";
 
 /**
  * Revisión previa a guardar.
@@ -50,6 +52,11 @@ export interface ReviewRow {
   suggestedCategory?: string | null;
   /** Congelado al extraer: al guardar, la hoja de captura ya se cerró y limpió su archivo. */
   source?: "screenshot" | "text";
+  /** Path de la foto dentro del bucket privado `receipts`; se subió al extraer. */
+  receiptPath?: string | null;
+  /** Los renglones del ticket, en la moneda del ticket. Vacío cuando no es un comprobante. */
+  items?: NewTransactionItem[];
+  receiptMeta?: ReceiptMeta | null;
 }
 
 interface ReviewExtractedSheetProps {
@@ -495,6 +502,10 @@ function SwipeableRow({
           </span>
         </div>
 
+        {row.items && row.items.length > 0 && (
+          <TicketStrip items={row.items} meta={row.receiptMeta} currency={row.currency} />
+        )}
+
         {check.status === "blocked" && (
           <p className="flex items-start gap-1.5 text-[11px] text-amber-500">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -514,6 +525,91 @@ function SwipeableRow({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * El detalle del ticket, antes de guardarlo.
+ *
+ * Sirve para dos cosas distintas. Una es ver que se leyó. La otra, la que importa: comparar la
+ * suma de los renglones contra el total que se va a cargar. En un ticket argentino los dos
+ * números casi nunca coinciden —los descuentos se aplican al pie— y eso está bien; lo que no
+ * está bien es una foto cortada, donde la diferencia es plata que no se ve y el total cargado
+ * queda corto. Por eso la brecha se muestra siempre, y se pinta sólo cuando no se explica con
+ * los descuentos impresos.
+ */
+function TicketStrip({
+  items,
+  meta,
+  currency,
+}: {
+  items: NewTransactionItem[];
+  meta?: ReceiptMeta | null;
+  currency: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const { sum, expected, discounts, gap, unexplained, isTruncated } = reconcileReceipt(items, meta);
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/25">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ReceiptText className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="font-medium text-foreground">
+          {items.length} {items.length === 1 ? "producto" : "productos"}
+        </span>
+        <span className="font-mono tabular-nums">
+          · {currency} {money(sum)}
+        </span>
+        {isTruncated && (
+          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-500">
+            foto cortada
+          </span>
+        )}
+        <ChevronDown
+          className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="max-h-44 space-y-0.5 overflow-y-auto border-t border-border/50 px-2.5 py-1.5">
+          {items.map((it, i) => (
+            <li key={i} className="flex items-baseline gap-2 text-[11px]">
+              <span className="min-w-0 flex-1 truncate text-foreground">{it.description}</span>
+              {it.quantity ? (
+                <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+                  {it.quantity}
+                  {it.unit ? ` ${it.unit}` : "×"}
+                </span>
+              ) : null}
+              <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+                {money(Number(it.line_total) || 0)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {isTruncated ? (
+        <p className="border-t border-border/50 px-2.5 py-1.5 text-[11px] text-amber-500">
+          La foto corta antes del TOTAL: se cargó la suma de lo visible. Sacá la parte de abajo
+          del ticket y corregí el monto.
+        </p>
+      ) : unexplained ? (
+        <p className="border-t border-border/50 px-2.5 py-1.5 text-[11px] text-amber-500">
+          Los renglones{discounts > 0 ? " menos los descuentos" : ""} dan {money(expected)} y el
+          total impreso es {money(printed)}: faltan {money(Math.abs(gap))}. Puede ser una línea
+          que no se leyó.
+        </p>
+      ) : null}
     </div>
   );
 }
