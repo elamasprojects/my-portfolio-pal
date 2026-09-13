@@ -80,7 +80,7 @@ vi.mock("@/hooks/useFinance", () => ({
   usePaymentMethods: () => ({
     paymentMethods: [
       { id: "p-1", name: "DolarApp Credit Card" },
-      { id: "p-2", name: "DolarApp Global Card" },
+      { id: "p-2", name: "Mercado Pago" },
     ],
   }),
 }));
