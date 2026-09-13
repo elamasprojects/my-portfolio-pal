@@ -16,6 +16,8 @@ import Patrimonio from "./pages/Patrimonio";
 import AssetDetail from "./pages/AssetDetail";
 import Inflacion from "./pages/Inflacion";
 import Settings from "./pages/Settings";
+import Viajes from "./pages/Viajes";
+import ViajeDetalle from "./pages/ViajeDetalle";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +51,9 @@ const App = () => (
             <Route path="/inflacion" element={<ProtectedRoute><Inflacion /></ProtectedRoute>} />
             {/* Se llega desde el menú de la foto de perfil, no desde la barra. */}
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            {/* Resumen por viaje. Fuera de la barra: se consulta de vez en cuando, no a diario. */}
+            <Route path="/viajes" element={<ProtectedRoute><Viajes /></ProtectedRoute>} />
+            <Route path="/viajes/:id" element={<ProtectedRoute><ViajeDetalle /></ProtectedRoute>} />
             {/* Deep link into Inversiones with the trade capture dialog open. */}
             <Route path="/add" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 
