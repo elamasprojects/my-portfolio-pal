@@ -26,16 +26,17 @@ import { usd, shortDate } from "@/components/trips/tripChartTheme";
  * distinta a la de adentro, que es peor que no mostrar ninguna.
  */
 export default function Viajes() {
-  const { trips, isLoading: loadingTrips, addTrip } = useTrips();
+  const { trips, isLoading: loadingTrips, isError: tripsFailed, addTrip } = useTrips();
   const { items, isLoading: loadingItems } = useAllTripItems();
-  const { transactions, isLoading: loadingTx } = useTransactions();
-  const { categories } = useCategories();
-  const { paymentMethods } = usePaymentMethods();
+  const { transactions, isLoading: loadingTx, isError: txFailed } = useTransactions();
+  const { categories, isLoading: loadingCats, isError: catsFailed } = useCategories();
+  const { paymentMethods, isLoading: loadingPm, isError: pmFailed } = usePaymentMethods();
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", destination: "", start_date: "", end_date: "" });
 
-  const isLoading = loadingTrips || loadingItems || loadingTx;
+  const isLoading = loadingTrips || loadingItems || loadingTx || loadingCats || loadingPm;
+  const failed = tripsFailed || txFailed || catsFailed || pmFailed;
 
   const rows = useMemo(
     () =>
@@ -96,6 +97,16 @@ export default function Viajes() {
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-20 w-full" />
         </div>
+      ) : failed ? (
+        /* Una consulta caída pintaba la pantalla de bienvenida, como si el usuario no tuviera
+           viajes cargados. */
+        <Card className="border border-border/70 bg-card">
+          <CardContent className="py-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              No pudimos traer tus viajes. Probá de nuevo en unos segundos.
+            </p>
+          </CardContent>
+        </Card>
       ) : rows.length === 0 ? (
         <Card className="border border-border/70 bg-card">
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">

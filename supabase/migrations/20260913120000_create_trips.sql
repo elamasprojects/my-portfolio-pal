@@ -61,22 +61,26 @@ create index if not exists pf_trip_items_user_trip_idx
 alter table public.pf_trips enable row level security;
 alter table public.pf_trip_items enable row level security;
 
+drop policy if exists "Users can view their own trips" on public.pf_trips;
 create policy "Users can view their own trips"
   on public.pf_trips for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can create their own trips" on public.pf_trips;
 create policy "Users can create their own trips"
   on public.pf_trips for insert
   to authenticated
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own trips" on public.pf_trips;
 create policy "Users can update their own trips"
   on public.pf_trips for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can delete their own trips" on public.pf_trips;
 create policy "Users can delete their own trips"
   on public.pf_trips for delete
   to authenticated
@@ -85,6 +89,7 @@ create policy "Users can delete their own trips"
 -- El viaje referido tiene que ser del mismo usuario. `user_id = auth.uid()` sola dejaría
 -- colgar una excepción de un viaje ajeno: el dueño de ese viaje no la vería (no es su
 -- user_id) pero su total cambiaría igual.
+drop policy if exists "Users can view their own trip items" on public.pf_trip_items;
 create policy "Users can view their own trip items"
   on public.pf_trip_items for select
   to authenticated
@@ -93,6 +98,7 @@ create policy "Users can view their own trip items"
     and exists (select 1 from public.pf_trips t where t.id = trip_id and t.user_id = auth.uid())
   );
 
+drop policy if exists "Users can create their own trip items" on public.pf_trip_items;
 create policy "Users can create their own trip items"
   on public.pf_trip_items for insert
   to authenticated
@@ -104,6 +110,7 @@ create policy "Users can create their own trip items"
     )
   );
 
+drop policy if exists "Users can update their own trip items" on public.pf_trip_items;
 create policy "Users can update their own trip items"
   on public.pf_trip_items for update
   to authenticated
@@ -113,6 +120,7 @@ create policy "Users can update their own trip items"
     and exists (select 1 from public.pf_trips t where t.id = trip_id and t.user_id = auth.uid())
   );
 
+drop policy if exists "Users can delete their own trip items" on public.pf_trip_items;
 create policy "Users can delete their own trip items"
   on public.pf_trip_items for delete
   to authenticated

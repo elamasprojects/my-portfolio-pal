@@ -66,10 +66,20 @@ export interface TripBucket {
 export interface TripDay {
   /** 'YYYY-MM-DD'. */
   date: string;
+  /** Gasto de ese día, en destino. */
   spend: number;
   refunds: number;
   /** spend − refunds del día. */
   net: number;
+  /**
+   * Lo que impactó después de volver, imputado al último día y sólo al acumulado.
+   *
+   * Aparte de `spend` a propósito: el acumulado tiene que cerrar en el total del viaje, pero
+   * un cargo que llegó tarde no es gasto del último día. Sumarlo a `spend` hacía que el día
+   * de la vuelta pudiera figurar como el más caro del viaje y que entrara en una barra
+   * semanal rotulada "sólo el gasto hecho en destino".
+   */
+  late: number;
   /** Neto acumulado desde el arranque, con el prepago ya sumado en la base. */
   cumulative: number;
 }
@@ -274,12 +284,18 @@ export function summariseTrip(
   // Serie diaria sobre el rango completo: los días en cero son parte del relato, y sin ellos
   // la curva comprime el tiempo y exagera el ritmo.
   const perDate = new Map<string, { spend: number; refunds: number }>();
+  // Lo de después de volver no se reparte por día: se imputa entero al último, y sólo al
+  // acumulado. Sin esto la curva cerraba en una cifra distinta del titular —el tax free
+  // acreditado al volver quedaba sólo en el número de arriba—, y sumándolo a `spend` el día
+  // de la vuelta pasaba a competir por "día más caro".
+  let lateNet = 0;
   for (const e of entries) {
     if (e.isPrepaid) continue; // va en la base del acumulado, no en un día
-    // Lo que impactó después de volver se imputa al último día del viaje. Sin esto la curva
-    // cerraba en una cifra distinta del titular —el tax free acreditado al volver quedaba
-    // sólo en el número de arriba— y dos números que tienen que ser el mismo no lo eran.
-    const date = e.isAfter ? trip.end_date : e.transaction.transaction_date;
+    if (e.isAfter) {
+      lateNet += e.signedUSD;
+      continue;
+    }
+    const date = e.transaction.transaction_date;
     const slot = perDate.get(date) ?? { spend: 0, refunds: 0 };
     if (e.signedUSD >= 0) slot.spend += e.signedUSD;
     else slot.refunds += -e.signedUSD;
@@ -289,15 +305,18 @@ export function summariseTrip(
   // El prepago no tiene un día dentro del viaje, así que arranca como base del acumulado:
   // la curva empieza en lo que el viaje ya costaba antes de salir.
   let running = prepaid;
-  const daily: TripDay[] = tripDateRange(trip.start_date, trip.end_date).map((date) => {
+  const range = tripDateRange(trip.start_date, trip.end_date);
+  const daily: TripDay[] = range.map((date, i) => {
     const slot = perDate.get(date) ?? { spend: 0, refunds: 0 };
     const net = slot.spend - slot.refunds;
-    running += net;
+    const late = i === range.length - 1 ? lateNet : 0;
+    running += net + late;
     return {
       date,
       spend: round2(slot.spend),
       refunds: round2(slot.refunds),
       net: round2(net),
+      late: round2(late),
       cumulative: round2(running),
     };
   });

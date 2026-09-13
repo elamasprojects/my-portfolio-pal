@@ -108,6 +108,7 @@ export function useFinancialAccounts() {
   return {
     accounts: query.data || [],
     isLoading: query.isLoading,
+    isError: query.isError,
     addAccount,
     updateAccount,
     deleteAccount,
@@ -212,6 +213,7 @@ export function usePaymentMethods() {
   return {
     paymentMethods: query.data || [],
     isLoading: query.isLoading,
+    isError: query.isError,
     addPaymentMethod,
     updatePaymentMethod,
     deletePaymentMethod,
@@ -312,6 +314,7 @@ export function useCategories() {
   return {
     categories: query.data || [],
     isLoading: query.isLoading,
+    isError: query.isError,
     addCategory,
     updateCategory,
     deleteCategory,
@@ -456,6 +459,7 @@ export function useTransactions() {
     transactions: query.data || [],
     reviewQueue,
     isLoading: query.isLoading,
+    isError: query.isError,
     addTransaction,
     updateTransaction,
     softDeleteTransaction,

@@ -66,8 +66,13 @@ export function TripAdjustments({
   const excluded = items.filter((i) => i.mode === "exclude");
 
   /**
-   * Candidatas a mover. Se acota a los meses alrededor del viaje porque la lista entera son
-   * cientos de filas de años anteriores, y ninguna de ésas se va a traer a este viaje.
+   * Candidatas a mover: los meses alrededor del viaje. La lista entera son cientos de filas de
+   * años anteriores y ninguna de ésas se va a traer a este viaje.
+   *
+   * Sin recorte. Antes se quedaba con las 120 más nuevas, y como el orden es de más nueva a
+   * más vieja, eso cortaba justo donde vive lo que hay que traer: el vuelo de mayo y los
+   * hospedajes de junio quedaban fuera de la lista, o sea que la pantalla para traer lo
+   * prepago no mostraba ningún prepago salvo que se supiera el nombre exacto de memoria.
    */
   const candidates = useMemo(() => {
     const from = shift(trip.start_date, -WINDOW_DAYS);
@@ -78,8 +83,7 @@ export function TripAdjustments({
       .filter((t) => t.type === "expense" || t.type === "income")
       .filter((t) => t.transaction_date >= from && t.transaction_date <= to)
       .filter((t) => (needle ? t.name.toLowerCase().includes(needle) : true))
-      .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
-      .slice(0, 120);
+      .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
   }, [transactions, trip.start_date, trip.end_date, filter]);
 
   /**
@@ -181,8 +185,8 @@ export function TripAdjustments({
           <DialogHeader className="space-y-1 border-b border-border/50 px-4 py-3">
             <DialogTitle className="font-serif text-lg text-primary">Ajustar qué entra</DialogTitle>
             <DialogDescription className="text-xs">
-              Tocá un movimiento para traerlo al viaje o sacarlo. Se muestran los meses
-              alrededor del viaje.
+              Tocá un movimiento para traerlo al viaje o sacarlo. Están los cuatro meses
+              anteriores y posteriores al viaje, así lo prepago también aparece.
             </DialogDescription>
           </DialogHeader>
 
@@ -196,6 +200,10 @@ export function TripAdjustments({
           </div>
 
           <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-4 py-3">
+            <p className="pb-1 text-[10px] font-mono text-muted-foreground">
+              {candidates.length} movimientos
+            </p>
+
             {candidates.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Ningún movimiento coincide.

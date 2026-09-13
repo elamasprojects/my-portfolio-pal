@@ -1,7 +1,18 @@
 import { useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, CalendarDays, MapPin } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, CalendarDays, MapPin, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTransactions, useCategories, usePaymentMethods } from "@/hooks/useFinance";
@@ -43,14 +54,18 @@ function Tile({
 
 export default function ViajeDetalle() {
   const { id } = useParams<{ id: string }>();
-  const { trips, isLoading: loadingTrips } = useTrips();
+  const navigate = useNavigate();
+  const { trips, isLoading: loadingTrips, isError: tripsFailed, deleteTrip } = useTrips();
   const { items, isLoading: loadingItems, setItem, clearItem } = useTripItems(id);
-  const { transactions, isLoading: loadingTx } = useTransactions();
-  const { categories } = useCategories();
-  const { paymentMethods } = usePaymentMethods();
+  const { transactions, isLoading: loadingTx, isError: txFailed } = useTransactions();
+  const { categories, isLoading: loadingCats, isError: catsFailed } = useCategories();
+  const { paymentMethods, isLoading: loadingPm, isError: pmFailed } = usePaymentMethods();
 
   const trip = trips.find((t) => t.id === id);
-  const isLoading = loadingTrips || loadingItems || loadingTx;
+  // Las cuatro consultas cuentan. Sin las categorías y los medios de pago el desglose se
+  // dibuja entero como "Sin categoría" / "Sin medio de pago", que parece un dato y no lo es.
+  const isLoading = loadingTrips || loadingItems || loadingTx || loadingCats || loadingPm;
+  const failed = tripsFailed || txFailed || catsFailed || pmFailed;
 
   const summary = useMemo(
     () => (trip ? summariseTrip(trip, transactions, items, categories, paymentMethods) : null),
@@ -67,14 +82,24 @@ export default function ViajeDetalle() {
     );
   }
 
-  if (!trip || !summary) {
+  /*
+    Una consulta caída no puede caer en el mismo camino que "no hay datos": con las
+    transacciones sin traer, el titular de una pantalla que existe para auditar diría
+    "US$ 0,00 gastados", que es una cifra, no un error.
+  */
+  if (failed || !trip || !summary) {
     return (
       <div className="space-y-4">
-        <Link to="/viajes" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+        <Link
+          to="/viajes"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-3.5 w-3.5" /> Viajes
         </Link>
         <p className="py-12 text-center text-sm text-muted-foreground">
-          No encontramos ese viaje.
+          {failed
+            ? "No pudimos traer los datos del viaje. Probá de nuevo en unos segundos."
+            : "No encontramos ese viaje."}
         </p>
       </div>
     );
@@ -112,6 +137,38 @@ export default function ViajeDetalle() {
             {days} días
           </Badge>
         </div>
+
+        {/* Un viaje con el rango mal puesto no se puede corregir desde acá; borrarlo y volver
+            a crearlo sí. Borra el viaje y sus excepciones, nunca una transacción. */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-destructive"
+            >
+              <Trash2 className="h-3 w-3" /> Eliminar viaje
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar «{trip.name}»?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Se borra el viaje y sus {items.length} correcciones. Los movimientos quedan
+                donde están: esto no toca tus gastos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  deleteTrip.mutate(trip.id, { onSuccess: () => navigate("/viajes") })
+                }
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* El titular es el neto: lo que el viaje costó de verdad, ya descontados los reembolsos. */}

@@ -261,7 +261,28 @@ describe("summariseTrip", () => {
     expect(s.daily[s.daily.length - 1].cumulative).toBe(s.net);
     // Y se imputa al último día del viaje, no a uno inventado fuera del rango.
     expect(s.daily[s.daily.length - 1].date).toBe("2026-09-08");
-    expect(s.daily[s.daily.length - 1].refunds).toBe(79.94);
+    expect(s.daily[s.daily.length - 1].late).toBe(-79.94);
+  });
+
+  it("lo de después de volver no se cuenta como gasto del último día", () => {
+    // Si entrara en `spend`, el día de la vuelta podría figurar como el más caro del viaje y
+    // el cargo caería en una barra semanal rotulada "sólo el gasto hecho en destino".
+    const enDestino = tx({ transaction_date: "2026-07-01", amount_usd: 40 });
+    const tardio = tx({ transaction_date: "2026-09-20", amount_usd: 900 });
+    const items: TripItem[] = [
+      { id: "i1", trip_id: "t1", transaction_id: tardio.id, mode: "include" },
+    ];
+
+    const s = summariseTrip(trip, [enDestino, tardio], items);
+    const ultimo = s.daily[s.daily.length - 1];
+
+    expect(ultimo.spend).toBe(0);
+    expect(ultimo.late).toBe(900);
+    expect(s.biggestDay).toEqual({ date: "2026-07-01", total: 40 });
+    expect(s.daysWithSpend).toBe(1);
+    expect(s.byWeek[s.byWeek.length - 1].spend).toBe(0);
+    // Y la curva sigue cerrando en el titular.
+    expect(ultimo.cumulative).toBe(s.net);
   });
 
   it("los tres tramos suman el neto, sin que sobre ni falte nada", () => {
