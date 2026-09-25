@@ -286,6 +286,13 @@ filas.
 En el feed de `/movements` las compras con detalle muestran el chip **«N productos»**, que abre
 `TicketDetailDialog` con la lista, la conciliacion contra el total impreso y la foto original.
 
+## Biblioteca personal (`/biblioteca`)
+
+Libros, cursos, mentores y negocios creados, en `pf_library_items` (una tabla con `kind`).
+Se llena desde el segundo cerebro con `scripts/library-from-vault.ts` (entra como el usuario,
+por RLS; idempotente por `source_path`) y se edita a mano en la app. Re-sincronizar pisa las
+ediciones de filas que vienen de la vault. SPEC: `docs/biblioteca/plan-biblioteca-personal.md`.
+
 ## Deployment
 
 Deployed on **Vercel** — `vercel.json` rewrites all routes to `/index.html` (SPA). PWA

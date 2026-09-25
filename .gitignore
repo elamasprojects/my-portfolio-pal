@@ -27,3 +27,4 @@ scratch/
 
 # Emitted by `tsc -b` (npm run typecheck)
 *.tsbuildinfo
+.walk-shots/
