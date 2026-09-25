@@ -39,7 +39,7 @@ vault (.md + frontmatter) ──parseVaultNote──▶ scripts/library-from-vau
 | book | `conocimiento/libros/*` con `type: libro` | `_index`, cuestionarios |
 | course | `conocimiento/cursos/*` con `type: curso` | `_index` |
 | mentor | `personas/**` con `relationship` mentor* o referente* | familia, pareja, partners, clientes |
-| venture | `proyectos/*`, `negocio/*` con `type` proyecto/negocio | `status: idea`, `oferta-escalera`, `*-situacion-*`, `*-llc`, `archivo` |
+| venture | `proyectos/*`, `negocio/*` con `type` proyecto/negocio | `status: idea`, tag `alias`, `oferta-escalera`, `*-situacion-*`, `*-llc`, `archivo` |
 
 ## Paso por paso
 
@@ -75,8 +75,19 @@ vault (.md + frontmatter) ──parseVaultNote──▶ scripts/library-from-vau
 
 ## Verificación
 
-- 47 notas importadas en el usuario 409422f9…: book 17, course 5, mentor 11, venture 14.
-  Segunda corrida: 0 nuevas, 47 actualizadas (idempotente).
+- 46 notas en el usuario 409422f9…: book 17, course 5 (2 en curso), mentor 11, venture 13.
+  Re-correr el sync no duplica (0 nuevas, todo actualizado).
+- Ningún libro tiene todavía "🔑 Aprendizaje años después" completado en la vault: la
+  columna queda vacía a propósito, no se rellena con la plantilla.
 - Lint limpio en los archivos tocados; `tsc` 0 errores; 382/382 tests; build OK.
 - Recorrido logueado en 1280×900 y 375×812: datos reales, sin scroll horizontal, CTA
   "Guardar" visible en mobile.
+
+## Lo que cambió después del code review
+
+- **`en-progreso`** (como lo escribe la vault) no se reconocía como "en curso": el curso
+  Escuela de Creadores aparecía en Pendientes.
+- **Plantillas que se colaban como aprendizaje**: un `---` suelto y bullets con sólo una pista
+  entre paréntesis ("- Score real hoy: (…)"). Ahora se descartan.
+- **Negocio duplicado**: `agencia-ia.md` es alias de `advantx.md` (tag `alias`). Se excluye en
+  el parser y se borró la fila que ya se había importado (el sync no borra, por diseño).

@@ -96,7 +96,13 @@ export function extractSection(body: string, heading: RegExp): string | null {
   const out: string[] = [];
   for (const line of lines.slice(start + 1)) {
     if (/^##\s/.test(line)) break;
-    if (/^\s*-\s*[^:]{0,60}:\s*$/.test(line.replace(/\*\*/g, ""))) continue;
+    const plain = line.replace(/\*\*/g, "");
+    if (/^\s*-\s*[^:]{0,60}:\s*$/.test(plain)) continue;
+    // "- Score real hoy: (en Notion figura …)": el paréntesis es una pista para completar,
+    // no una respuesta.
+    if (/^\s*-\s*[^:]{0,60}:\s*\([^)]*\)\s*$/.test(plain)) continue;
+    // Un separador suelto (`---`) al final de la sección no es contenido.
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) continue;
     if (/complet|pendiente/i.test(line) && /^\s*>/.test(line)) continue;
     out.push(line);
   }
@@ -147,6 +153,9 @@ export function classifyNote(path: string, data: Frontmatter): LibraryKind | nul
       return null;
     }
     if (file === "archivo.md") return null;
+    // Una nota marcada `alias` es la misma venture con otro nombre (agencia-ia → advantx):
+    // importarla contaría el negocio dos veces en la línea de tiempo.
+    if (arr(data.tags).includes("alias")) return null;
     return "venture";
   }
   return null;
@@ -216,7 +225,8 @@ export function normalizeScore(label: string | null): number | null {
 
 /** Estados que cuentan como "lo hice / lo tuve". */
 const DONE = new Set(["leído", "leido", "terminado", "completado", "archivado", "activo", "publicado"]);
-const IN_PROGRESS = new Set(["leyendo", "en curso", "cursando"]);
+// La vault escribe el mismo estado de varias formas ("en curso", "en-progreso").
+const IN_PROGRESS = new Set(["leyendo", "en curso", "en-curso", "en progreso", "en-progreso", "cursando"]);
 
 export type ProgressBucket = "done" | "in_progress" | "pending";
 

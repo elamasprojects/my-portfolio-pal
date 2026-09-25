@@ -78,6 +78,23 @@ describe("extractSection", () => {
   });
 });
 
+describe("hallazgos del code review", () => {
+  it("'en-progreso' (como lo escribe la vault) cuenta como en curso", () => {
+    expect(progressBucket({ kind: "course", status: "en-progreso" })).toBe("in_progress");
+  });
+
+  it("un separador o un bullet con sólo una pista entre paréntesis no es aprendizaje", () => {
+    expect(extractSection("## 🔑 X\n\n---\n", /🔑/)).toBeNull();
+    expect(extractSection("## 🔑 X\n- Score real hoy: (en Notion figura 4)\n", /🔑/)).toBeNull();
+  });
+
+  // agencia-ia.md es alias de advantx.md: importarlas a las dos duplica el negocio.
+  it("una nota marcada alias no entra como negocio", () => {
+    const alias = `---\ntitle: Agencia de IA\ntype: proyecto\nstatus: archivado\ntags: [proyecto, alias]\n---\n# A`;
+    expect(parseVaultNote("proyectos/agencia-ia.md", alias)).toBeNull();
+  });
+});
+
 describe("normalizeScore", () => {
   it("lleva estrellas y números a /10, y lo vacío queda null (no 0)", () => {
     expect(normalizeScore("⭐️⭐️⭐️⭐️")).toBe(8);
