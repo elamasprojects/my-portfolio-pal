@@ -18,6 +18,7 @@ import Inflacion from "./pages/Inflacion";
 import Settings from "./pages/Settings";
 import Viajes from "./pages/Viajes";
 import ViajeDetalle from "./pages/ViajeDetalle";
+import Biblioteca from "./pages/Biblioteca";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
             {/* Resumen por viaje. Fuera de la barra: se consulta de vez en cuando, no a diario. */}
             <Route path="/viajes" element={<ProtectedRoute><Viajes /></ProtectedRoute>} />
             <Route path="/viajes/:id" element={<ProtectedRoute><ViajeDetalle /></ProtectedRoute>} />
+            <Route path="/biblioteca" element={<ProtectedRoute><Biblioteca /></ProtectedRoute>} />
             {/* Deep link into Inversiones with the trade capture dialog open. */}
             <Route path="/add" element={<ProtectedRoute><Index /></ProtectedRoute>} />
 

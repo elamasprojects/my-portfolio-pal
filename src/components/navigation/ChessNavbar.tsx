@@ -9,6 +9,7 @@ import {
   LogOut,
   LineChart,
   Luggage,
+  Library,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -158,6 +159,10 @@ export function ChessNavbar({ onOpenOmnibar }: ChessNavbarProps) {
               <DropdownItem onClick={() => navigate("/viajes")}>
                 <Luggage className="h-4 w-4 mr-2" />
                 Viajes
+              </DropdownItem>
+              <DropdownItem onClick={() => navigate("/biblioteca")}>
+                <Library className="h-4 w-4 mr-2" />
+                Biblioteca
               </DropdownItem>
               <DropdownItem onClick={() => navigate("/settings")}>
                 <Settings className="h-4 w-4 mr-2" />
