@@ -46,9 +46,9 @@ ese; año en curso → mismo tramo del año pasado; histórico → sin comparaci
 
 ## Datos (no código)
 
-Viaje **San Luis 2026** (19–24/09/2026) cargado en `pf_trips`, con cuatro gastos: bus de ida,
-costos compartidos, hongos y bus de vuelta (US$ 236,15). Lo demás que cae en esas fechas
-(Edesur, súper, colectivo, kiosko) quedó excluido con `pf_trip_items`.
+Viaje **San Luis 2026** (19–24/09/2026) cargado en `pf_trips`, con cinco gastos: bus de ida,
+costos compartidos, hongos, kiosko de la terminal y bus de vuelta (US$ 241,13). Lo demás que
+cae en esas fechas (Edesur, súper, colectivo) quedó excluido con `pf_trip_items`.
 
 ## Cómo se verifica
 
