@@ -8,6 +8,8 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { MercurySyncButton } from "@/components/finance/MercurySyncButton";
+import { PeriodToggle } from "@/components/finance/PeriodToggle";
+import { resolvePeriod, type FinancePeriod } from "@/lib/financePeriods";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +34,14 @@ type Denom = "USD" | "ARS";
 
 export function PatrimonioView() {
   const navigate = useNavigate();
-  const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
+  // El Sankey arrancaba siempre en el histórico entero: una foto de todos los años juntos no
+  // dice nada de cómo viene este mes, que es lo que uno viene a mirar.
+  const [sankeyPeriod, setSankeyPeriod] = useState<FinancePeriod>("this_month");
+  // Memoizado: `useUnifiedFinancials` lo tiene en las dependencias del Sankey, y un objeto
+  // nuevo en cada render lo recalcularía siempre.
+  const sankeyRange = useMemo(() => resolvePeriod(sankeyPeriod), [sankeyPeriod]);
+  const { netWorthMetrics, sankeyData, transactions, categories, isLoading: unifiedLoading } =
+    useUnifiedFinancials(sankeyRange);
   const { accounts = [], isLoading: accountsLoading } = useFinancialAccounts();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
   const { data: brokersList = [] } = useBrokers();
@@ -561,25 +570,36 @@ export function PatrimonioView() {
 
       {/* 6. DIAGRAMA SANKEY DE FLUJO DE FONDOS */}
       <Card className="bg-card border border-border/80">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Layers className="h-5 w-5 text-primary" />
-            Flujo de Fondos del Período (Diagrama Sankey)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Distribución visual de ingresos, asignación a ahorro/inversión y gastos por categoría.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[320px] w-full">
-            <SankeyFlowChart
-              data={sankeyData}
-              transactions={transactions}
-              displayCurrency={denom}
-              currencySymbol={denom === "USD" ? "US$" : "$"}
-              cx={(val) => (denom === "USD" ? val : val * effectiveCclRate)}
-            />
+        <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              Flujo de Fondos del Período (Diagrama Sankey)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Distribución visual de ingresos, asignación a ahorro/inversión y gastos por categoría.
+            </CardDescription>
           </div>
+          <PeriodToggle
+            value={sankeyPeriod}
+            options={["this_month", "last_month", "ytd", "all"]}
+            onChange={setSankeyPeriod}
+          />
+        </CardHeader>
+        {/*
+          Sin alto fijo: el SVG calcula su propio alto según cuántas categorías hay, y la caja de
+          320 px que lo envolvía hacía que el gráfico se desbordara por debajo de la tarjeta.
+        */}
+        <CardContent>
+          <SankeyFlowChart
+            data={sankeyData}
+            transactions={transactions}
+            categories={categories}
+            filterRange={sankeyRange}
+            displayCurrency={denom}
+            currencySymbol={denom === "USD" ? "US$" : "$"}
+            cx={(val) => (denom === "USD" ? val : val * effectiveCclRate)}
+          />
         </CardContent>
       </Card>
     </div>

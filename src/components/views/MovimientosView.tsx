@@ -11,11 +11,13 @@ import { useTransactionItemCounts } from "@/hooks/useTransactionItems";
 import { Transaction } from "@/types/finance";
 import { AudioQuickRecorder } from "@/components/finance/AudioQuickRecorder";
 import { AddTradeDialog } from "@/components/trades/AddTradeDialog";
+import { PeriodToggle } from "@/components/finance/PeriodToggle";
+import { FlowChartsCard } from "@/components/finance/FlowChartsCard";
+import { resolvePeriod, isInRange, type FinancePeriod } from "@/lib/financePeriods";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIngest } from "@/hooks/useIngest";
-import { parseTransactionLocalDate } from "@/lib/financialMath";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,14 +49,8 @@ import {
 
 const PAGE_SIZE = 50;
 
-type DateWindow = "30d" | "90d" | "365d" | "all";
-
-const DATE_WINDOWS: { value: DateWindow; label: string; days: number | null }[] = [
-  { value: "30d", label: "Últimos 30 días", days: 30 },
-  { value: "90d", label: "Últimos 3 meses", days: 90 },
-  { value: "365d", label: "Último año", days: 365 },
-  { value: "all", label: "Todo el historial", days: null },
-];
+/** Los mismos cortes que el Sankey de /finance, salvo que el feed arranca en los últimos 30 días. */
+const FEED_PERIODS: FinancePeriod[] = ["30d", "last_month", "ytd", "all"];
 
 export function MovimientosView() {
   const { openPicker } = useIngest();
@@ -90,7 +86,7 @@ export function MovimientosView() {
   // 554 movimientos y 214 operaciones entran al mismo feed y se dibujaban todos, siempre.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   // El historial completo casi nunca es lo que uno viene a mirar.
-  const [dateWindow, setDateWindow] = useState<DateWindow>("30d");
+  const [dateWindow, setDateWindow] = useState<FinancePeriod>("30d");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -132,16 +128,10 @@ export function MovimientosView() {
   const filteredEvents = useMemo(() => {
     // Con "Pendientes" activo la ventana no aplica: el badge cuenta toda la cola, y un
     // movimiento de hace dos meses esperando aprobación tiene que poder aprobarse.
-    const days = filterReviewOnly
-      ? null
-      : DATE_WINDOWS.find((w) => w.value === dateWindow)?.days ?? null;
-    const floor = days === null ? null : Date.now() - days * 86400000;
+    // "Mes anterior" tiene fin, no sólo comienzo: por eso es un rango y no un piso de días.
+    const range = filterReviewOnly ? null : resolvePeriod(dateWindow);
     return unifiedEvents.filter((item) => {
-      if (floor !== null) {
-        const t = parseTransactionLocalDate(item.date).getTime();
-        // Una fecha ilegible no se esconde: se muestra para que se vea que está mal.
-        if (Number.isFinite(t) && t < floor) return false;
-      }
+      if (range && !isInRange(item.date, range)) return false;
       if (filterReviewOnly && !item.needsReview) return false;
       if (selectedTypeFilter !== "all" && item.type !== selectedTypeFilter) return false;
       if (searchQuery.trim()) {
@@ -265,18 +255,7 @@ export function MovimientosView() {
                 />
               </div>
 
-              <Select value={dateWindow} onValueChange={(v) => setDateWindow(v as DateWindow)}>
-                <SelectTrigger className="h-8 w-[150px] text-xs bg-background/80">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DATE_WINDOWS.map((w) => (
-                    <SelectItem key={w.value} value={w.value}>
-                      {w.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PeriodToggle value={dateWindow} options={FEED_PERIODS} onChange={setDateWindow} />
 
               <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
                 <SelectTrigger className="w-[140px] text-xs h-8 bg-background/80">
@@ -322,6 +301,13 @@ export function MovimientosView() {
           </div>
         </CardContent>
       </Card>
+
+      {/*
+        Sigue al mismo período que el feed, no a "Pendientes": la cola de revisión ignora la
+        ventana a propósito, y unos gráficos de "todo lo pendiente" no responden ninguna
+        pregunta útil.
+      */}
+      <FlowChartsCard transactions={transactions} categories={categories} period={dateWindow} />
 
       {/* 3. UNIFIED EVENT FEED TABLE */}
       <Card className="bg-card border border-border/80">
