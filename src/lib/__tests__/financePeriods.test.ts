@@ -7,6 +7,7 @@ import {
   categoryBreakdown,
   buildPeriodSeries,
   isInRange,
+  capAtToday,
 } from "@/lib/financePeriods";
 
 const NOW = new Date(2026, 8, 27, 15, 0); // 27/09/2026
@@ -90,6 +91,19 @@ describe("flowTotals", () => {
       resolvePeriod("this_month", NOW),
     );
     expect(t.expense).toBe(5);
+  });
+});
+
+describe("capAtToday", () => {
+  // Una cuota agendada no es plata que ya salió: inflaba el ▲% del año en curso.
+  it("saca del total lo fechado después de hoy en los períodos abiertos", () => {
+    const rows = [tx("2026-09-10", "expense", 10), tx("2026-11-10", "expense", 99)];
+    expect(flowTotals(rows, capAtToday(resolvePeriod("ytd", NOW), NOW)).expense).toBe(10);
+  });
+
+  it("no estira un período que ya termina antes de hoy", () => {
+    const r = capAtToday(resolvePeriod("last_month", NOW), NOW);
+    expect(ymd(r.end)).toBe("2026-8-31");
   });
 });
 

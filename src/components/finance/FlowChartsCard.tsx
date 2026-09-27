@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { Category, Transaction } from "@/types/finance";
 import {
   buildPeriodSeries,
+  capAtToday,
   categoryBreakdown,
   flowTotals,
   previousPeriod,
@@ -73,7 +74,8 @@ export function FlowChartsCard({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("line");
 
-  const range = useMemo(() => resolvePeriod(period), [period]);
+  // Cortado en hoy: lo agendado a futuro no se suma a lo que ya pasó (ver `capAtToday`).
+  const range = useMemo(() => capAtToday(resolvePeriod(period)), [period]);
   const prevRange = useMemo(() => previousPeriod(period), [period]);
   const totals = useMemo(() => flowTotals(transactions, range), [transactions, range]);
   const prevTotals = useMemo(

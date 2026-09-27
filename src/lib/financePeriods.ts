@@ -108,6 +108,19 @@ export function previousPeriod(period: FinancePeriod, now: Date = new Date()): D
   }
 }
 
+/**
+ * El rango cortado en hoy, para los totales que se comparan.
+ *
+ * "30 días" y "Año en curso" quedan abiertos hacia adelante para el feed, pero una cuota
+ * agendada para noviembre no es plata que ya salió: sumada al total, el ▲% contra el período
+ * anterior (que corta en el mismo día) salía inflado y el total del panel no coincidía con el
+ * final de su propia línea, que ya se cortaba en hoy.
+ */
+export function capAtToday(range: DateRange, now: Date = new Date()): DateRange {
+  const today = endOfDay(now);
+  return { ...range, end: range.end && range.end < today ? range.end : today };
+}
+
 /** Texto corto para la leyenda de la línea punteada. */
 export function previousPeriodLabel(period: FinancePeriod, now: Date = new Date()): string | null {
   switch (period) {
