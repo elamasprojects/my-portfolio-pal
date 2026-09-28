@@ -9,6 +9,9 @@ import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { MercurySyncButton } from "@/components/finance/MercurySyncButton";
 import { PeriodToggle } from "@/components/finance/PeriodToggle";
+import { BalanceAdjustDialog } from "@/components/finance/BalanceAdjustDialog";
+import { useBalanceAdjustments } from "@/hooks/useBalanceAdjustments";
+import { daysSince } from "@/lib/balanceAdjustment";
 import { resolvePeriod, type FinancePeriod } from "@/lib/financePeriods";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,7 +27,9 @@ import {
   Building2,
   DollarSign,
   ChevronDown,
+  Scale,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Helpers: Strict Integer Rounding Down (Math.floor) without decimals
 const formatUSD = (val: number) => Math.floor(val || 0).toLocaleString("en-US");
@@ -49,6 +54,11 @@ export function PatrimonioView() {
 
   // Inline Collapsible State
   const [isPortfolioExpanded, setIsPortfolioExpanded] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const { adjustments } = useBalanceAdjustments();
+  // El recordatorio mira el último ajuste de cualquier cuenta: la rutina es conciliar todas
+  // juntas una vez por mes, no llevar la cuenta de cada una.
+  const daysSinceAdjust = daysSince(adjustments[0]?.created_at);
 
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
 
@@ -389,9 +399,29 @@ export function PatrimonioView() {
             <CreditCard className="h-5 w-5 text-primary" />
             Desglose por Cuenta Financiera ({activeAccounts.length + 1})
           </h2>
-          <span className="text-xs font-mono text-muted-foreground">
-            Total Patrimonio: {money(totalNetWorthUSD)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs font-mono text-muted-foreground sm:inline">
+              Total Patrimonio: {money(totalNetWorthUSD)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAdjustOpen(true)}
+              className="h-8 gap-1.5 text-xs"
+              title={
+                daysSinceAdjust === null
+                  ? "Nunca se ajustaron los saldos"
+                  : `Último ajuste hace ${daysSinceAdjust} días`
+              }
+            >
+              <Scale className="h-3.5 w-3.5" />
+              Ajustar saldos
+              {/* Un mes sin conciliar es cuando las transferencias sin cargar ya pesan. */}
+              {(daysSinceAdjust === null || daysSinceAdjust > 30) && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label="Hace más de un mes" />
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -602,6 +632,7 @@ export function PatrimonioView() {
           />
         </CardContent>
       </Card>
+      <BalanceAdjustDialog accounts={activeAccounts} open={adjustOpen} onOpenChange={setAdjustOpen} />
     </div>
   );
 }
