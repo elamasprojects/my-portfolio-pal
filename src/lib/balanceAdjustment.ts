@@ -54,10 +54,13 @@ export interface PlannedAdjustment {
 }
 
 /**
- * Qué cuentas se ajustan: las que tienen un número válido y distinto del saldo actual.
+ * Qué cuentas se ajustan: todas las que tienen un número válido tipeado.
  *
- * Una diferencia de menos de medio centavo no se manda: guardarla llenaría el historial de
- * "ajustes" de redondeo que no le dicen nada a nadie.
+ * Incluso si coincide con el saldo actual. Escribir el mismo número es CONFIRMAR que la cuenta
+ * está bien, y eso también es un ajuste: fija el ancla (lo anterior deja de mover el saldo),
+ * activa el manejo en pesos de las cuentas ARS y apaga el recordatorio. Saltearla dejaba la
+ * cuenta en "Nunca ajustada" para siempre. Además el saldo de acá puede estar viejo — el sync
+ * de Mercury corre solo —, así que "igual" en pantalla no garantiza igual en la base.
  */
 export function planAdjustments(drafts: AdjustmentDraft[]): PlannedAdjustment[] {
   const out: PlannedAdjustment[] = [];
@@ -65,8 +68,7 @@ export function planAdjustments(drafts: AdjustmentDraft[]): PlannedAdjustment[] 
     const after = parseAmountInput(d.input);
     if (after === null) continue;
     const delta = Math.round((after - d.current) * 100) / 100;
-    if (Math.abs(delta) < 0.005) continue;
-    out.push({ accountId: d.accountId, before: d.current, after, delta });
+    out.push({ accountId: d.accountId, before: d.current, after, delta: Math.abs(delta) < 0.005 ? 0 : delta });
   }
   return out;
 }

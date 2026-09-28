@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -43,16 +44,20 @@ export function BalanceAdjustDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { lastByAccount, adjust } = useBalanceAdjustments();
+  const queryClient = useQueryClient();
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
 
   // Cada apertura arranca limpia: lo tipeado la vez anterior ya se guardó o se descartó.
+  // Y trae los saldos frescos: el sync de Mercury corre solo, y una diferencia calculada contra
+  // el saldo de hace una hora puede no ser la real.
   useEffect(() => {
     if (open) {
       setInputs({});
       setNote("");
+      queryClient.invalidateQueries({ queryKey: ["financial_accounts"] });
     }
-  }, [open]);
+  }, [open, queryClient]);
 
   const plan = useMemo(
     () =>
@@ -69,8 +74,15 @@ export function BalanceAdjustDialog({
   const submit = async () => {
     if (plan.length === 0) return;
     try {
-      const n = await adjust.mutateAsync({ plan, note: note.trim() || undefined });
-      toast.success(n === 1 ? "Saldo ajustado" : `${n} saldos ajustados`);
+      const rows = await adjust.mutateAsync({ plan, note: note.trim() || undefined });
+      const withFuture = rows.filter((r) => Math.abs(Number(r.future_net) || 0) >= 0.005).length;
+      toast.success(rows.length === 1 ? "Saldo ajustado" : `${rows.length} saldos ajustados`, {
+        // El saldo que queda puede no ser el tipeado: la app ya descuenta lo cargado a futuro.
+        description:
+          withFuture > 0
+            ? "Algunas cuentas tienen movimientos con fecha futura: el saldo que ves ya los descuenta."
+            : undefined,
+      });
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo ajustar el saldo");
@@ -84,8 +96,9 @@ export function BalanceAdjustDialog({
           <DialogTitle>Ajustar saldos</DialogTitle>
           <DialogDescription>
             Escribí lo que dice cada cuenta hoy. La diferencia queda registrada como ajuste y no
-            cuenta como ingreso ni gasto. Lo que cargues después con fecha anterior ya no mueve
-            ese saldo, porque ya estaba incluido. Dejá vacío lo que no quieras tocar.
+            cuenta como ingreso ni gasto. Si el saldo está bien, escribí el mismo número para
+            confirmarlo. Lo que cargues después con fecha anterior ya no mueve ese saldo, porque
+            ya estaba incluido. Dejá vacío lo que no quieras tocar.
           </DialogDescription>
         </DialogHeader>
 
@@ -144,7 +157,7 @@ export function BalanceAdjustDialog({
                       : delta === null
                         ? "—"
                         : Math.abs(delta) < 0.005
-                          ? "Sin cambios"
+                          ? "Confirma"
                           : `${delta > 0 ? "+" : "−"}${fmt(Math.abs(delta), acc.currency)}`}
                   </span>
                 </div>
@@ -169,8 +182,8 @@ export function BalanceAdjustDialog({
             {plan.length === 0
               ? "Ajustar"
               : plan.length === 1
-                ? "Ajustar 1 cuenta"
-                : `Ajustar ${plan.length} cuentas`}
+                ? "Guardar 1 cuenta"
+                : `Guardar ${plan.length} cuentas`}
           </Button>
         </DialogFooter>
       </DialogContent>
