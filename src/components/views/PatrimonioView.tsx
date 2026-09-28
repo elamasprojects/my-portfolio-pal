@@ -8,6 +8,11 @@ import { useMarketPrices } from "@/hooks/useMarketPrices";
 import { useDolarMEP } from "@/hooks/useDolarMEP";
 import { SankeyFlowChart } from "@/components/finance/SankeyFlowChart";
 import { MercurySyncButton } from "@/components/finance/MercurySyncButton";
+import { PeriodToggle } from "@/components/finance/PeriodToggle";
+import { BalanceAdjustDialog } from "@/components/finance/BalanceAdjustDialog";
+import { useBalanceAdjustments } from "@/hooks/useBalanceAdjustments";
+import { daysSince } from "@/lib/balanceAdjustment";
+import { resolvePeriod, type FinancePeriod } from "@/lib/financePeriods";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +27,9 @@ import {
   Building2,
   DollarSign,
   ChevronDown,
+  Scale,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Helpers: Strict Integer Rounding Down (Math.floor) without decimals
 const formatUSD = (val: number) => Math.floor(val || 0).toLocaleString("en-US");
@@ -32,7 +39,14 @@ type Denom = "USD" | "ARS";
 
 export function PatrimonioView() {
   const navigate = useNavigate();
-  const { netWorthMetrics, sankeyData, transactions, isLoading: unifiedLoading } = useUnifiedFinancials();
+  // El Sankey arrancaba siempre en el histórico entero: una foto de todos los años juntos no
+  // dice nada de cómo viene este mes, que es lo que uno viene a mirar.
+  const [sankeyPeriod, setSankeyPeriod] = useState<FinancePeriod>("this_month");
+  // Memoizado: `useUnifiedFinancials` lo tiene en las dependencias del Sankey, y un objeto
+  // nuevo en cada render lo recalcularía siempre.
+  const sankeyRange = useMemo(() => resolvePeriod(sankeyPeriod), [sankeyPeriod]);
+  const { netWorthMetrics, sankeyData, transactions, categories, isLoading: unifiedLoading } =
+    useUnifiedFinancials(sankeyRange);
   const { accounts = [], isLoading: accountsLoading } = useFinancialAccounts();
   const { data: trades = [], isLoading: tradesLoading } = useTrades();
   const { data: brokersList = [] } = useBrokers();
@@ -40,6 +54,11 @@ export function PatrimonioView() {
 
   // Inline Collapsible State
   const [isPortfolioExpanded, setIsPortfolioExpanded] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const { adjustments } = useBalanceAdjustments();
+  // El recordatorio mira el último ajuste de cualquier cuenta: la rutina es conciliar todas
+  // juntas una vez por mes, no llevar la cuenta de cada una.
+  const daysSinceAdjust = daysSince(adjustments[0]?.created_at);
 
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
 
@@ -380,9 +399,29 @@ export function PatrimonioView() {
             <CreditCard className="h-5 w-5 text-primary" />
             Desglose por Cuenta Financiera ({activeAccounts.length + 1})
           </h2>
-          <span className="text-xs font-mono text-muted-foreground">
-            Total Patrimonio: {money(totalNetWorthUSD)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs font-mono text-muted-foreground sm:inline">
+              Total Patrimonio: {money(totalNetWorthUSD)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAdjustOpen(true)}
+              className="h-8 gap-1.5 text-xs"
+              title={
+                daysSinceAdjust === null
+                  ? "Nunca se ajustaron los saldos"
+                  : `Último ajuste hace ${daysSinceAdjust} días`
+              }
+            >
+              <Scale className="h-3.5 w-3.5" />
+              Ajustar saldos
+              {/* Un mes sin conciliar es cuando las transferencias sin cargar ya pesan. */}
+              {(daysSinceAdjust === null || daysSinceAdjust > 30) && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label="Hace más de un mes" />
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -561,27 +600,39 @@ export function PatrimonioView() {
 
       {/* 6. DIAGRAMA SANKEY DE FLUJO DE FONDOS */}
       <Card className="bg-card border border-border/80">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Layers className="h-5 w-5 text-primary" />
-            Flujo de Fondos del Período (Diagrama Sankey)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Distribución visual de ingresos, asignación a ahorro/inversión y gastos por categoría.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[320px] w-full">
-            <SankeyFlowChart
-              data={sankeyData}
-              transactions={transactions}
-              displayCurrency={denom}
-              currencySymbol={denom === "USD" ? "US$" : "$"}
-              cx={(val) => (denom === "USD" ? val : val * effectiveCclRate)}
-            />
+        <CardHeader className="pb-3 flex flex-col gap-3 space-y-0 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              Flujo de Fondos del Período (Diagrama Sankey)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Distribución visual de ingresos, asignación a ahorro/inversión y gastos por categoría.
+            </CardDescription>
           </div>
+          <PeriodToggle
+            value={sankeyPeriod}
+            options={["this_month", "last_month", "ytd", "all"]}
+            onChange={setSankeyPeriod}
+          />
+        </CardHeader>
+        {/*
+          Sin alto fijo: el SVG calcula su propio alto según cuántas categorías hay, y la caja de
+          320 px que lo envolvía hacía que el gráfico se desbordara por debajo de la tarjeta.
+        */}
+        <CardContent>
+          <SankeyFlowChart
+            data={sankeyData}
+            transactions={transactions}
+            categories={categories}
+            filterRange={sankeyRange}
+            displayCurrency={denom}
+            currencySymbol={denom === "USD" ? "US$" : "$"}
+            cx={(val) => (denom === "USD" ? val : val * effectiveCclRate)}
+          />
         </CardContent>
       </Card>
+      <BalanceAdjustDialog accounts={activeAccounts} open={adjustOpen} onOpenChange={setAdjustOpen} />
     </div>
   );
 }

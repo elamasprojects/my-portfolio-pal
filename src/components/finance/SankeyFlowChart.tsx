@@ -1,12 +1,15 @@
 import { useState, useMemo } from "react";
-import { SankeyData, SankeyNode, SankeyLink, Transaction } from "@/types/finance";
+import { Category, SankeyData, SankeyNode, Transaction } from "@/types/finance";
 import { SankeyTransactionsModal } from "@/components/finance/SankeyTransactionsModal";
 import { parseTransactionLocalDate } from "@/lib/financialMath";
+import { categoryLabel } from "@/lib/financePeriods";
 import { Info } from "lucide-react";
 
 interface SankeyFlowChartProps {
   data: SankeyData;
   transactions?: Transaction[];
+  /** Para resolver la categoría de cada fila: `transactions` llega sin el join. */
+  categories?: Category[];
   filterRange?: { start?: Date; end?: Date };
   displayCurrency?: "USD" | "ARS";
   currencySymbol?: string;
@@ -25,6 +28,7 @@ interface SelectedSegmentState {
 export function SankeyFlowChart({
   data,
   transactions = [],
+  categories = [],
   filterRange,
   displayCurrency = "USD",
   currencySymbol = "US$ ",
@@ -47,21 +51,22 @@ export function SankeyFlowChart({
     });
   }, [transactions, filterRange]);
 
+  const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
   // Click Handler for a node or ribbon
   const handleNodeClick = (node: SankeyNode) => {
     let matchedTxs: Transaction[] = [];
 
-    if (node.category === "income") {
+    // Mismo nombre que le dio `buildPersonalSankeyData` al nodo. Antes se leía
+    // `t.category?.name`, que nunca viene (la consulta no hace el join): todo gasto caía en
+    // "Otros Gastos" y abrir "Food" mostraba una lista vacía.
+    if (node.category === "income" || node.category === "expense") {
       matchedTxs = periodTransactions.filter((t) => {
-        if (t.type !== "income") return false;
-        const catName = t.category?.name || t.name;
-        return catName?.toLowerCase() === node.name.toLowerCase();
-      });
-    } else if (node.category === "expense") {
-      matchedTxs = periodTransactions.filter((t) => {
-        if (t.type !== "expense" && t.type !== "investment") return false;
-        const catName = t.category?.name || "Otros Gastos";
-        return catName?.toLowerCase() === node.name.toLowerCase();
+        const isIncome = t.type === "income";
+        const isExpense = t.type === "expense" || t.type === "investment";
+        if (node.category === "income" ? !isIncome : !isExpense) return false;
+        if (!(Number(t.amount_usd) > 0)) return false;
+        return categoryLabel(t, catMap).toLowerCase() === node.name.toLowerCase();
       });
     } else if (node.category === "net") {
       matchedTxs = periodTransactions;
