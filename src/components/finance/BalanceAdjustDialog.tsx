@@ -84,7 +84,8 @@ export function BalanceAdjustDialog({
           <DialogTitle>Ajustar saldos</DialogTitle>
           <DialogDescription>
             Escribí lo que dice cada cuenta hoy. La diferencia queda registrada como ajuste y no
-            cuenta como ingreso ni gasto. Dejá vacío lo que no quieras tocar.
+            cuenta como ingreso ni gasto. Lo que cargues después con fecha anterior ya no mueve
+            ese saldo, porque ya estaba incluido. Dejá vacío lo que no quieras tocar.
           </DialogDescription>
         </DialogHeader>
 
