@@ -55,10 +55,7 @@ export function PatrimonioView() {
   // Inline Collapsible State
   const [isPortfolioExpanded, setIsPortfolioExpanded] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
-  const { adjustments } = useBalanceAdjustments();
-  // El recordatorio mira el último ajuste de cualquier cuenta: la rutina es conciliar todas
-  // juntas una vez por mes, no llevar la cuenta de cada una.
-  const daysSinceAdjust = daysSince(adjustments[0]?.created_at);
+  const { lastByAccount, isLoading: adjustmentsLoading } = useBalanceAdjustments();
 
   const effectiveCclRate = mepRate > 0 ? mepRate : 1200;
 
@@ -66,6 +63,18 @@ export function PatrimonioView() {
   const activeAccounts = useMemo(() => {
     return accounts.filter((a) => a.is_active);
   }, [accounts]);
+
+  // El recordatorio mira la cuenta activa que hace más que no se concilia: con una sola sin
+  // ajustar, el saldo total ya no es confiable. Ajustar una cuenta inactiva no lo apaga.
+  const daysSinceAdjust = useMemo(() => {
+    let worst = 0;
+    for (const acc of activeAccounts) {
+      const d = daysSince(lastByAccount.get(acc.id)?.created_at);
+      if (d === null) return null;
+      worst = Math.max(worst, d);
+    }
+    return worst;
+  }, [activeAccounts, lastByAccount]);
 
   // Open stocks / CEDEARs active market valuation
   const portfolioInvestedUSD = netWorthMetrics.portfolioMarketValueUSD || 0;
@@ -410,14 +419,14 @@ export function PatrimonioView() {
               className="h-8 gap-1.5 text-xs"
               title={
                 daysSinceAdjust === null
-                  ? "Nunca se ajustaron los saldos"
-                  : `Último ajuste hace ${daysSinceAdjust} días`
+                  ? "Hay cuentas que nunca se ajustaron"
+                  : `La cuenta menos reciente se ajustó hace ${daysSinceAdjust} días`
               }
             >
               <Scale className="h-3.5 w-3.5" />
               Ajustar saldos
               {/* Un mes sin conciliar es cuando las transferencias sin cargar ya pesan. */}
-              {(daysSinceAdjust === null || daysSinceAdjust > 30) && (
+              {!adjustmentsLoading && (daysSinceAdjust === null || daysSinceAdjust > 30) && (
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-label="Hace más de un mes" />
               )}
             </Button>

@@ -20,6 +20,8 @@ export interface BalanceAdjustment {
   balance_before: number;
   balance_after: number;
   delta: number;
+  /** Lo fechado después del ajuste que ya estaba cargado: el saldo de la app lo incluye. */
+  future_net: number;
   currency: string;
   note: string | null;
   created_at: string;
@@ -38,7 +40,9 @@ export function useBalanceAdjustments() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(200);
+        // ~10 cuentas por mes son 120 filas al año: 1000 alcanzan para años sin que una cuenta
+        // ajustada hace tiempo aparezca como "Nunca ajustada".
+        .limit(1000);
       if (error) throw error;
       return (data || []) as BalanceAdjustment[];
     },
@@ -59,21 +63,21 @@ export function useBalanceAdjustments() {
    */
   const adjust = useMutation({
     mutationFn: async ({ plan, note }: { plan: PlannedAdjustment[]; note?: string }) => {
-      let done = 0;
+      const done: BalanceAdjustment[] = [];
       for (const p of plan) {
-        const { error } = await db.rpc("adjust_account_balance", {
+        const { data, error } = await db.rpc("adjust_account_balance", {
           p_account_id: p.accountId,
           p_real_balance: p.after,
           p_note: note ?? null,
         });
         if (error) {
           throw new Error(
-            done > 0
-              ? `Se ajustaron ${done} de ${plan.length} cuentas. Falló una: ${error.message}`
+            done.length > 0
+              ? `Se ajustaron ${done.length} de ${plan.length} cuentas. Falló una: ${error.message}`
               : error.message,
           );
         }
-        done++;
+        done.push(data as BalanceAdjustment);
       }
       return done;
     },

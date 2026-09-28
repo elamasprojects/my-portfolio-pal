@@ -36,18 +36,22 @@ describe("parseAmountInput", () => {
 });
 
 describe("planAdjustments", () => {
-  it("manda sólo las cuentas con un saldo nuevo y distinto", () => {
+  it("manda las cuentas con un número válido y saltea vacías e inválidas", () => {
     const plan = planAdjustments([
       { accountId: "a", current: -4636.23, input: "120" },
-      { accountId: "b", current: 686, input: "686" },
       { accountId: "c", current: 50, input: "" },
       { accountId: "d", current: 10, input: "xx" },
     ]);
     expect(plan).toEqual([{ accountId: "a", before: -4636.23, after: 120, delta: 4756.23 }]);
   });
 
-  it("no guarda diferencias de redondeo", () => {
-    expect(planAdjustments([{ accountId: "a", current: 10.001, input: "10" }])).toEqual([]);
+  // Escribir el mismo número confirma la cuenta: fija el ancla y apaga el recordatorio.
+  // Saltearla la dejaba en "Nunca ajustada" para siempre.
+  it("un saldo igual al actual se manda como confirmación, con delta 0", () => {
+    expect(planAdjustments([{ accountId: "b", current: 686, input: "686" }])).toEqual([
+      { accountId: "b", before: 686, after: 686, delta: 0 },
+    ]);
+    expect(planAdjustments([{ accountId: "b", current: 10.001, input: "10" }])[0].delta).toBe(0);
   });
 
   it("poner una cuenta en cero es un ajuste válido", () => {
